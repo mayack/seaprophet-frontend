@@ -34,8 +34,14 @@ export function SignUpForm() {
     }
   }, [state, toast, router])
 
+  const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    const formData = new FormData(event.currentTarget)
+    formAction(formData)
+  }
+
   return (
-    <form action={formAction} className="space-y-4">
+    <form onSubmit={handleSubmit} className="space-y-4">
       <div className="space-y-2">
         <Label htmlFor="username">Username</Label>
         <Input id="username" name="username" type="text" required />

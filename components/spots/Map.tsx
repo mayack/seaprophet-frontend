@@ -54,7 +54,7 @@ export function Map({ center = [0, 0], zoom = 2 }: MapProps) {
       mapInstance.current?.remove()
       mapInstance.current = null
     }
-  }, [])
+  }, [zoom, center])
 
   useEffect(() => {
     if (!mapLoaded || !mapInstance.current) return
