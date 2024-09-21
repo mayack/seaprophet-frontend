@@ -8,13 +8,19 @@ import {
   CardFooter,
 } from '@/components/ui/card'
 import { Separator } from '@/components/ui/separator'
-import { TrendingUp } from 'lucide-react'
+import { TrendingUp, ArrowUp, MousePointer2, Sun, Droplet } from 'lucide-react'
 import { ForecastProps } from '@/api/polvo/interfaces/forecast'
 import { TideChart } from '@/components/spots/TideChart'
 import { UserUnits } from '@/api/sargo/interfaces/user'
 import {
-  formatDirection,
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip'
+import {
   formatHeight,
+  formatPeriod,
   formatTemperature,
   formatWindSpeed,
 } from '@/lib/units'
@@ -22,6 +28,64 @@ import {
 interface SpotForecastProps {
   data: ForecastProps[]
   units: UserUnits
+}
+
+const getCardinalDirection = (degrees: number): string => {
+  const directions = [
+    'N',
+    'NNE',
+    'NE',
+    'ENE',
+    'E',
+    'ESE',
+    'SE',
+    'SSE',
+    'S',
+    'SSW',
+    'SW',
+    'WSW',
+    'W',
+    'WNW',
+    'NW',
+    'NNW',
+  ]
+  const index = Math.round(degrees / 22.5) % 16
+  return directions[index]
+}
+
+interface DirectionProps {
+  degrees: number
+  isWind: boolean
+}
+
+function Direction({ degrees, isWind }: DirectionProps) {
+  const intDegrees = Math.round(degrees)
+  const cardinalDirection = getCardinalDirection(intDegrees)
+
+  // Adjust rotation for MousePointer2 icon
+  const adjustedDegrees = isWind ? intDegrees : (intDegrees + 45) % 360
+
+  const Icon = isWind ? ArrowUp : MousePointer2
+
+  return (
+    <TooltipProvider>
+      <Tooltip>
+        <TooltipTrigger>
+          <div className="relative inline-flex items-center justify-center w-6 h-6">
+            <Icon
+              className="w-4 h-4 text-foreground"
+              style={{ transform: `rotate(${adjustedDegrees}deg)` }}
+            />
+          </div>
+        </TooltipTrigger>
+        <TooltipContent>
+          <p>
+            {intDegrees}° {cardinalDirection}
+          </p>
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  )
 }
 
 export function SpotList({ data, units }: SpotForecastProps) {
@@ -56,22 +120,39 @@ export function SpotList({ data, units }: SpotForecastProps) {
                   <div className="grid grid-cols-7 text-sm">
                     <div>{hour}</div>
                     <ForecastItem
-                      value={`${formatHeight(forecast.waveHeight, units.surf_height)} @ ${forecast.wavePeriod?.toFixed(1)}s ${formatDirection(forecast.waveDirection)}`}
+                      value={`${formatHeight(forecast.waveHeight, units.surf_height)} @ ${formatPeriod(forecast.wavePeriod)}`}
+                      direction={forecast.waveDirection}
+                      isWind={false}
                     />
                     <ForecastItem
-                      value={`${formatHeight(forecast.swellHeight, units.swell_height)} @ ${forecast.swellPeriod?.toFixed(1)}s ${formatDirection(forecast.swellDirection)}`}
+                      value={`${formatHeight(forecast.swellHeight, units.swell_height)} @ ${formatPeriod(forecast.swellPeriod)}`}
+                      direction={forecast.swellDirection}
+                      isWind={false}
                     />
                     <ForecastItem
-                      value={`${formatHeight(forecast.secondarySwellHeight, units.swell_height)} @ ${forecast.secondarySwellPeriod?.toFixed(1)}s ${formatDirection(forecast.secondarySwellDirection)}`}
+                      value={`${formatHeight(forecast.secondarySwellHeight, units.swell_height)} @ ${formatPeriod(forecast.secondarySwellPeriod)}`}
+                      direction={forecast.secondarySwellDirection}
+                      isWind={false}
                     />
                     <ForecastItem
-                      value={`${formatHeight(forecast.windWaveHeight, units.surf_height)} @ ${forecast.windWavePeriod?.toFixed(1)}s ${formatDirection(forecast.windWaveDirection)}`}
+                      value={`${formatHeight(forecast.windWaveHeight, units.surf_height)} @ ${formatPeriod(forecast.windWavePeriod)}`}
+                      direction={forecast.windWaveDirection}
+                      isWind={false}
                     />
                     <ForecastItem
-                      value={`${formatWindSpeed(forecast.windSpeed, units.wind_speed)} (${formatWindSpeed(forecast.gust, units.wind_speed)}) ${formatDirection(forecast.windDirection)}`}
+                      value={`${formatWindSpeed(forecast.windSpeed, units.wind_speed)} (${formatWindSpeed(forecast.gust, units.wind_speed)})`}
+                      direction={forecast.windDirection}
+                      isWind={true}
                     />
-                    <ForecastItem
-                      value={`${formatTemperature(forecast.airTemperature, units.temperature)} / ${formatTemperature(forecast.waterTemperature, units.temperature)}`}
+                    <TemperatureItem
+                      airTemp={formatTemperature(
+                        forecast.airTemperature,
+                        units.temperature
+                      )}
+                      waterTemp={formatTemperature(
+                        forecast.waterTemperature,
+                        units.temperature
+                      )}
                     />
                   </div>
                   <Separator className="my-2" />
@@ -104,6 +185,44 @@ export function SpotList({ data, units }: SpotForecastProps) {
   )
 }
 
-function ForecastItem({ value }: { value: string }) {
-  return <div className="text-sm">{value}</div>
+function ForecastItem({
+  value,
+  direction,
+  isWind,
+}: {
+  value: string
+  direction?: number
+  isWind?: boolean
+}) {
+  return (
+    <div className="text-sm flex items-center">
+      <span>{value}</span>
+      {direction !== undefined && (
+        <span className="ml-1">
+          <Direction degrees={direction} isWind={isWind || false} />
+        </span>
+      )}
+    </div>
+  )
+}
+
+function TemperatureItem({
+  airTemp,
+  waterTemp,
+}: {
+  airTemp: string
+  waterTemp: string
+}) {
+  return (
+    <div className="text-sm flex items-center space-x-2">
+      <span className="flex items-center">
+        <Sun className="w-4 h-4 mr-1" />
+        {airTemp}
+      </span>
+      <span className="flex items-center">
+        <Droplet className="w-4 h-4 mr-1" />
+        {waterTemp}
+      </span>
+    </div>
+  )
 }

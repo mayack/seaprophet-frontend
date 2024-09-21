@@ -74,7 +74,13 @@ export function Map({ center = [0, 0], zoom = 2 }: MapProps) {
     }
   }, [center, zoom, mapLoaded])
 
-  return <div ref={mapContainer} style={{ width: '100%', height: '400px' }} />
+  return (
+    <div
+      ref={mapContainer}
+      className="pointer-events-none"
+      style={{ width: '100%', height: '400px' }}
+    />
+  )
 }
 
 // Helper function to validate coordinates

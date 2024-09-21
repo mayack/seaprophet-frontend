@@ -3,11 +3,11 @@ import { UserUnits } from '@/api/sargo/interfaces/user'
 export function formatWindSpeed(speed: number, unit: UserUnits['wind_speed']) {
   switch (unit) {
     case 'knots':
-      return `${(speed * 1.94384).toFixed(1)} knots`
+      return `${Math.round(speed * 1.94384)} kts`
     case 'mph':
-      return `${(speed * 2.23694).toFixed(1)} mph`
+      return `${Math.round(speed * 2.23694)} mph`
     case 'kph':
-      return `${(speed * 3.6).toFixed(1)} kph`
+      return `${Math.round(speed * 3.6)} kph`
   }
 }
 
@@ -23,11 +23,15 @@ export function formatTemperature(
   unit: UserUnits['temperature']
 ) {
   if (unit === 'fahrenheit') {
-    return `${((temp * 9) / 5 + 32).toFixed(1)}°F`
+    return `${Math.round((temp * 9) / 5 + 32)}°F`
   }
-  return `${temp.toFixed(1)}°C`
+  return `${Math.round(temp)}°C`
 }
 
 export function formatDirection(direction: number) {
-  return `${direction.toFixed(0)}°`
+  return `${Math.round(direction)}°`
+}
+
+export function formatPeriod(period: number | undefined) {
+  return period ? `${Math.round(period)}s` : 'N/A'
 }

@@ -23,12 +23,6 @@ export function Spots({ data, title }: SpotsProps) {
             >
               <h3 className="text-xl font-semibold">{spot.attributes.name}</h3>
             </Link>
-            <p>Environment: {spot.attributes.environment || 'N/A'}</p>
-            <p>
-              Wave Direction: {spot.attributes.surf_wave_direction || 'N/A'}
-            </p>
-            <p>Localism Level: {spot.attributes.surf_localism}</p>
-            <p>Crowd Level: {spot.attributes.surf_crowds}</p>
           </li>
         ))}
       </ul>
