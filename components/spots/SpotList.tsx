@@ -59,7 +59,7 @@ interface DirectionProps {
 }
 
 function Direction({ degrees, isWind }: DirectionProps) {
-  const intDegrees = Math.round(degrees)
+  const intDegrees = Math.round(degrees) - 180
   const cardinalDirection = getCardinalDirection(intDegrees)
 
   // Adjust rotation for MousePointer2 icon
