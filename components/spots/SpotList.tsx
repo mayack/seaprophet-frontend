@@ -1,5 +1,3 @@
-'use client'
-
 import React from 'react'
 import {
   Card,
@@ -13,30 +11,20 @@ import { Separator } from '@/components/ui/separator'
 import { TrendingUp } from 'lucide-react'
 import { ForecastProps } from '@/api/polvo/interfaces/forecast'
 import { TideChart } from '@/components/spots/TideChart'
+import { UserUnits } from '@/api/sargo/interfaces/user'
+import {
+  formatDirection,
+  formatHeight,
+  formatTemperature,
+  formatWindSpeed,
+} from '@/lib/units'
 
 interface SpotForecastProps {
   data: ForecastProps[]
-  unitSystem: 'metric' | 'imperial'
+  units: UserUnits
 }
 
-export function SpotList({ data, unitSystem }: SpotForecastProps) {
-  const formatHeight = (height: number) =>
-    unitSystem === 'metric'
-      ? `${height.toFixed(1)}m`
-      : `${(height * 3.28084).toFixed(1)}ft`
-
-  const formatDirection = (direction: number) => `${direction.toFixed(0)}°`
-
-  const formatSpeed = (speed: number) =>
-    unitSystem === 'metric'
-      ? `${speed.toFixed(1)}m/s`
-      : `${(speed * 2.23694).toFixed(1)}mph`
-
-  const formatTemperature = (temp: number) =>
-    unitSystem === 'metric'
-      ? `${temp.toFixed(1)}°C`
-      : `${((temp * 9) / 5 + 32).toFixed(1)}°F`
-
+export function SpotList({ data, units }: SpotForecastProps) {
   return (
     <div className="space-y-6">
       {data.map((day) => (
@@ -68,35 +56,42 @@ export function SpotList({ data, unitSystem }: SpotForecastProps) {
                   <div className="grid grid-cols-7 text-sm">
                     <div>{hour}</div>
                     <ForecastItem
-                      value={`${formatHeight(forecast.waveHeight)} @ ${forecast.wavePeriod?.toFixed(1)}s ${formatDirection(forecast.waveDirection)}`}
+                      value={`${formatHeight(forecast.waveHeight, units.surf_height)} @ ${forecast.wavePeriod?.toFixed(1)}s ${formatDirection(forecast.waveDirection)}`}
                     />
                     <ForecastItem
-                      value={`${formatHeight(forecast.swellHeight)} @ ${forecast.swellPeriod?.toFixed(1)}s ${formatDirection(forecast.swellDirection)}`}
+                      value={`${formatHeight(forecast.swellHeight, units.swell_height)} @ ${forecast.swellPeriod?.toFixed(1)}s ${formatDirection(forecast.swellDirection)}`}
                     />
                     <ForecastItem
-                      value={`${formatHeight(forecast.secondarySwellHeight)} @ ${forecast.secondarySwellPeriod?.toFixed(1)}s ${formatDirection(forecast.secondarySwellDirection)}`}
+                      value={`${formatHeight(forecast.secondarySwellHeight, units.swell_height)} @ ${forecast.secondarySwellPeriod?.toFixed(1)}s ${formatDirection(forecast.secondarySwellDirection)}`}
                     />
                     <ForecastItem
-                      value={`${formatHeight(forecast.windWaveHeight)} @ ${forecast.windWavePeriod?.toFixed(1)}s ${formatDirection(forecast.windWaveDirection)}`}
+                      value={`${formatHeight(forecast.windWaveHeight, units.surf_height)} @ ${forecast.windWavePeriod?.toFixed(1)}s ${formatDirection(forecast.windWaveDirection)}`}
                     />
                     <ForecastItem
-                      value={`${formatSpeed(forecast.windSpeed)} (${formatSpeed(forecast.gust)}) ${formatDirection(forecast.windDirection)}`}
+                      value={`${formatWindSpeed(forecast.windSpeed, units.wind_speed)} (${formatWindSpeed(forecast.gust, units.wind_speed)}) ${formatDirection(forecast.windDirection)}`}
                     />
                     <ForecastItem
-                      value={`${formatTemperature(forecast.airTemperature)} / ${formatTemperature(forecast.waterTemperature)}`}
+                      value={`${formatTemperature(forecast.airTemperature, units.temperature)} / ${formatTemperature(forecast.waterTemperature, units.temperature)}`}
                     />
                   </div>
                   <Separator className="my-2" />
                 </React.Fragment>
               ))}
             </div>
-            <TideChart data={day.tides} />
+            <TideChart data={day.tides} units={units} />
           </CardContent>
           <CardFooter className="flex-col items-start gap-2 text-sm">
             <div className="flex gap-2 font-medium leading-none">
               Tide range:{' '}
-              {formatHeight(Math.min(...day.tides.map((t) => t.height)))} -{' '}
-              {formatHeight(Math.max(...day.tides.map((t) => t.height)))}
+              {formatHeight(
+                Math.min(...day.tides.map((t) => t.height)),
+                units.tide_height
+              )}{' '}
+              -{' '}
+              {formatHeight(
+                Math.max(...day.tides.map((t) => t.height)),
+                units.tide_height
+              )}
               <TrendingUp className="h-4 w-4" />
             </div>
             <div className="leading-none text-muted-foreground">

@@ -3,6 +3,7 @@
 import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { FormState } from '@/api/sargo/interfaces/formState'
+import { UserUnits } from '../interfaces/user'
 
 const API_URL =
   process.env.NEXT_PUBLIC_STRAPI_API_URL || 'http://localhost:1337'
@@ -136,7 +137,15 @@ export async function updateUserSettings(
   }
 
   const username = formData.get('username') as string
-  const unitSystem = formData.get('unitSystem') as 'metric' | 'imperial'
+  const units: UserUnits = {
+    wind_speed: formData.get('units.wind_speed') as UserUnits['wind_speed'],
+    surf_height: formData.get('units.surf_height') as UserUnits['surf_height'],
+    swell_height: formData.get(
+      'units.swell_height'
+    ) as UserUnits['swell_height'],
+    tide_height: formData.get('units.tide_height') as UserUnits['tide_height'],
+    temperature: formData.get('units.temperature') as UserUnits['temperature'],
+  }
   const currentPassword = formData.get('currentPassword') as string
   const newPassword = formData.get('newPassword') as string
   const confirmPassword = formData.get('confirmPassword') as string
@@ -151,7 +160,7 @@ export async function updateUserSettings(
       },
       body: JSON.stringify({
         username,
-        settings: { unit_system: unitSystem },
+        settings: { units },
       }),
     })
 

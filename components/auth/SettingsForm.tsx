@@ -16,10 +16,19 @@ import { useToast } from '@/hooks/useToast'
 import { updateUserSettings } from '@/api/sargo/actions/user'
 import { FormState } from '@/api/sargo/interfaces/formState'
 import { useUser } from '@/contexts/UserContext'
+import { UserUnits } from '@/api/sargo/interfaces/user'
 
 const initialState: FormState = {
   message: '',
   success: false,
+}
+
+const defaultUnits: UserUnits = {
+  wind_speed: 'knots',
+  surf_height: 'feet',
+  swell_height: 'feet',
+  tide_height: 'feet',
+  temperature: 'celsius',
 }
 
 export function SettingsForm() {
@@ -45,6 +54,8 @@ export function SettingsForm() {
     return <div>Loading user data...</div>
   }
 
+  const units = user.settings?.units || defaultUnits
+
   return (
     <form action={formAction} className="space-y-6">
       <div className="space-y-2">
@@ -56,17 +67,63 @@ export function SettingsForm() {
         <Input id="email" type="email" value={user.email} disabled />
       </div>
       <div className="space-y-2">
-        <Label htmlFor="unitSystem">Unit System</Label>
-        <Select
-          name="unitSystem"
-          defaultValue={user.settings?.unit_system || 'metric'}
-        >
+        <Label htmlFor="units.wind_speed">Wind Speed</Label>
+        <Select name="units.wind_speed" defaultValue={units.wind_speed}>
           <SelectTrigger className="w-full">
-            <SelectValue placeholder="Select unit system" />
+            <SelectValue placeholder="Select wind speed unit" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="metric">Metric</SelectItem>
-            <SelectItem value="imperial">Imperial</SelectItem>
+            <SelectItem value="knots">Knots</SelectItem>
+            <SelectItem value="mph">Miles per hour (mph)</SelectItem>
+            <SelectItem value="kph">Kilometers per hour (kph)</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+      <div className="space-y-2">
+        <Label htmlFor="units.surf_height">Surf Height</Label>
+        <Select name="units.surf_height" defaultValue={units.surf_height}>
+          <SelectTrigger className="w-full">
+            <SelectValue placeholder="Select surf height unit" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="feet">Feet</SelectItem>
+            <SelectItem value="meters">Meters</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+      <div className="space-y-2">
+        <Label htmlFor="units.swell_height">Swell Height</Label>
+        <Select name="units.swell_height" defaultValue={units.swell_height}>
+          <SelectTrigger className="w-full">
+            <SelectValue placeholder="Select swell height unit" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="feet">Feet</SelectItem>
+            <SelectItem value="meters">Meters</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+      <div className="space-y-2">
+        <Label htmlFor="units.tide_height">Tide Height</Label>
+        <Select name="units.tide_height" defaultValue={units.tide_height}>
+          <SelectTrigger className="w-full">
+            <SelectValue placeholder="Select tide height unit" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="feet">Feet</SelectItem>
+            <SelectItem value="meters">Meters</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+      <div className="space-y-2">
+        <Label htmlFor="units.temperature">Temperature</Label>
+        <Select name="units.temperature" defaultValue={units.temperature}>
+          <SelectTrigger className="w-full">
+            <SelectValue placeholder="Select temperature unit" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="celsius">Celsius</SelectItem>
+            <SelectItem value="fahrenheit">Fahrenheit</SelectItem>
           </SelectContent>
         </Select>
       </div>

@@ -1,6 +1,7 @@
 'use client'
 
 import { TideProps } from '@/api/polvo/interfaces/forecast'
+import { UserUnits } from '@/api/sargo/interfaces/user'
 import {
   LineChart,
   Line,
@@ -13,13 +14,22 @@ import {
 
 interface TideChartProps {
   data: TideProps[]
+  units: UserUnits
 }
 
-export function TideChart({ data }: TideChartProps) {
+export function TideChart({ data, units }: TideChartProps) {
+  const formatTideHeight = (height: number) => {
+    if (units.tide_height === 'feet') {
+      return (height * 3.28084).toFixed(2)
+    }
+    return height.toFixed(2)
+  }
+
   // Format data to use hours as x-axis
   const formattedData = data.map((tide) => ({
     ...tide,
     hour: tide.time, // The time is already in the format we need
+    formattedHeight: formatTideHeight(tide.height),
   }))
 
   return (
@@ -34,18 +44,21 @@ export function TideChart({ data }: TideChartProps) {
           <YAxis
             domain={['auto', 'auto']}
             label={{
-              value: 'Tide Height (m)',
+              value: `Tide Height (${units.tide_height === 'feet' ? 'ft' : 'm'})`,
               angle: -90,
               position: 'insideLeft',
             }}
           />
           <Tooltip
             labelFormatter={(value) => `Time: ${value}`}
-            formatter={(value: number) => [`${value.toFixed(2)} m`, 'Height']}
+            formatter={(value: string) => [
+              `${value} ${units.tide_height === 'feet' ? 'ft' : 'm'}`,
+              'Height',
+            ]}
           />
           <Line
             type="monotone"
-            dataKey="height"
+            dataKey="formattedHeight"
             stroke="#8884d8"
             dot={true}
             activeDot={{ r: 8 }}
