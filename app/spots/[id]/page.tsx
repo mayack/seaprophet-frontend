@@ -1,12 +1,12 @@
 // frontend/app/spots/[id]/page.tsx
+import { Suspense } from 'react'
+import { use } from 'react'
 import { getSpotWithForecast } from '@/api/polvo/actions/forecast'
 import { SpotsWithForecast } from '@/components/spots/SpotsWithForecast'
 import { Map } from '@/components/spots/Map'
 
-export default async function SpotPage({ params }: { params: { id: string } }) {
-  const { spot, forecast, error } = await getSpotWithForecast(
-    parseInt(params.id)
-  )
+function SpotContent({ id }: { id: string }) {
+  const { spot, forecast, error } = use(getSpotWithForecast(parseInt(id)))
 
   if (error) {
     return <div className="container py-12 text-red-500">{error}</div>
@@ -22,12 +22,22 @@ export default async function SpotPage({ params }: { params: { id: string } }) {
   ]
 
   return (
-    <div className="container py-12">
+    <>
       <h1 className="text-6xl font-bold mb-6">{spot.attributes.name}</h1>
       <div className="my-5">
         <Map center={mapCenter} zoom={12} />
       </div>
       <SpotsWithForecast data={forecast} />
+    </>
+  )
+}
+
+export default function SpotPage({ params }: { params: { id: string } }) {
+  return (
+    <div className="container py-12">
+      <Suspense fallback={<div>Loading spot data...</div>}>
+        <SpotContent id={params.id} />
+      </Suspense>
     </div>
   )
 }

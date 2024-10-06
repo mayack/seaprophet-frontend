@@ -5,12 +5,11 @@ import {
   CardHeader,
   CardTitle,
   CardDescription,
-  CardFooter,
 } from '@/components/ui/card'
 import { Separator } from '@/components/ui/separator'
-import { TrendingUp, ArrowUp, MousePointer2, Sun, Droplet } from 'lucide-react'
+import { ArrowUp, MousePointer2, Sun, Droplet } from 'lucide-react'
 import { ForecastProps } from '@/api/polvo/interfaces/forecast'
-import { TideChart } from '@/components/spots/TideChart'
+import TideChart from '@/components/spots/TideChart'
 import { UserUnits } from '@/api/sargo/interfaces/user'
 import {
   Tooltip,
@@ -161,24 +160,6 @@ export function SpotList({ data, units }: SpotForecastProps) {
             </div>
             <TideChart data={day.tides} units={units} />
           </CardContent>
-          <CardFooter className="flex-col items-start gap-2 text-sm">
-            <div className="flex gap-2 font-medium leading-none">
-              Tide range:{' '}
-              {formatHeight(
-                Math.min(...day.tides.map((t) => t.height)),
-                units.tide_height
-              )}{' '}
-              -{' '}
-              {formatHeight(
-                Math.max(...day.tides.map((t) => t.height)),
-                units.tide_height
-              )}
-              <TrendingUp className="h-4 w-4" />
-            </div>
-            <div className="leading-none text-muted-foreground">
-              Showing tidal and weather forecast for the day
-            </div>
-          </CardFooter>
         </Card>
       ))}
     </div>
