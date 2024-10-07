@@ -4,22 +4,29 @@ import React, {
   createContext,
   useState,
   useContext,
-  useEffect,
   useCallback,
+  useEffect,
 } from 'react'
 import { getCurrentUser } from '@/api/sargo/actions/user'
+import { User } from '@/api/sargo/interfaces/user'
 
 type UserContextType = {
-  user: any | null
+  user: User | null
   loading: boolean
   refreshUser: () => Promise<void>
 }
 
 const UserContext = createContext<UserContextType | undefined>(undefined)
 
-export function UserProvider({ children }: { children: React.ReactNode }) {
-  const [user, setUser] = useState<any | null>(null)
-  const [loading, setLoading] = useState(true)
+export function UserProvider({
+  children,
+  initialUser,
+}: {
+  children: React.ReactNode
+  initialUser: User | null
+}) {
+  const [user, setUser] = useState<User | null>(initialUser)
+  const [loading, setLoading] = useState(false)
 
   const refreshUser = useCallback(async () => {
     setLoading(true)
@@ -35,8 +42,10 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
   }, [])
 
   useEffect(() => {
-    refreshUser()
-  }, [refreshUser])
+    if (!user) {
+      refreshUser()
+    }
+  }, [user, refreshUser])
 
   return (
     <UserContext.Provider value={{ user, loading, refreshUser }}>

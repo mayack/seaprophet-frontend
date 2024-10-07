@@ -9,6 +9,7 @@ import { Label } from '@/components/ui/label'
 import { useToast } from '@/hooks/useToast'
 import { signIn } from '@/api/sargo/actions/user'
 import { FormState } from '@/api/sargo/interfaces/formState'
+import { useUser } from '@/contexts/UserContext'
 
 const initialState: FormState = {
   message: '',
@@ -19,6 +20,7 @@ export function SignInForm() {
   const [state, formAction] = useFormState(signIn, initialState)
   const { toast } = useToast()
   const router = useRouter()
+  const { refreshUser } = useUser()
 
   useEffect(() => {
     if (state.message) {
@@ -28,11 +30,13 @@ export function SignInForm() {
         variant: state.success ? 'default' : 'destructive',
       })
       if (state.success) {
-        router.push('/')
-        router.refresh()
+        refreshUser().then(() => {
+          router.push('/')
+          router.refresh()
+        })
       }
     }
-  }, [state, toast, router])
+  }, [state, toast, router, refreshUser])
 
   return (
     <form action={formAction} className="space-y-4">

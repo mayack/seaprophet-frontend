@@ -2,6 +2,7 @@ import { createPolvoClient } from '@/api/polvo/client'
 import strapi from '@/api/sargo/client'
 
 export async function getSpotWithForecast(id: number) {
+  console.log(`Fetching spot with forecast for id: ${id}`)
   try {
     const spotResponse = await strapi.findOne('spots', id)
     const spot = spotResponse.data

@@ -32,7 +32,7 @@ const defaultUnits: UserUnits = {
 }
 
 export function SettingsForm() {
-  const { user, refreshUser } = useUser()
+  const { user, refreshUser, loading } = useUser()
   const [state, formAction] = useFormState(updateUserSettings, initialState)
   const { toast } = useToast()
   const [isChangingPassword, setIsChangingPassword] = useState(false)
@@ -50,8 +50,12 @@ export function SettingsForm() {
     }
   }, [state, toast, refreshUser])
 
-  if (!user) {
+  if (loading) {
     return <div>Loading user data...</div>
+  }
+
+  if (!user) {
+    return <div>User not found. Please sign in.</div>
   }
 
   const units = user.settings?.units || defaultUnits
