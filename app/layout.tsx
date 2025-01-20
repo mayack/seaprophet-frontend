@@ -31,7 +31,7 @@ function NavBar({ initialUser }: { initialUser: User | null }) {
             </>
           ) : (
             <>
-              <Link
+              {/* <Link
                 href="/auth/signup"
                 className="text-blue-500 hover:underline"
               >
@@ -42,7 +42,7 @@ function NavBar({ initialUser }: { initialUser: User | null }) {
                 className="text-blue-500 hover:underline"
               >
                 Sign In
-              </Link>
+              </Link> */}
             </>
           )}
         </div>
