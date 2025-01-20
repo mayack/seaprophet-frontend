@@ -16,6 +16,8 @@ export function WebcamViewer({ url, title }: WebcamViewerProps) {
   useEffect(() => {
     if (!videoRef.current) return
 
+    const baseUrl = url.substring(0, url.lastIndexOf('/') + 1)
+
     if (Hls.isSupported()) {
       hlsRef.current = new Hls({
         debug: true,
@@ -23,10 +25,11 @@ export function WebcamViewer({ url, title }: WebcamViewerProps) {
         fragLoadingMaxRetry: 5,
         manifestLoadingMaxRetry: 5,
         levelLoadingMaxRetry: 5,
-        // Extract the base path from the m3u8 URL
-        baseUrl: 'https://flus.spotfav.com/palmar-south-coast/tracks-v1/',
         xhrSetup: function (xhr, requestUrl) {
-          // Log each request
+          // If the URL is relative, prepend the base URL
+          if (!requestUrl.startsWith('http')) {
+            xhr.open('GET', baseUrl + requestUrl, true)
+          }
           console.log('Loading:', requestUrl)
         },
       })
