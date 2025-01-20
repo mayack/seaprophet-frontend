@@ -29,8 +29,6 @@ export function SpotsWithForecast({ data }: SpotsWithForecastProps) {
     return <p>Forecast data not available</p>
   }
 
-  console.log(data, 'data')
-
   return (
     <div>
       <SpotList

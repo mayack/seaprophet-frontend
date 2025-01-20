@@ -47,5 +47,6 @@ export interface SpotProps {
     createdAt: string
     updatedAt: string
     publishedAt: string
+    webcam_url: string
   }
 }
