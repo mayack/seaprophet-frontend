@@ -4,7 +4,7 @@ import { useEffect, useRef } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import videojs from 'video.js'
 import 'video.js/dist/video-js.css'
-import Player from 'video.js/dist/types/player'
+import type Player from 'video.js/dist/types/player'
 
 interface WebcamViewerProps {
   url: string
@@ -18,51 +18,47 @@ export function WebcamViewer({ url, title }: WebcamViewerProps) {
   useEffect(() => {
     if (!videoRef.current) return
 
-    playerRef.current = videojs(
-      videoRef.current,
-      {
-        controls: true,
-        fluid: true,
-        sources: [
-          {
-            src: url,
-            type: 'application/x-mpegURL',
-          },
-        ],
-        html5: {
-          hls: {
-            enableLowInitialPlaylist: true,
-            smoothQualityChange: true,
-            overrideNative: true,
-            debug: true, // Enable debug logging
-          },
+    const player = videojs(videoRef.current, {
+      controls: true,
+      fluid: true,
+      sources: [
+        {
+          src: url,
+          type: 'application/x-mpegURL',
+        },
+      ],
+      html5: {
+        hls: {
+          enableLowInitialPlaylist: true,
+          smoothQualityChange: true,
+          overrideNative: true,
+          debug: true,
         },
       },
-      function onPlayerReady(this: Player) {
-        // Log when player is ready
-        console.log('Player is ready')
+    })
 
-        // Add error event listener
-        this.on('error', function (error: any) {
-          console.error('Video.js Error:', error)
-          console.error('Error details:', this.error())
-        })
+    player.ready(function (this: Player) {
+      console.log('Player is ready')
 
-        // Add success event listener
-        this.on('loadedmetadata', function () {
-          console.log('Stream metadata loaded successfully')
-        })
+      this.on('error', () => {
+        const error = this.error()
+        console.error('Video.js Error:', error)
+      })
 
-        // Monitor stream status
-        this.on('waiting', function () {
-          console.log('Stream is buffering or waiting')
-        })
+      this.on('loadedmetadata', () => {
+        console.log('Stream metadata loaded successfully')
+      })
 
-        this.on('playing', function () {
-          console.log('Stream is playing')
-        })
-      }
-    )
+      this.on('waiting', () => {
+        console.log('Stream is buffering or waiting')
+      })
+
+      this.on('playing', () => {
+        console.log('Stream is playing')
+      })
+    })
+
+    playerRef.current = player
 
     return () => {
       if (playerRef.current) {
@@ -83,7 +79,7 @@ export function WebcamViewer({ url, title }: WebcamViewerProps) {
             ref={videoRef}
             className="video-js vjs-default-skin vjs-big-play-centered"
             playsInline
-            crossOrigin="anonymous" // Try adding this
+            crossOrigin="anonymous"
           />
         </div>
       </CardContent>
