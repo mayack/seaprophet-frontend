@@ -35,15 +35,15 @@ importers:
       '@types/mapbox-gl':
         specifier: ^3.4.0
         version: 3.4.0
-      '@videojs/http-streaming':
-        specifier: ^3.15.0
-        version: 3.15.0(video.js@8.21.0)
       class-variance-authority:
         specifier: ^0.7.0
         version: 0.7.0
       clsx:
         specifier: ^2.1.1
         version: 2.1.1
+      hls.js:
+        specifier: ^1.5.19
+        version: 1.5.19
       lucide-react:
         specifier: ^0.439.0
         version: 0.439.0(react@18.3.1)
@@ -68,9 +68,6 @@ importers:
       tailwind-merge:
         specifier: ^2.5.2
         version: 2.5.2
-      video.js:
-        specifier: ^8.21.0
-        version: 8.21.0
     devDependencies:
       '@netlify/plugin-nextjs':
         specifier: ^5.7.1
@@ -84,9 +81,6 @@ importers:
       '@types/react-dom':
         specifier: ^18.3.0
         version: 18.3.0
-      '@types/video.js':
-        specifier: ^7.3.58
-        version: 7.3.58
       autoprefixer:
         specifier: ^10.4.20
         version: 10.4.20(postcss@8.4.45)
@@ -1481,9 +1475,6 @@ packages:
   '@types/triple-beam@1.3.5':
     resolution: {integrity: sha512-6WaYesThRMCl19iryMYP7/x2OVgCtbIVflDGFpWnb9irXI3UjYE4AzmYuiUKY1AJstGijoY+MgUszMgRxIYTYw==}
 
-  '@types/video.js@7.3.58':
-    resolution: {integrity: sha512-1CQjuSrgbv1/dhmcfQ83eVyYbvGyqhTvb2Opxr0QCV+iJ4J6/J+XWQ3Om59WiwCd1MN3rDUHasx5XRrpUtewYQ==}
-
   '@types/yargs-parser@21.0.3':
     resolution: {integrity: sha512-I4q9QU9MQv4oEOz4tAHJtNz1cwuLxn2F3xcc2iV5WdqLPpUnj30aUuxt1mAxYTG+oe8CZMV/+6rU4S4gRDzqtQ==}
 
@@ -1576,25 +1567,6 @@ packages:
     engines: {node: '>=16'}
     hasBin: true
 
-  '@videojs/http-streaming@3.15.0':
-    resolution: {integrity: sha512-6rjaqEa87gVFqDFsHaLKXGrDqL3NhNZRNi6wkMw+uyt1lrLD2OFY0SfRQRNl7Vmmx0pt5FRJoRJYlnKsowyElA==}
-    engines: {node: '>=8', npm: '>=5'}
-    peerDependencies:
-      video.js: ^8.19.0
-
-  '@videojs/http-streaming@3.16.2':
-    resolution: {integrity: sha512-fvt4ko7FknxiT9FnjyNQt6q2px+awrkM+Orv7IB/4gldvj94u4fowGfmNHynnvNTPgPkdxHklGmFLGfclYw8HA==}
-    engines: {node: '>=8', npm: '>=5'}
-    peerDependencies:
-      video.js: ^8.19.0
-
-  '@videojs/vhs-utils@4.1.1':
-    resolution: {integrity: sha512-5iLX6sR2ownbv4Mtejw6Ax+naosGvoT9kY+gcuHzANyUZZ+4NpeNdKMUhb6ag0acYej1Y7cmr/F2+4PrggMiVA==}
-    engines: {node: '>=8', npm: '>=5'}
-
-  '@videojs/xhr@2.7.0':
-    resolution: {integrity: sha512-giab+EVRanChIupZK7gXjHy90y3nncA2phIOyG3Ne5fvpiMJzvqYwiTOnEVW2S4CoYcuKJkomat7bMXA/UoUZQ==}
-
   '@xhmikosr/archive-type@6.0.1':
     resolution: {integrity: sha512-PB3NeJL8xARZt52yDBupK0dNPn8uIVQDe15qNehUpoeeLWCZyAOam4vGXnoZGz2N9D1VXtjievJuCsXam2TmbQ==}
     engines: {node: ^14.14.0 || >=16.0.0}
@@ -1622,10 +1594,6 @@ packages:
   '@xhmikosr/downloader@13.0.1':
     resolution: {integrity: sha512-mBvWew1kZJHfNQVVfVllMjUDwCGN9apPa0t4/z1zaUJ9MzpXjRL3w8fsfJKB8gHN/h4rik9HneKfDbh2fErN+w==}
     engines: {node: ^14.14.0 || >=16.0.0}
-
-  '@xmldom/xmldom@0.8.10':
-    resolution: {integrity: sha512-2WALfTl4xo2SkGCYRt6rDTFfk9R1czmBvUQy12gK2KuRKIpWEhcbbzy8EZXtz/jkRqHX8bFEc6FC1HjX4TUWYw==}
-    engines: {node: '>=10.0.0'}
 
   abbrev@1.1.1:
     resolution: {integrity: sha512-nne9/IiQ/hzIhY6pdDnbBtz7DjPTKrY00P/zvPSm5pOFkl6xuGrGnXn/VtTNNfNtAfZ9/1RtehkszU9qcTii0Q==}
@@ -1659,9 +1627,6 @@ packages:
     resolution: {integrity: sha512-tcpGyI9zbizT9JbV6oYE477V6mTlXvvi0T0G3SNIYE2apm/G5huBa1+K89VGeovbg+jycCrfhl3ADxErOuO6Jg==}
     engines: {node: '>=0.4.0'}
     hasBin: true
-
-  aes-decrypter@4.0.2:
-    resolution: {integrity: sha512-lc+/9s6iJvuaRe5qDlMTpCFjnwpkeOXp8qP3oiZ5jsj1MRg+SBVUmmICrhxHvc8OELSmc+fEyyxAuppY6hrWzw==}
 
   agent-base@6.0.2:
     resolution: {integrity: sha512-RZNwNclF7+MS/8bDg70amg32dyeZGZxiDuQmZxKLAlQjr3jGyLx+4Kkk58UO7D2QdgFIQCovuSuZESne6RG6XQ==}
@@ -2605,9 +2570,6 @@ packages:
   dom-serializer@2.0.0:
     resolution: {integrity: sha512-wIkAryiqt/nV5EQKqQpo3SToSOV9J0DnbJqwK7Wv/Trc92zIAYZ4FlMu+JPFW1DfGFt81ZTCGgDEabffXeLyJg==}
 
-  dom-walk@0.1.2:
-    resolution: {integrity: sha512-6QvTW9mrGeIegrFXdtQi9pk7O/nSK6lSdXW2eqUspN5LWD7UTji2Fqw5V2YLjBpHEoU9Xl/eUWNpDeZvoyOv2w==}
-
   domelementtype@2.3.0:
     resolution: {integrity: sha512-OLETBj6w0OsagBwdXnPdN0cnMfF9opN69co+7ZrbfPGrdpPVNBUj02spi6B1N7wChLQiPn4CSH/zJvXw56gmHw==}
 
@@ -3333,9 +3295,6 @@ packages:
     resolution: {integrity: sha512-NBcGGFbBA9s1VzD41QXDG+3++t9Mn5t1FpLdhESY6oKY4gYTFpX4wO3sqGUa0Srjtbfj3szX0RnemmrVRUdULA==}
     engines: {node: '>=10'}
 
-  global@4.4.0:
-    resolution: {integrity: sha512-wv/LAoHdRE3BeTGz53FAamhGlPLhlssK45usmGFThIi4XqnBmjKQ16u+RNbP7WvigRZDxUsM0J3gcQ5yicaL0w==}
-
   globals@13.24.0:
     resolution: {integrity: sha512-AhO5QUcj8llrbG09iWhPU2B204J1xnPeL8kQmVorSsy+Sjj1sk8gIyh6cUocGmH4L0UuhAJy+hJMRA4mgA4mFQ==}
     engines: {node: '>=8'}
@@ -3423,6 +3382,9 @@ packages:
   hasown@2.0.2:
     resolution: {integrity: sha512-0hJU9SCPvmMzIBdZFqNPXWa6dqh7WdH0cII9y+CyS8rG3nL48Bclra9HmKhVVUHyPWNH5Y7xDwAB7bfgSjkUMQ==}
     engines: {node: '>= 0.4'}
+
+  hls.js@1.5.19:
+    resolution: {integrity: sha512-C020dKWEJcyvLnrqsFKW4q6D/6IEzKWdhktIS5bgoyEFE8lHgrFBq4RIngdy113abJOlIruhv8qjg7UX8hwxOw==}
 
   hosted-git-info@4.1.0:
     resolution: {integrity: sha512-kyCuEOWjJqZuDbRHzL8V93NzQhwIB71oFWSyzVo+KPZI+pnQPPxucdkrOZvkLRnrf5URsQM+IJ09Dw29cRALIA==}
@@ -3655,9 +3617,6 @@ packages:
   is-fullwidth-code-point@5.0.0:
     resolution: {integrity: sha512-OVa3u9kkBbw7b8Xw5F9P+D/T9X+Z4+JruYVNapTjPYZYUznQ5YfWeFkOj606XYYW8yugTfC8Pj0hYqvi4ryAhA==}
     engines: {node: '>=18'}
-
-  is-function@1.0.2:
-    resolution: {integrity: sha512-lw7DUp0aWXYg+CBCN+JKkcE0Q2RayZnSvnZBlwgxHBQhqt5pZNVy4Ri7H9GmmXkdu7LUthszM+Tor1u/2iBcpQ==}
 
   is-generator-function@1.0.10:
     resolution: {integrity: sha512-jsEjy9l3yiXEQ+PsXdmBwEPcOxaXWLspKdplFUVI9vq1iZgIekeC0L167qeu86czQaxed3q/Uzuw0swL0irL8A==}
@@ -4069,9 +4028,6 @@ packages:
     resolution: {integrity: sha512-rh+Zjr6DNfUYR3bPwJEnuwDdqMbxZW7LOQfUN4B54+Cl+0o5zaU9RJ6bcidfDtC1cWCZXQ+nvX8bf6bAji37QQ==}
     engines: {node: '>=12'}
 
-  m3u8-parser@7.2.0:
-    resolution: {integrity: sha512-CRatFqpjVtMiMaKXxNvuI3I++vUumIXVVT/JpCpdU/FynV/ceVw1qpPyyBNindL+JlPMSesx+WX1QJaZEJSaMQ==}
-
   macos-release@3.3.0:
     resolution: {integrity: sha512-tPJQ1HeyiU2vRruNGhZ+VleWuMQRro8iFtJxYgnS4NQe+EukKF6aGiIT+7flZhISAt2iaXBCfFGvAyif7/f8nQ==}
     engines: {node: ^12.20.0 || ^14.13.1 || >=16.0.0}
@@ -4191,9 +4147,6 @@ packages:
     resolution: {integrity: sha512-e5ISH9xMYU0DzrT+jl8q2ze9D6eWBto+I8CNpe+VI+K2J/F/k3PdkdTdz4wvGVH4NTpo+NRYTVIuMQEMMcsLqg==}
     engines: {node: ^12.20.0 || ^14.13.1 || >=16.0.0}
 
-  min-document@2.19.0:
-    resolution: {integrity: sha512-9Wy1B3m3f66bPPmU5hdA4DR4PB2OfDU/+GS3yAB7IQozE3tqXaVv2zOjgla7MEGSRv95+ILmOuvhLkOK6wJtCQ==}
-
   minimatch@3.1.2:
     resolution: {integrity: sha512-J7p63hRiAjw1NDEww1W7i37+ByIrOWO5XQQAzZ3VOcL0PNybwpfmV/N05zFAzwQ9USyEcX6t3UO+K5aqBQOIHw==}
 
@@ -4255,10 +4208,6 @@ packages:
     resolution: {integrity: sha512-4aE3U7CCBWgrQlQDMq8da4woBWDGHioJFiOZ8Ie6Yq2uwYQ9V2kGhTz4x3u6Wc+OU17nw0yc3rJ/lQ4jIiPe3A==}
     engines: {node: ^12.20.0 || ^14.13.1 || >=16.0.0}
 
-  mpd-parser@1.3.1:
-    resolution: {integrity: sha512-1FuyEWI5k2HcmhS1HkKnUAQV7yFPfXPht2DnRRGtoiiAAW+ESTbtEXIDpRkwdU+XyrQuwrIym7UkoPKsZ0SyFw==}
-    hasBin: true
-
   mri@1.2.0:
     resolution: {integrity: sha512-tzzskb3bG8LvYGFF/mDTpq3jpI6Q9wc3LEmBaghu+DdCssd1FakN7Bc0hVNmEyGq1bq3RgfkCb3cmQLpNPOroA==}
     engines: {node: '>=4'}
@@ -4281,16 +4230,6 @@ packages:
 
   mute-stream@0.0.7:
     resolution: {integrity: sha512-r65nCZhrbXXb6dXOACihYApHw2Q6pV0M3V0PSxd74N0+D8nzAdEAITq2oAjA1jVnKI+tGvEBUpqiMh0+rW6zDQ==}
-
-  mux.js@7.0.3:
-    resolution: {integrity: sha512-gzlzJVEGFYPtl2vvEiJneSWAWD4nfYRHD5XgxmB2gWvXraMPOYk+sxfvexmNfjQUFpmk6hwLR5C6iSFmuwCHdQ==}
-    engines: {node: '>=8', npm: '>=5'}
-    hasBin: true
-
-  mux.js@7.1.0:
-    resolution: {integrity: sha512-NTxawK/BBELJrYsZThEulyUMDVlLizKdxyAsMuzoCD1eFj97BVaA8D/CvKsKu6FOLYkFojN5CbM9h++ZTZtknA==}
-    engines: {node: '>=8', npm: '>=5'}
-    hasBin: true
 
   mz@2.7.0:
     resolution: {integrity: sha512-z81GNO7nnYMEhrGh9LeymoE4+Yr0Wn5McHIZMK5cfQCl+NDX08sCZgUc9/6MHni9IWuFLm1Z3HTCXu2z9fN62Q==}
@@ -4761,10 +4700,6 @@ packages:
   pirates@4.0.6:
     resolution: {integrity: sha512-saLsH7WeYYPiD25LDuLRRY/i+6HaPYr6G1OUlN39otzkSTxKnubR9RTxS3/Kk50s1g2JTgFwWQDQyplC5/SHZg==}
     engines: {node: '>= 6'}
-
-  pkcs7@1.0.4:
-    resolution: {integrity: sha512-afRERtHn54AlwaF2/+LFszyAANTCggGilmcmILUzEjvs3XgFZT+xE6+QWQcAGmu4xajy+Xtj7acLOPdx5/eXWQ==}
-    hasBin: true
 
   pkg-dir@7.0.0:
     resolution: {integrity: sha512-Ie9z/WINcxxLp27BKOCHGde4ITq9UklYKDzVo1nhk5sqGEXU3FpkwP5GM2voTGJkGd9B3Otl+Q4uwSOeSUtOBA==}
@@ -5950,21 +5885,6 @@ packages:
 
   victory-vendor@36.9.2:
     resolution: {integrity: sha512-PnpQQMuxlwYdocC8fIJqVXvkeViHYzotI+NJrCuav0ZYFoq912ZHBk3mCeuj+5/VpodOjPe1z0Fk2ihgzlXqjQ==}
-
-  video.js@8.21.0:
-    resolution: {integrity: sha512-zcwerRb257QAuWfi8NH9yEX7vrGKFthjfcONmOQ4lxFRpDAbAi+u5LAjCjMWqhJda6zEmxkgdDpOMW3Y21QpXA==}
-
-  videojs-contrib-quality-levels@4.1.0:
-    resolution: {integrity: sha512-TfrXJJg1Bv4t6TOCMEVMwF/CoS8iENYsWNKip8zfhB5kTcegiFYezEA0eHAJPU64ZC8NQbxQgOwAsYU8VXbOWA==}
-    engines: {node: '>=16', npm: '>=8'}
-    peerDependencies:
-      video.js: ^8
-
-  videojs-font@4.2.0:
-    resolution: {integrity: sha512-YPq+wiKoGy2/M7ccjmlvwi58z2xsykkkfNMyIg4xb7EZQQNwB71hcSsB3o75CqQV7/y5lXkXhI/rsGAS7jfEmQ==}
-
-  videojs-vtt.js@0.15.5:
-    resolution: {integrity: sha512-yZbBxvA7QMYn15Lr/ZfhhLPrNpI/RmCSCqgIff57GC2gIrV5YfyzLfLyZMj0NnZSAz8syB4N0nHXpZg9MyrMOQ==}
 
   vt-pbf@3.1.3:
     resolution: {integrity: sha512-2LzDFzt0mZKZ9IpVF2r69G9bXaP2Q2sArJCmcCgvfTdCCZzSyz4aCLoQyUilu37Ll56tCblIZrXFIjNUpGIlmA==}
@@ -7468,8 +7388,6 @@ snapshots:
 
   '@types/triple-beam@1.3.5': {}
 
-  '@types/video.js@7.3.58': {}
-
   '@types/yargs-parser@21.0.3': {}
 
   '@types/yargs@16.0.9':
@@ -7608,39 +7526,6 @@ snapshots:
       - encoding
       - supports-color
 
-  '@videojs/http-streaming@3.15.0(video.js@8.21.0)':
-    dependencies:
-      '@babel/runtime': 7.25.6
-      '@videojs/vhs-utils': 4.1.1
-      aes-decrypter: 4.0.2
-      global: 4.4.0
-      m3u8-parser: 7.2.0
-      mpd-parser: 1.3.1
-      mux.js: 7.0.3
-      video.js: 8.21.0
-
-  '@videojs/http-streaming@3.16.2(video.js@8.21.0)':
-    dependencies:
-      '@babel/runtime': 7.25.6
-      '@videojs/vhs-utils': 4.1.1
-      aes-decrypter: 4.0.2
-      global: 4.4.0
-      m3u8-parser: 7.2.0
-      mpd-parser: 1.3.1
-      mux.js: 7.1.0
-      video.js: 8.21.0
-
-  '@videojs/vhs-utils@4.1.1':
-    dependencies:
-      '@babel/runtime': 7.25.6
-      global: 4.4.0
-
-  '@videojs/xhr@2.7.0':
-    dependencies:
-      '@babel/runtime': 7.25.6
-      global: 4.4.0
-      is-function: 1.0.2
-
   '@xhmikosr/archive-type@6.0.1':
     dependencies:
       file-type: 18.7.0
@@ -7694,8 +7579,6 @@ snapshots:
       merge-options: 3.0.4
       p-event: 5.0.1
 
-  '@xmldom/xmldom@0.8.10': {}
-
   abbrev@1.1.1: {}
 
   abort-controller@3.0.0:
@@ -7722,13 +7605,6 @@ snapshots:
       acorn: 8.12.1
 
   acorn@8.12.1: {}
-
-  aes-decrypter@4.0.2:
-    dependencies:
-      '@babel/runtime': 7.25.6
-      '@videojs/vhs-utils': 4.1.1
-      global: 4.4.0
-      pkcs7: 1.0.4
 
   agent-base@6.0.2(supports-color@9.4.0):
     dependencies:
@@ -8714,8 +8590,6 @@ snapshots:
       domhandler: 5.0.3
       entities: 4.5.0
 
-  dom-walk@0.1.2: {}
-
   domelementtype@2.3.0: {}
 
   domhandler@5.0.3:
@@ -8979,8 +8853,8 @@ snapshots:
       '@typescript-eslint/parser': 7.2.0(eslint@8.57.0)(typescript@5.5.4)
       eslint: 8.57.0
       eslint-import-resolver-node: 0.3.9
-      eslint-import-resolver-typescript: 3.6.3(@typescript-eslint/parser@7.2.0(eslint@8.57.0)(typescript@5.5.4))(eslint-import-resolver-node@0.3.9)(eslint-plugin-import@2.30.0(@typescript-eslint/parser@7.2.0(eslint@8.57.0)(typescript@5.5.4))(eslint@8.57.0))(eslint@8.57.0)
-      eslint-plugin-import: 2.30.0(@typescript-eslint/parser@7.2.0(eslint@8.57.0)(typescript@5.5.4))(eslint-import-resolver-typescript@3.6.3(@typescript-eslint/parser@7.2.0(eslint@8.57.0)(typescript@5.5.4))(eslint-import-resolver-node@0.3.9)(eslint-plugin-import@2.30.0(@typescript-eslint/parser@7.2.0(eslint@8.57.0)(typescript@5.5.4))(eslint@8.57.0))(eslint@8.57.0))(eslint@8.57.0)
+      eslint-import-resolver-typescript: 3.6.3(@typescript-eslint/parser@7.2.0(eslint@8.57.0)(typescript@5.5.4))(eslint-import-resolver-node@0.3.9)(eslint-plugin-import@2.30.0)(eslint@8.57.0)
+      eslint-plugin-import: 2.30.0(@typescript-eslint/parser@7.2.0(eslint@8.57.0)(typescript@5.5.4))(eslint-import-resolver-typescript@3.6.3)(eslint@8.57.0)
       eslint-plugin-jsx-a11y: 6.10.0(eslint@8.57.0)
       eslint-plugin-react: 7.35.2(eslint@8.57.0)
       eslint-plugin-react-hooks: 4.6.2(eslint@8.57.0)
@@ -9003,37 +8877,37 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  eslint-import-resolver-typescript@3.6.3(@typescript-eslint/parser@7.2.0(eslint@8.57.0)(typescript@5.5.4))(eslint-import-resolver-node@0.3.9)(eslint-plugin-import@2.30.0(@typescript-eslint/parser@7.2.0(eslint@8.57.0)(typescript@5.5.4))(eslint@8.57.0))(eslint@8.57.0):
+  eslint-import-resolver-typescript@3.6.3(@typescript-eslint/parser@7.2.0(eslint@8.57.0)(typescript@5.5.4))(eslint-import-resolver-node@0.3.9)(eslint-plugin-import@2.30.0)(eslint@8.57.0):
     dependencies:
       '@nolyfill/is-core-module': 1.0.39
       debug: 4.3.7
       enhanced-resolve: 5.17.1
       eslint: 8.57.0
-      eslint-module-utils: 2.11.0(@typescript-eslint/parser@7.2.0(eslint@8.57.0)(typescript@5.5.4))(eslint-import-resolver-node@0.3.9)(eslint-import-resolver-typescript@3.6.3(@typescript-eslint/parser@7.2.0(eslint@8.57.0)(typescript@5.5.4))(eslint-import-resolver-node@0.3.9)(eslint-plugin-import@2.30.0(@typescript-eslint/parser@7.2.0(eslint@8.57.0)(typescript@5.5.4))(eslint@8.57.0))(eslint@8.57.0))(eslint@8.57.0)
+      eslint-module-utils: 2.11.0(@typescript-eslint/parser@7.2.0(eslint@8.57.0)(typescript@5.5.4))(eslint-import-resolver-node@0.3.9)(eslint-import-resolver-typescript@3.6.3(@typescript-eslint/parser@7.2.0(eslint@8.57.0)(typescript@5.5.4))(eslint-import-resolver-node@0.3.9)(eslint-plugin-import@2.30.0)(eslint@8.57.0))(eslint@8.57.0)
       fast-glob: 3.3.2
       get-tsconfig: 4.8.0
       is-bun-module: 1.1.0
       is-glob: 4.0.3
     optionalDependencies:
-      eslint-plugin-import: 2.30.0(@typescript-eslint/parser@7.2.0(eslint@8.57.0)(typescript@5.5.4))(eslint-import-resolver-typescript@3.6.3(@typescript-eslint/parser@7.2.0(eslint@8.57.0)(typescript@5.5.4))(eslint-import-resolver-node@0.3.9)(eslint-plugin-import@2.30.0(@typescript-eslint/parser@7.2.0(eslint@8.57.0)(typescript@5.5.4))(eslint@8.57.0))(eslint@8.57.0))(eslint@8.57.0)
+      eslint-plugin-import: 2.30.0(@typescript-eslint/parser@7.2.0(eslint@8.57.0)(typescript@5.5.4))(eslint-import-resolver-typescript@3.6.3)(eslint@8.57.0)
     transitivePeerDependencies:
       - '@typescript-eslint/parser'
       - eslint-import-resolver-node
       - eslint-import-resolver-webpack
       - supports-color
 
-  eslint-module-utils@2.11.0(@typescript-eslint/parser@7.2.0(eslint@8.57.0)(typescript@5.5.4))(eslint-import-resolver-node@0.3.9)(eslint-import-resolver-typescript@3.6.3(@typescript-eslint/parser@7.2.0(eslint@8.57.0)(typescript@5.5.4))(eslint-import-resolver-node@0.3.9)(eslint-plugin-import@2.30.0(@typescript-eslint/parser@7.2.0(eslint@8.57.0)(typescript@5.5.4))(eslint@8.57.0))(eslint@8.57.0))(eslint@8.57.0):
+  eslint-module-utils@2.11.0(@typescript-eslint/parser@7.2.0(eslint@8.57.0)(typescript@5.5.4))(eslint-import-resolver-node@0.3.9)(eslint-import-resolver-typescript@3.6.3(@typescript-eslint/parser@7.2.0(eslint@8.57.0)(typescript@5.5.4))(eslint-import-resolver-node@0.3.9)(eslint-plugin-import@2.30.0)(eslint@8.57.0))(eslint@8.57.0):
     dependencies:
       debug: 3.2.7
     optionalDependencies:
       '@typescript-eslint/parser': 7.2.0(eslint@8.57.0)(typescript@5.5.4)
       eslint: 8.57.0
       eslint-import-resolver-node: 0.3.9
-      eslint-import-resolver-typescript: 3.6.3(@typescript-eslint/parser@7.2.0(eslint@8.57.0)(typescript@5.5.4))(eslint-import-resolver-node@0.3.9)(eslint-plugin-import@2.30.0(@typescript-eslint/parser@7.2.0(eslint@8.57.0)(typescript@5.5.4))(eslint@8.57.0))(eslint@8.57.0)
+      eslint-import-resolver-typescript: 3.6.3(@typescript-eslint/parser@7.2.0(eslint@8.57.0)(typescript@5.5.4))(eslint-import-resolver-node@0.3.9)(eslint-plugin-import@2.30.0)(eslint@8.57.0)
     transitivePeerDependencies:
       - supports-color
 
-  eslint-plugin-import@2.30.0(@typescript-eslint/parser@7.2.0(eslint@8.57.0)(typescript@5.5.4))(eslint-import-resolver-typescript@3.6.3(@typescript-eslint/parser@7.2.0(eslint@8.57.0)(typescript@5.5.4))(eslint-import-resolver-node@0.3.9)(eslint-plugin-import@2.30.0(@typescript-eslint/parser@7.2.0(eslint@8.57.0)(typescript@5.5.4))(eslint@8.57.0))(eslint@8.57.0))(eslint@8.57.0):
+  eslint-plugin-import@2.30.0(@typescript-eslint/parser@7.2.0(eslint@8.57.0)(typescript@5.5.4))(eslint-import-resolver-typescript@3.6.3)(eslint@8.57.0):
     dependencies:
       '@rtsao/scc': 1.1.0
       array-includes: 3.1.8
@@ -9044,7 +8918,7 @@ snapshots:
       doctrine: 2.1.0
       eslint: 8.57.0
       eslint-import-resolver-node: 0.3.9
-      eslint-module-utils: 2.11.0(@typescript-eslint/parser@7.2.0(eslint@8.57.0)(typescript@5.5.4))(eslint-import-resolver-node@0.3.9)(eslint-import-resolver-typescript@3.6.3(@typescript-eslint/parser@7.2.0(eslint@8.57.0)(typescript@5.5.4))(eslint-import-resolver-node@0.3.9)(eslint-plugin-import@2.30.0(@typescript-eslint/parser@7.2.0(eslint@8.57.0)(typescript@5.5.4))(eslint@8.57.0))(eslint@8.57.0))(eslint@8.57.0)
+      eslint-module-utils: 2.11.0(@typescript-eslint/parser@7.2.0(eslint@8.57.0)(typescript@5.5.4))(eslint-import-resolver-node@0.3.9)(eslint-import-resolver-typescript@3.6.3(@typescript-eslint/parser@7.2.0(eslint@8.57.0)(typescript@5.5.4))(eslint-import-resolver-node@0.3.9)(eslint-plugin-import@2.30.0)(eslint@8.57.0))(eslint@8.57.0)
       hasown: 2.0.2
       is-core-module: 2.15.1
       is-glob: 4.0.3
@@ -9690,11 +9564,6 @@ snapshots:
     dependencies:
       ini: 2.0.0
 
-  global@4.4.0:
-    dependencies:
-      min-document: 2.19.0
-      process: 0.11.10
-
   globals@13.24.0:
     dependencies:
       type-fest: 0.20.2
@@ -9800,6 +9669,8 @@ snapshots:
   hasown@2.0.2:
     dependencies:
       function-bind: 1.1.2
+
+  hls.js@1.5.19: {}
 
   hosted-git-info@4.1.0:
     dependencies:
@@ -10061,8 +9932,6 @@ snapshots:
   is-fullwidth-code-point@5.0.0:
     dependencies:
       get-east-asian-width: 1.2.0
-
-  is-function@1.0.2: {}
 
   is-generator-function@1.0.10:
     dependencies:
@@ -10458,12 +10327,6 @@ snapshots:
 
   luxon@3.5.0: {}
 
-  m3u8-parser@7.2.0:
-    dependencies:
-      '@babel/runtime': 7.25.6
-      '@videojs/vhs-utils': 4.1.1
-      global: 4.4.0
-
   macos-release@3.3.0: {}
 
   make-dir@3.1.0:
@@ -10574,10 +10437,6 @@ snapshots:
 
   mimic-response@4.0.0: {}
 
-  min-document@2.19.0:
-    dependencies:
-      dom-walk: 0.1.2
-
   minimatch@3.1.2:
     dependencies:
       brace-expansion: 1.1.11
@@ -10638,13 +10497,6 @@ snapshots:
     dependencies:
       path-exists: 5.0.0
 
-  mpd-parser@1.3.1:
-    dependencies:
-      '@babel/runtime': 7.25.6
-      '@videojs/vhs-utils': 4.1.1
-      '@xmldom/xmldom': 0.8.10
-      global: 4.4.0
-
   mri@1.2.0: {}
 
   ms@2.0.0: {}
@@ -10662,16 +10514,6 @@ snapshots:
   murmurhash-js@1.0.0: {}
 
   mute-stream@0.0.7: {}
-
-  mux.js@7.0.3:
-    dependencies:
-      '@babel/runtime': 7.25.6
-      global: 4.4.0
-
-  mux.js@7.1.0:
-    dependencies:
-      '@babel/runtime': 7.25.6
-      global: 4.4.0
 
   mz@2.7.0:
     dependencies:
@@ -11278,10 +11120,6 @@ snapshots:
       thread-stream: 3.1.0
 
   pirates@4.0.6: {}
-
-  pkcs7@1.0.4:
-    dependencies:
-      '@babel/runtime': 7.25.6
 
   pkg-dir@7.0.0:
     dependencies:
@@ -12579,32 +12417,6 @@ snapshots:
       d3-shape: 3.2.0
       d3-time: 3.1.0
       d3-timer: 3.0.1
-
-  video.js@8.21.0:
-    dependencies:
-      '@babel/runtime': 7.25.6
-      '@videojs/http-streaming': 3.16.2(video.js@8.21.0)
-      '@videojs/vhs-utils': 4.1.1
-      '@videojs/xhr': 2.7.0
-      aes-decrypter: 4.0.2
-      global: 4.4.0
-      m3u8-parser: 7.2.0
-      mpd-parser: 1.3.1
-      mux.js: 7.1.0
-      videojs-contrib-quality-levels: 4.1.0(video.js@8.21.0)
-      videojs-font: 4.2.0
-      videojs-vtt.js: 0.15.5
-
-  videojs-contrib-quality-levels@4.1.0(video.js@8.21.0):
-    dependencies:
-      global: 4.4.0
-      video.js: 8.21.0
-
-  videojs-font@4.2.0: {}
-
-  videojs-vtt.js@0.15.5:
-    dependencies:
-      global: 4.4.0
 
   vt-pbf@3.1.3:
     dependencies:

@@ -2,9 +2,7 @@
 
 import { useEffect, useRef } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import videojs from 'video.js'
-import 'video.js/dist/video-js.css'
-import type Player from 'video.js/dist/types/player'
+import Hls from 'hls.js'
 
 interface WebcamViewerProps {
   url: string
@@ -13,57 +11,84 @@ interface WebcamViewerProps {
 
 export function WebcamViewer({ url, title }: WebcamViewerProps) {
   const videoRef = useRef<HTMLVideoElement | null>(null)
-  const playerRef = useRef<Player | null>(null)
+  const hlsRef = useRef<Hls | null>(null)
 
   useEffect(() => {
     if (!videoRef.current) return
 
-    const player = videojs(videoRef.current, {
-      controls: true,
-      fluid: true,
-      sources: [
-        {
-          src: url,
-          type: 'application/x-mpegURL',
+    if (Hls.isSupported()) {
+      hlsRef.current = new Hls({
+        debug: true,
+        enableWorker: true,
+        fragLoadingMaxRetry: 5,
+        manifestLoadingMaxRetry: 5,
+        levelLoadingMaxRetry: 5,
+        // Extract the base path from the m3u8 URL
+        baseUrl: 'https://flus.spotfav.com/palmar-south-coast/tracks-v1/',
+        xhrSetup: function (xhr, requestUrl) {
+          // Log each request
+          console.log('Loading:', requestUrl)
         },
-      ],
-      html5: {
-        hls: {
-          enableLowInitialPlaylist: true,
-          smoothQualityChange: true,
-          overrideNative: true,
-          debug: true,
-        },
-      },
-    })
-
-    player.ready(function (this: Player) {
-      console.log('Player is ready')
-
-      this.on('error', () => {
-        const error = this.error()
-        console.error('Video.js Error:', error)
       })
 
-      this.on('loadedmetadata', () => {
-        console.log('Stream metadata loaded successfully')
+      hlsRef.current.loadSource(url)
+      hlsRef.current.attachMedia(videoRef.current)
+
+      hlsRef.current.on(Hls.Events.MANIFEST_LOADED, (event, data) => {
+        console.log('Manifest loaded:', data)
       })
 
-      this.on('waiting', () => {
-        console.log('Stream is buffering or waiting')
+      hlsRef.current.on(Hls.Events.MANIFEST_PARSED, (event, data) => {
+        console.log('Manifest parsed:', data)
+        videoRef.current?.play().catch((e) => console.error('Play failed:', e))
       })
 
-      this.on('playing', () => {
-        console.log('Stream is playing')
+      hlsRef.current.on(Hls.Events.FRAG_LOADING, (event, data) => {
+        console.log('Fragment loading:', {
+          url: data.frag.url,
+          level: data.frag.level,
+          sn: data.frag.sn,
+        })
       })
-    })
 
-    playerRef.current = player
+      hlsRef.current.on(Hls.Events.ERROR, (event, data) => {
+        console.error('HLS Error:', {
+          type: data.type,
+          details: data.details,
+          fatal: data.fatal,
+          url: data.url,
+          response: data.response,
+        })
+
+        if (data.fatal) {
+          switch (data.type) {
+            case Hls.ErrorTypes.NETWORK_ERROR:
+              console.log('Network error, trying to recover...')
+              hlsRef.current?.startLoad()
+              break
+            case Hls.ErrorTypes.MEDIA_ERROR:
+              console.log('Media error, trying to recover...')
+              hlsRef.current?.recoverMediaError()
+              break
+            default:
+              console.error('Unrecoverable error')
+              hlsRef.current?.destroy()
+              break
+          }
+        }
+      })
+    } else if (videoRef.current.canPlayType('application/vnd.apple.mpegurl')) {
+      // For Safari
+      videoRef.current.src = url
+      videoRef.current.addEventListener('loadedmetadata', () => {
+        videoRef.current?.play().catch((e) => console.error('Play failed:', e))
+      })
+    }
 
     return () => {
-      if (playerRef.current) {
-        playerRef.current.dispose()
-        playerRef.current = null
+      if (hlsRef.current) {
+        hlsRef.current.destroy()
+        hlsRef.current = null
       }
     }
   }, [url])
@@ -74,12 +99,15 @@ export function WebcamViewer({ url, title }: WebcamViewerProps) {
         <CardTitle className="text-lg font-medium">{title}</CardTitle>
       </CardHeader>
       <CardContent>
-        <div data-vjs-player>
+        <div className="aspect-video relative">
           <video
             ref={videoRef}
-            className="video-js vjs-default-skin vjs-big-play-centered"
+            className="w-full h-full"
+            controls
             playsInline
             crossOrigin="anonymous"
+            autoPlay
+            muted
           />
         </div>
       </CardContent>
