@@ -62,7 +62,7 @@ export default async function RootLayout({
     <html lang="en" className={inter.variable}>
       <body>
         <UserProvider initialUser={initialUser}>
-          <NavBar initialUser={initialUser} />
+          {initialUser && <NavBar initialUser={initialUser} />}
           <main className="container mx-auto mt-8">{children}</main>
           <Toaster />
         </UserProvider>
