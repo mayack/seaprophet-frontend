@@ -1,9 +1,17 @@
 import { Suspense } from 'react'
+import { redirect } from 'next/navigation'
 import { getSpotList } from '@/api/sargo/actions/spot'
 import { NearbySpots } from '@/components/spots/NearbySpots'
 import { Spots } from '@/components/spots/Spots'
+import { getCurrentUser } from '@/api/sargo/actions/user'
 
 export default async function Home() {
+  const user = await getCurrentUser()
+
+  if (!user) {
+    redirect('/auth/signin')
+  }
+
   const { spots, error } = await getSpotList()
 
   return (
