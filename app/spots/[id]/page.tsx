@@ -27,19 +27,16 @@ async function SpotContent({ id }: { id: string }) {
 
   return (
     <>
-      <h1 className="text-6xl font-bold mb-6">{spot.attributes.name}</h1>
-      <div className="my-5">
+      <h1 className="text-5xl font-bold mb-6">{spot.attributes.name}</h1>
+      <div className="my-6">
         <Map center={mapCenter} zoom={12} />
       </div>
 
       {user && webcamConfig && (
-        <div className="space-y-4">
-          <h2 className="text-2xl font-bold">Live Webcam</h2>
-          <WebcamViewer
-            config={webcamConfig}
-            title={`${spot?.attributes.name} Webcam`}
-          />
-        </div>
+        <WebcamViewer
+          config={webcamConfig}
+          title={`${spot?.attributes.name} Webcam`}
+        />
       )}
       <SpotsWithForecast data={forecast} />
     </>
@@ -48,7 +45,7 @@ async function SpotContent({ id }: { id: string }) {
 
 export default function SpotPage({ params }: { params: { id: string } }) {
   return (
-    <div className="container py-12">
+    <div>
       <Suspense fallback={<SpotLoading />}>
         <SpotContent id={params.id} />
       </Suspense>

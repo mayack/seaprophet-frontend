@@ -59,7 +59,7 @@ export default async function Home() {
                               <div className="text-2xl col-span-1">
                                 {districtName}
                               </div>
-                              <div className="space-y-6 col-span-3">
+                              <div className="space-y-4 col-span-3">
                                 {Object.entries(spotsByMunicipality).map(
                                   ([municipalityName, municipalitySpots]) => (
                                     <div key={municipalityName}>

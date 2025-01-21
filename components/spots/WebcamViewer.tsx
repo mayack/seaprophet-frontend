@@ -11,7 +11,7 @@ interface WebcamViewerProps {
   title: string
 }
 
-export function WebcamViewer({ config, title }: WebcamViewerProps) {
+export function WebcamViewer({ config }: WebcamViewerProps) {
   const videoRef = useRef<HTMLVideoElement | null>(null)
   const hlsRef = useRef<Hls | null>(null)
 
@@ -76,9 +76,9 @@ export function WebcamViewer({ config, title }: WebcamViewerProps) {
   }, [config])
 
   return (
-    <Card className="w-full">
+    <Card className="w-full mb-6">
       <CardHeader>
-        <CardTitle className="text-lg font-medium">{title}</CardTitle>
+        <CardTitle className="font-semibold">Live Webcam</CardTitle>
       </CardHeader>
       <CardContent>
         <div className="aspect-video relative">
