@@ -1,10 +1,22 @@
 import { createPolvoClient } from '@/api/polvo/client'
 import strapi from '@/api/sargo/client'
+import { SpotProps } from '@/api/sargo/interfaces/spot'
+import { ForecastProps } from '@/api/polvo/interfaces/forecast'
 
-export async function getSpotWithForecast(id: number) {
+interface SpotForecastResponse {
+  spot: SpotProps | null
+  forecast: { days: ForecastProps[] } | null
+  error: string | null
+}
+
+export async function getSpotWithForecast(
+  id: number
+): Promise<SpotForecastResponse> {
   console.log(`Fetching spot with forecast for id: ${id}`)
   try {
-    const spotResponse = await strapi.findOne('spots', id)
+    const spotResponse = await strapi.findOne('spots', id, {
+      populate: '*',
+    })
     const spot = spotResponse.data
 
     if (!spot.attributes.location_lat || !spot.attributes.location_long) {
@@ -18,7 +30,7 @@ export async function getSpotWithForecast(id: number) {
         spot.attributes.location_long
       )
       return { spot, forecast, error: null }
-    } catch (forecastError: any) {
+    } catch (forecastError: Error | unknown) {
       console.error('Error fetching forecast:', forecastError)
       return {
         spot,
@@ -26,7 +38,7 @@ export async function getSpotWithForecast(id: number) {
         error: 'Failed to fetch forecast data. Please try again later.',
       }
     }
-  } catch (error) {
+  } catch (error: Error | unknown) {
     console.error('Error fetching spot:', error)
     return {
       spot: null,
@@ -36,13 +48,18 @@ export async function getSpotWithForecast(id: number) {
   }
 }
 
-export async function getSpotList() {
+interface SpotListResponse {
+  spots: SpotProps[]
+  error: string | null
+}
+
+export async function getSpotList(): Promise<SpotListResponse> {
   try {
     const response = await strapi.find('spot-list', {
       populate: '*',
     })
     return { spots: response.data.attributes.spots.data, error: null }
-  } catch (error) {
+  } catch (error: Error | unknown) {
     console.error('Error fetching spot list:', error)
     return { spots: [], error: 'Failed to load spots. Please try again later.' }
   }

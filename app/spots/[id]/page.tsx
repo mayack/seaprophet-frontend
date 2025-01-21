@@ -22,7 +22,7 @@ async function SpotContent({ id }: { id: string }) {
     spot.attributes.location_lat ?? 0,
   ]
 
-  const webcamUrl = spot.attributes.webcam_url
+  const webcamConfig = spot.attributes.webcam
   const user = await getCurrentUser()
 
   return (
@@ -32,11 +32,11 @@ async function SpotContent({ id }: { id: string }) {
         <Map center={mapCenter} zoom={12} />
       </div>
 
-      {user && webcamUrl && (
+      {user && webcamConfig && (
         <div className="space-y-4">
           <h2 className="text-2xl font-bold">Live Webcam</h2>
           <WebcamViewer
-            url={webcamUrl}
+            config={webcamConfig}
             title={`${spot?.attributes.name} Webcam`}
           />
         </div>

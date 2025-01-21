@@ -3,98 +3,77 @@
 import { useEffect, useRef } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import Hls from 'hls.js'
+import { webcamProviders } from '@/config/webcamProviders'
+import { WebcamConfig } from '@/api/sargo/interfaces/spot'
 
 interface WebcamViewerProps {
-  url: string
+  config: WebcamConfig
   title: string
 }
 
-export function WebcamViewer({ url, title }: WebcamViewerProps) {
+export function WebcamViewer({ config, title }: WebcamViewerProps) {
   const videoRef = useRef<HTMLVideoElement | null>(null)
   const hlsRef = useRef<Hls | null>(null)
 
   useEffect(() => {
-    if (!videoRef.current) return
+    if (!videoRef.current || !config.url) return
 
-    const baseUrl = url.substring(0, url.lastIndexOf('/') + 1)
+    const video = videoRef.current
+    const providerConfig =
+      webcamProviders[config.provider as keyof typeof webcamProviders] ||
+      webcamProviders.generic
+    const baseUrl = config.url.substring(0, config.url.lastIndexOf('/') + 1)
 
     if (Hls.isSupported()) {
-      hlsRef.current = new Hls({
-        debug: true,
-        enableWorker: true,
-        fragLoadingMaxRetry: 5,
-        manifestLoadingMaxRetry: 5,
-        levelLoadingMaxRetry: 5,
+      const hls = new Hls({
         xhrSetup: function (xhr, requestUrl) {
-          // If the URL is relative, prepend the base URL
-          if (!requestUrl.startsWith('http')) {
-            xhr.open('GET', baseUrl + requestUrl, true)
+          let finalUrl = requestUrl
+
+          if (providerConfig.transformUrl) {
+            finalUrl = providerConfig.transformUrl(baseUrl)(requestUrl)
           }
-          console.log('Loading:', requestUrl)
+
+          const proxyUrl = providerConfig.requiresProxy
+            ? `/api/proxy?url=${encodeURIComponent(finalUrl)}`
+            : finalUrl
+
+          if (!requestUrl.startsWith('/api/proxy')) {
+            xhr.open('GET', proxyUrl, true)
+          }
+
+          // Apply provider headers
+          if (providerConfig.headers) {
+            Object.entries(providerConfig.headers).forEach(([key, value]) => {
+              xhr.setRequestHeader(key, value)
+            })
+          }
         },
       })
+      hlsRef.current = hls
 
-      hlsRef.current.loadSource(url)
-      hlsRef.current.attachMedia(videoRef.current)
+      const streamUrl = providerConfig.requiresProxy
+        ? `/api/proxy?url=${encodeURIComponent(config.url)}`
+        : config.url
 
-      hlsRef.current.on(Hls.Events.MANIFEST_LOADED, (event, data) => {
-        console.log('Manifest loaded:', data)
+      hls.loadSource(streamUrl)
+      hls.attachMedia(video)
+
+      hls.on(Hls.Events.ERROR, function (event, data) {
+        console.error('HLS error:', data)
       })
-
-      hlsRef.current.on(Hls.Events.MANIFEST_PARSED, (event, data) => {
-        console.log('Manifest parsed:', data)
-        videoRef.current?.play().catch((e) => console.error('Play failed:', e))
-      })
-
-      hlsRef.current.on(Hls.Events.FRAG_LOADING, (event, data) => {
-        console.log('Fragment loading:', {
-          url: data.frag.url,
-          level: data.frag.level,
-          sn: data.frag.sn,
-        })
-      })
-
-      hlsRef.current.on(Hls.Events.ERROR, (event, data) => {
-        console.error('HLS Error:', {
-          type: data.type,
-          details: data.details,
-          fatal: data.fatal,
-          url: data.url,
-          response: data.response,
-        })
-
-        if (data.fatal) {
-          switch (data.type) {
-            case Hls.ErrorTypes.NETWORK_ERROR:
-              console.log('Network error, trying to recover...')
-              hlsRef.current?.startLoad()
-              break
-            case Hls.ErrorTypes.MEDIA_ERROR:
-              console.log('Media error, trying to recover...')
-              hlsRef.current?.recoverMediaError()
-              break
-            default:
-              console.error('Unrecoverable error')
-              hlsRef.current?.destroy()
-              break
-          }
-        }
-      })
-    } else if (videoRef.current.canPlayType('application/vnd.apple.mpegurl')) {
-      // For Safari
-      videoRef.current.src = url
-      videoRef.current.addEventListener('loadedmetadata', () => {
-        videoRef.current?.play().catch((e) => console.error('Play failed:', e))
-      })
+    } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+      // For Safari - it has built in HLS support
+      video.src = providerConfig.requiresProxy
+        ? `/api/proxy?url=${encodeURIComponent(config.url)}`
+        : config.url
     }
 
     return () => {
       if (hlsRef.current) {
         hlsRef.current.destroy()
-        hlsRef.current = null
       }
     }
-  }, [url])
+  }, [config])
 
   return (
     <Card className="w-full">
@@ -108,7 +87,6 @@ export function WebcamViewer({ url, title }: WebcamViewerProps) {
             className="w-full h-full"
             controls
             playsInline
-            crossOrigin="anonymous"
             autoPlay
             muted
           />
