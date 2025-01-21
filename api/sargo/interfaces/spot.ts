@@ -51,9 +51,61 @@ export interface SpotAttributes {
   updatedAt: string
   publishedAt: string
   webcam?: WebcamConfig
+  municipality: {
+    data: {
+      attributes: {
+        name: string
+        district: {
+          data: {
+            attributes: {
+              name: string
+              region: {
+                data: {
+                  attributes: {
+                    name: string
+                    country: {
+                      data: {
+                        attributes: {
+                          name: string
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+      id: number
+    }
+  }
 }
 
 export interface SpotProps {
   id: number
   attributes: SpotAttributes
+}
+
+export interface SpotSummary {
+  id: number
+  name: string
+  location: {
+    lat: number
+    long: number
+  }
+  municipality: string
+  environment: string | null
+  rating: number | null
+  webcam: WebcamConfig | undefined
+}
+
+export type RegionsType = {
+  [district: string]: SpotSummary[]
+}
+
+export type SpotsByCountry = {
+  [country: string]: {
+    [region: string]: RegionsType
+  }
 }

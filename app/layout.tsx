@@ -63,7 +63,7 @@ export default async function RootLayout({
       <body>
         <UserProvider initialUser={initialUser}>
           {initialUser && <NavBar initialUser={initialUser} />}
-          <main className="container mx-auto mt-8">{children}</main>
+          <main className="container mx-auto py-8">{children}</main>
           <Toaster />
         </UserProvider>
       </body>

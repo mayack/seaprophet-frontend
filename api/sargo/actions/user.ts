@@ -75,12 +75,6 @@ export async function signUp(
   const email = formData.get('email') as string
   const password = formData.get('password') as string
 
-  console.log('Sign up data:', {
-    username,
-    email,
-    password: password ? '[REDACTED]' : 'missing',
-  })
-
   try {
     const response = await fetchAPI('/auth/local/register', {
       method: 'POST',
