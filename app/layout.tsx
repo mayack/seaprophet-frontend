@@ -37,7 +37,7 @@ export default async function RootLayout({
       <body className="min-h-full h-full">
         <UserProvider initialUser={initialUser}>
           {initialUser && <NavBar initialUser={initialUser} />}
-          <main className="container mx-auto py-12 h-full">{children}</main>
+          <main className="container mx-auto py-12 min-h-full">{children}</main>
           <Toaster />
         </UserProvider>
       </body>

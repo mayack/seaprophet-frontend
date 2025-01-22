@@ -10,11 +10,11 @@ async function SpotContent({ id }: { id: string }) {
   const { spot, forecast, error } = await getSpotWithForecast(parseInt(id))
 
   if (error) {
-    return <div className="container py-12 text-red-500">{error}</div>
+    return <div className="text-red-500">{error}</div>
   }
 
   if (!spot) {
-    return <div className="container py-12">Spot not found</div>
+    return <div className="">Spot not found</div>
   }
 
   const mapCenter: [number, number] = [
