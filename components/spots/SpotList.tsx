@@ -59,7 +59,7 @@ interface DirectionProps {
 
 function Direction({ degrees, isWind }: DirectionProps) {
   const intDegrees = Math.round(degrees) - 180
-  const cardinalDirection = getCardinalDirection(intDegrees)
+  const cardinalDirection = getCardinalDirection(degrees)
 
   // Adjust rotation for MousePointer2 icon
   const adjustedDegrees = isWind ? intDegrees : (intDegrees + 45) % 360
@@ -79,7 +79,7 @@ function Direction({ degrees, isWind }: DirectionProps) {
         </TooltipTrigger>
         <TooltipContent>
           <p>
-            {intDegrees}° {cardinalDirection}
+            {degrees}° {cardinalDirection}
           </p>
         </TooltipContent>
       </Tooltip>
