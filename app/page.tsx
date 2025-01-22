@@ -1,8 +1,8 @@
 import { Suspense } from 'react'
-import { redirect } from 'next/navigation'
+// import { redirect } from 'next/navigation'
 import { getSpotsByCountry } from '@/api/sargo/actions/spot'
 import { NearbySpots } from '@/components/spots/NearbySpots'
-import { getCurrentUser } from '@/api/sargo/actions/user'
+// import { getCurrentUser } from '@/api/sargo/actions/user'
 import { SpotsByCountry, SpotSummary } from '@/api/sargo/interfaces/spot'
 import { SpotCard } from '@/components/spots/SpotCard'
 
@@ -77,11 +77,11 @@ function SpotsByCountryList({
 }
 
 export default async function Home() {
-  const user = await getCurrentUser()
+  // const user = await getCurrentUser()
 
-  if (!user) {
-    redirect('/auth/signin')
-  }
+  // if (!user) {
+  //   redirect('/auth/signin')
+  // }
 
   const spotsByCountry = await getSpotsByCountry()
 

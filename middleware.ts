@@ -2,30 +2,26 @@ import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 
 export function middleware(request: NextRequest) {
-  const { pathname } = request.nextUrl
-  const isAuthenticated = request.cookies.has('jwt')
+  console.log('MIDDLEWARE RUNNING for:', request.nextUrl.pathname)
 
-  // Public paths that don't require authentication
-  const authPaths = ['/auth/signin', '/auth/signup']
+  // Define public paths that should not be redirected
+  const publicPaths = ['/auth/signin']
+  const currentPath = request.nextUrl.pathname
 
-  // If the user is not authenticated and trying to access a protected route
-  if (!isAuthenticated && !authPaths.includes(pathname) && pathname !== '/') {
-    const signInUrl = new URL('/auth/signin', request.url)
-    return NextResponse.redirect(signInUrl)
+  // Don't redirect if we're already on an auth path
+  if (publicPaths.includes(currentPath)) {
+    return NextResponse.next()
   }
 
-  // If the user is authenticated and trying to access auth pages
-  if (isAuthenticated && authPaths.includes(pathname)) {
-    const homeUrl = new URL('/', request.url)
-    return NextResponse.redirect(homeUrl)
+  // Check for authentication
+  const token = request.cookies.get('jwt')
+  if (!token) {
+    return NextResponse.redirect(new URL('/auth/signin', request.url))
   }
 
   return NextResponse.next()
 }
 
 export const config = {
-  matcher: [
-    // Match all paths except static assets and api routes
-    '/((?!api|_next/static|_next/image|favicon.ico).*)',
-  ],
+  matcher: ['/((?!api|_next/static|_next/image|favicon.ico).*)'],
 }
