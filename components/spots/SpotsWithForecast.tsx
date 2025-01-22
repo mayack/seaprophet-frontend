@@ -1,6 +1,5 @@
 // frontend/components/spots/SpotsWithForecast.tsx
 'use client'
-
 import { useUser } from '@/contexts/UserContext'
 import { SpotList } from '@/components/spots/SpotList'
 import { ForecastProps } from '@/api/polvo/interfaces/forecast'
@@ -19,11 +18,7 @@ const defaultUnits: UserUnits = {
 }
 
 export function SpotsWithForecast({ data }: SpotsWithForecastProps) {
-  const { user, loading } = useUser()
-
-  if (loading) {
-    return <div>Loading...</div>
-  }
+  const { user } = useUser()
 
   if (!data) {
     return <p>Forecast data not available</p>
