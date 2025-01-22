@@ -19,7 +19,15 @@ export async function getSpotsByCountry() {
   try {
     const response = await strapi.find('spots', {
       populate: 'municipality.district.region.country, webcam',
+      sort: [
+        'municipality.district.region.country.name', // Sort by country name
+        'municipality.district.region.name', // Sort by region name
+        'municipality.district.name', // Sort by district name
+        'municipality.name', // Sort by municipality name first
+        'name', // Then sort spots by name within municipality
+      ],
     })
+
     const initialAcc: SpotsByCountry = {}
     const spotsByCountry = response.data.reduce(
       (acc: SpotsByCountry, spot: SpotProps) => {
@@ -31,12 +39,10 @@ export async function getSpotsByCountry() {
         const region = district?.region?.data?.attributes
         const countryData = region?.country?.data?.attributes
         const countryName = countryData?.name
-
         if (!countryName || !region || !district) {
           return acc
         }
 
-        // Create country key with optional emoji
         const countryKey = countryData?.emoji
           ? `${countryData.emoji} ${countryName}`
           : countryName
@@ -50,6 +56,7 @@ export async function getSpotsByCountry() {
         if (!acc[countryKey][region.name][district.name]) {
           acc[countryKey][region.name][district.name] = []
         }
+
         acc[countryKey][region.name][district.name].push({
           id: spot.id,
           name: spot.attributes.name,
@@ -66,6 +73,7 @@ export async function getSpotsByCountry() {
       },
       initialAcc
     )
+
     return spotsByCountry
   } catch (error) {
     console.error('Error fetching spot list:', error)
