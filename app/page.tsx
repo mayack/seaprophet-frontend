@@ -12,17 +12,15 @@ function SpotsByCountryList({
   spotsByCountry: SpotsByCountry
 }) {
   return (
-    <div className="space-y-12">
+    <div className="space-y-16">
       {Object.entries(spotsByCountry).map(([countryName, regions]) => (
         <div key={countryName}>
-          <div className="font-bold text-3xl mb-4">{countryName}</div>
-          <div className="space-y-6">
+          <div className="font-bold text-4xl mb-10">{countryName}</div>
+          <div className="space-y-10">
             {Object.entries(regions).map(([regionName, districts]) => (
               <div key={regionName}>
-                <div className="text-lg pb-1 mb-6 border-b border-border text-muted-foreground">
-                  {regionName}
-                </div>
-                <div>
+                <div className="font-semibold text-3xl mb-10">{regionName}</div>
+                <div className="space-y-10">
                   {Object.entries(districts).map(([districtName, spots]) => {
                     const spotsByMunicipality = spots.reduce(
                       (acc, spot) => {
@@ -36,21 +34,21 @@ function SpotsByCountryList({
                     )
 
                     return (
-                      <div
-                        key={districtName}
-                        className="grid grid-cols-4 gap-4"
-                      >
-                        <div className="text-2xl col-span-1">
+                      <div key={districtName} className="">
+                        <div className="font-semibold text-xl mb-3">
                           {districtName}
                         </div>
-                        <div className="space-y-4 col-span-3">
+                        <div className="space-y-4">
                           {Object.entries(spotsByMunicipality).map(
                             ([municipalityName, municipalitySpots]) => (
-                              <div key={municipalityName}>
-                                <div className="text-md font-semibold mb-2">
+                              <div
+                                key={municipalityName}
+                                className="grid grid-cols-4 gap-4 border-t border-border pt-4"
+                              >
+                                <div className="text-lg font-normal col-span-1 pt-4">
                                   {municipalityName}
                                 </div>
-                                <ul className="grid grid-cols-3 gap-4">
+                                <ul className="grid grid-cols-3 gap-4 col-span-3">
                                   {municipalitySpots.map((spot) => (
                                     <li key={spot.id} className="col-span-1">
                                       <SpotCard
@@ -88,7 +86,7 @@ export default async function Home() {
   const spotsByCountry = await getSpotsByCountry()
 
   return (
-    <div className="space-y-12">
+    <div className="space-y-20">
       <Suspense fallback={<div>Loading nearby spots...</div>}>
         <NearbySpots />
       </Suspense>

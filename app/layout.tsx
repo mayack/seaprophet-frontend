@@ -34,7 +34,7 @@ export default async function RootLayout({
   const initialUser = await getCurrentUser()
   return (
     <html lang="en" className={inter.variable}>
-      <body className="bg-muted">
+      <body>
         <UserProvider initialUser={initialUser}>
           {initialUser && <NavBar initialUser={initialUser} />}
           <main className="container mx-auto py-12">{children}</main>

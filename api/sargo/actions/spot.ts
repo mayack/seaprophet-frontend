@@ -20,7 +20,6 @@ export async function getSpotsByCountry() {
     const response = await strapi.find('spots', {
       populate: 'municipality.district.region.country, webcam',
     })
-
     const initialAcc: SpotsByCountry = {}
     const spotsByCountry = response.data.reduce(
       (acc: SpotsByCountry, spot: SpotProps) => {
@@ -28,26 +27,30 @@ export async function getSpotsByCountry() {
         if (!municipality) {
           return acc
         }
-
         const district = municipality.district?.data?.attributes
         const region = district?.region?.data?.attributes
-        const country = region?.country?.data?.attributes?.name
+        const countryData = region?.country?.data?.attributes
+        const countryName = countryData?.name
 
-        if (!country || !region || !district) {
+        if (!countryName || !region || !district) {
           return acc
         }
 
-        if (!acc[country]) {
-          acc[country] = {}
-        }
-        if (!acc[country][region.name]) {
-          acc[country][region.name] = {}
-        }
-        if (!acc[country][region.name][district.name]) {
-          acc[country][region.name][district.name] = []
-        }
+        // Create country key with optional emoji
+        const countryKey = countryData?.emoji
+          ? `${countryData.emoji} ${countryName}`
+          : countryName
 
-        acc[country][region.name][district.name].push({
+        if (!acc[countryKey]) {
+          acc[countryKey] = {}
+        }
+        if (!acc[countryKey][region.name]) {
+          acc[countryKey][region.name] = {}
+        }
+        if (!acc[countryKey][region.name][district.name]) {
+          acc[countryKey][region.name][district.name] = []
+        }
+        acc[countryKey][region.name][district.name].push({
           id: spot.id,
           name: spot.attributes.name,
           location: {
@@ -63,7 +66,6 @@ export async function getSpotsByCountry() {
       },
       initialAcc
     )
-
     return spotsByCountry
   } catch (error) {
     console.error('Error fetching spot list:', error)

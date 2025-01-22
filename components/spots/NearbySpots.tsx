@@ -116,7 +116,7 @@ export function NearbySpots() {
 
   return (
     <div>
-      <div className="font-bold text-3xl mb-4">Surf spots nearby</div>
+      <div className="font-bold text-4xl mb-10">Surf spots nearby</div>
       <ul className="grid grid-cols-4 gap-4">
         {nearbySpots.map((spot: SpotProps) => {
           const distance = getDistanceFromLatLonInKm(

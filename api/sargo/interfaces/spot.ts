@@ -67,6 +67,7 @@ export interface SpotAttributes {
                       data: {
                         attributes: {
                           name: string
+                          emoji: string
                         }
                       }
                     }

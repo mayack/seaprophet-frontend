@@ -37,13 +37,13 @@ export function UserMenu({ user }: UserMenuProps) {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <div className="flex items-center gap-1">
-          <Avatar className="cursor-pointer h-8 w-8 font-semibold">
+        <div className="flex items-center gap-1.5">
+          <Avatar className="cursor-pointer h-10 w-10 text-lg font-semibold">
             <AvatarFallback>
               {user.username.charAt(0).toUpperCase()}
             </AvatarFallback>
           </Avatar>
-          <ChevronDown size={12} />
+          <ChevronDown size={12} strokeWidth={3} />
         </div>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-56">
