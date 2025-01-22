@@ -1,5 +1,5 @@
-import Link from 'next/link'
 import { SpotProps } from '@/api/sargo/interfaces/spot'
+import { SpotCard } from '@/components/spots/SpotCard'
 
 interface SpotsProps {
   data: SpotProps[]
@@ -14,21 +14,14 @@ export function Spots({ data, title }: SpotsProps) {
   return (
     <div>
       <h2 className="text-2xl font-bold mb-4">{title}</h2>
-      <ul className="grid grid-cols-12 gap-4">
+      <ul className="grid grid-cols-4 gap-4">
         {data.map((spot: SpotProps) => (
-          <li
-            key={spot.id}
-            className="border p-4 rounded-lg shadow-sm col-span-4"
-          >
-            <Link
-              href={`/spots/${spot.id}`}
-              className="text-blue-500 hover:underline"
-            >
-              <h3 className="text-xl font-semibold">{spot.attributes.name}</h3>
-            </Link>
-            <div className="text-sm text-muted-foreground mt-1">
-              {spot.attributes.municipality?.data?.attributes.name}
-            </div>
+          <li key={spot.id} className="col-span-1">
+            <SpotCard
+              id={spot.id}
+              name={spot.attributes.name}
+              webcam={spot.attributes.webcam}
+            />
           </li>
         ))}
       </ul>
