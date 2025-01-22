@@ -71,12 +71,14 @@ export async function signIn(
 //   redirect('/')
 // }
 export async function signOut() {
-  // Delete the cookie
-  cookies().delete('jwt')
-
-  // Don't use redirect() in the server action
-  // Instead return a success status
-  return { success: true }
+  try {
+    // Delete the cookie
+    cookies().delete('jwt')
+    return { success: true }
+  } catch (error) {
+    console.error('Sign out error:', error)
+    return { success: false }
+  }
 }
 
 export async function signUp(

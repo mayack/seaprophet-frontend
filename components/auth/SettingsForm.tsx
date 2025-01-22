@@ -1,5 +1,4 @@
 'use client'
-
 import { useFormState } from 'react-dom'
 import { useEffect, useState } from 'react'
 import { Button } from '@/components/ui/button'
@@ -32,7 +31,7 @@ const defaultUnits: UserUnits = {
 }
 
 export function SettingsForm() {
-  const { user, refreshUser, loading } = useUser()
+  const { user, refreshUser } = useUser()
   const [state, formAction] = useFormState(updateUserSettings, initialState)
   const { toast } = useToast()
   const [isChangingPassword, setIsChangingPassword] = useState(false)
@@ -50,25 +49,17 @@ export function SettingsForm() {
     }
   }, [state, toast, refreshUser])
 
-  if (loading) {
-    return <div>Loading user data...</div>
-  }
-
-  if (!user) {
-    return <div>User not found. Please sign in.</div>
-  }
-
-  const units = user.settings?.units || defaultUnits
+  const units = user?.settings?.units || defaultUnits
 
   return (
     <form action={formAction} className="space-y-6">
       <div className="space-y-2">
         <Label htmlFor="username">Username</Label>
-        <Input id="username" name="username" defaultValue={user.username} />
+        <Input id="username" name="username" defaultValue={user?.username} />
       </div>
       <div className="space-y-2">
         <Label htmlFor="email">Email</Label>
-        <Input id="email" type="email" value={user.email} disabled />
+        <Input id="email" type="email" value={user?.email} disabled />
       </div>
       <div className="space-y-2">
         <Label htmlFor="units.wind_speed">Wind Speed</Label>

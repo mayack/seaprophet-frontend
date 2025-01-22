@@ -23,24 +23,24 @@ export function UserMenu({ user }: UserMenuProps) {
   const router = useRouter()
   const { refreshUser } = useUser()
 
-  const handleSignOut = async () => {
+  const handleSignOut = async (e: React.MouseEvent<HTMLButtonElement>) => {
+    // Prevent button from being clicked multiple times
+    e.currentTarget.disabled = true
+
     try {
       const result = await signOut()
 
       if (result.success) {
-        // First clear the user context
+        // Clear user context
         await refreshUser()
 
-        // Then replace the current route with signin
-        // Using replace instead of push to avoid history issues
+        // Use replace for navigation
         router.replace('/auth/signin')
-
-        // Optional: Clear any client-side state/cache here
-        // For example, if you're using React Query or other state management
       }
     } catch (error) {
       console.error('Error signing out:', error)
-      // Optionally show an error toast here
+      // Re-enable the button in case of error
+      e.currentTarget.disabled = false
     }
   }
 

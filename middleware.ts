@@ -1,15 +1,17 @@
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 
-export function middleware(request: NextRequest) {
-  const { pathname } = request.nextUrl
-  console.log('MIDDLEWARE RUNNING for:', pathname)
+let lastRequest: string | undefined
 
-  // Skip middleware only for static assets and API routes
+export function middleware(request: NextRequest) {
+  const { pathname, searchParams } = request.nextUrl
+
+  // Skip middleware for non-page routes
   if (
     pathname.startsWith('/_next') ||
     pathname.startsWith('/api') ||
-    pathname.includes('favicon.ico')
+    pathname.includes('favicon.ico') ||
+    searchParams.has('_rsc')
   ) {
     return NextResponse.next()
   }
@@ -18,15 +20,25 @@ export function middleware(request: NextRequest) {
   const isAuthenticated = !!token
   const authPaths = ['/auth/signin', '/auth/signup']
 
-  console.log('Auth status:', { isAuthenticated, pathname })
+  // Only log non-repeat requests
+  const requestId = `${pathname}-${isAuthenticated}`
+  if (lastRequest !== requestId) {
+    console.log('MIDDLEWARE RUNNING for:', pathname)
+    console.log('Auth status:', { isAuthenticated, pathname })
+    lastRequest = requestId
+  }
 
-  // If not authenticated and trying to access any route except auth routes
+  // Skip redirection during the logout process
+  if (request.method === 'POST' && !isAuthenticated) {
+    return NextResponse.next()
+  }
+
+  // Handle authentication redirects
   if (!isAuthenticated && !authPaths.includes(pathname)) {
     console.log('Redirecting to signin - no auth')
     return NextResponse.redirect(new URL('/auth/signin', request.url))
   }
 
-  // If authenticated and trying to access auth pages
   if (isAuthenticated && authPaths.includes(pathname)) {
     console.log('Redirecting to home - already authenticated')
     return NextResponse.redirect(new URL('/', request.url))
