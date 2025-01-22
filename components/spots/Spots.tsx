@@ -13,7 +13,7 @@ export function Spots({ data, title }: SpotsProps) {
 
   return (
     <div>
-      <h2 className="text-2xl font-bold mb-4">{title}</h2>
+      <div className="font-bold text-3xl mb-4">{title}</div>
       <ul className="grid grid-cols-4 gap-4">
         {data.map((spot: SpotProps) => (
           <li key={spot.id} className="col-span-1">

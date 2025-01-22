@@ -1,9 +1,8 @@
 'use client'
-
 import React, { useState, useEffect } from 'react'
 import { SpotProps } from '@/api/sargo/interfaces/spot'
+import { SpotCard } from '@/components/spots/SpotCard'
 import strapi from '@/api/sargo/client'
-import { Spots } from '@/components/spots/Spots'
 
 function getDistanceFromLatLonInKm(
   lat1: number,
@@ -11,7 +10,7 @@ function getDistanceFromLatLonInKm(
   lat2: number,
   lon2: number
 ) {
-  const R = 6371 // Radius of the earth in km
+  const R = 6371
   const dLat = deg2rad(lat2 - lat1)
   const dLon = deg2rad(lon2 - lon1)
   const a =
@@ -21,12 +20,18 @@ function getDistanceFromLatLonInKm(
       Math.sin(dLon / 2) *
       Math.sin(dLon / 2)
   const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
-  const d = R * c // Distance in km
-  return d
+  return R * c
 }
 
 function deg2rad(deg: number) {
   return deg * (Math.PI / 180)
+}
+
+function formatDistance(distance: number): string {
+  if (distance < 1) {
+    return `${Math.round(distance * 1000)}m away`
+  }
+  return `${distance.toFixed(1)}km`
 }
 
 export function NearbySpots() {
@@ -34,60 +39,105 @@ export function NearbySpots() {
     null
   )
   const [nearbySpots, setNearbySpots] = useState<SpotProps[]>([])
+  const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    if ('geolocation' in navigator) {
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          setUserLocation([position.coords.latitude, position.coords.longitude])
-        },
-        () => {
-          setError('Unable to retrieve your location')
+    let isMounted = true
+
+    async function initialize() {
+      if (!('geolocation' in navigator)) {
+        setError('Geolocation is not supported by your browser')
+        setIsLoading(false)
+        return
+      }
+
+      try {
+        const position = await new Promise<GeolocationPosition>(
+          (resolve, reject) => {
+            navigator.geolocation.getCurrentPosition(resolve, reject)
+          }
+        )
+
+        if (!isMounted) return
+
+        const [lat, lon] = [position.coords.latitude, position.coords.longitude]
+        setUserLocation([lat, lon])
+
+        const response = await strapi.find('spots', {
+          populate: '*',
+        })
+
+        if (!isMounted) return
+
+        const spots = response.data.filter((spot: SpotProps) => {
+          const distance = getDistanceFromLatLonInKm(
+            lat,
+            lon,
+            spot.attributes.location_lat,
+            spot.attributes.location_long
+          )
+          return distance <= 50
+        })
+
+        setNearbySpots(spots)
+      } catch (error) {
+        if (!isMounted) return
+        setError(
+          error instanceof GeolocationPositionError
+            ? 'Unable to retrieve your location'
+            : 'Failed to fetch nearby spots'
+        )
+      } finally {
+        if (isMounted) {
+          setIsLoading(false)
         }
-      )
-    } else {
-      setError('Geolocation is not supported by your browser')
+      }
+    }
+
+    initialize()
+
+    return () => {
+      isMounted = false
     }
   }, [])
 
-  useEffect(() => {
-    if (userLocation) {
-      fetchNearbySpots(userLocation[0], userLocation[1])
-    }
-  }, [userLocation])
-
-  async function fetchNearbySpots(lat: number, lon: number) {
-    try {
-      const response = await strapi.find('spots', {
-        populate: '*',
-      })
-
-      const spots = response.data
-      const nearbySpots = spots.filter((spot: SpotProps) => {
-        const distance = getDistanceFromLatLonInKm(
-          lat,
-          lon,
-          spot.attributes.location_lat,
-          spot.attributes.location_long
-        )
-        return distance <= 50 // 50km radius
-      })
-
-      setNearbySpots(nearbySpots)
-    } catch (error) {
-      console.error('Error fetching spots:', error)
-      setError('Failed to fetch nearby spots')
-    }
+  if (isLoading) {
+    return <div>Loading nearby spots...</div>
   }
 
   if (error) {
     return <div>Error: {error}</div>
   }
 
-  if (!userLocation) {
-    return <div>Determining your location...</div>
+  if (nearbySpots.length === 0) {
+    return <div>No spots available within 50km</div>
   }
 
-  return <Spots data={nearbySpots} title="Spots within 50km of your location" />
+  return (
+    <div>
+      <div className="font-bold text-3xl mb-4">Surf spots nearby</div>
+      <ul className="grid grid-cols-4 gap-4">
+        {nearbySpots.map((spot: SpotProps) => {
+          const distance = getDistanceFromLatLonInKm(
+            userLocation![0],
+            userLocation![1],
+            spot.attributes.location_lat,
+            spot.attributes.location_long
+          )
+
+          return (
+            <li key={spot.id} className="col-span-1">
+              <SpotCard
+                id={spot.id}
+                name={spot.attributes.name}
+                subtitle={formatDistance(distance)}
+                webcam={spot.attributes.webcam}
+              />
+            </li>
+          )
+        })}
+      </ul>
+    </div>
+  )
 }
