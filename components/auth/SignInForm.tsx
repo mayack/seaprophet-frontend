@@ -29,11 +29,14 @@ export function SignInForm() {
         description: state.message,
         variant: state.success ? 'default' : 'destructive',
       })
+
       if (state.success) {
-        refreshUser().then(() => {
-          router.push('/')
-          router.refresh()
-        })
+        // Combine the operations and add a small delay
+        setTimeout(() => {
+          refreshUser().then(() => {
+            router.replace('/') // Use replace instead of push
+          })
+        }, 100)
       }
     }
   }, [state, toast, router, refreshUser])

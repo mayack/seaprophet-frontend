@@ -25,12 +25,22 @@ export function UserMenu({ user }: UserMenuProps) {
 
   const handleSignOut = async () => {
     try {
-      await signOut()
-      await refreshUser()
-      router.push('/')
-      router.refresh()
+      const result = await signOut()
+
+      if (result.success) {
+        // First clear the user context
+        await refreshUser()
+
+        // Then replace the current route with signin
+        // Using replace instead of push to avoid history issues
+        router.replace('/auth/signin')
+
+        // Optional: Clear any client-side state/cache here
+        // For example, if you're using React Query or other state management
+      }
     } catch (error) {
       console.error('Error signing out:', error)
+      // Optionally show an error toast here
     }
   }
 

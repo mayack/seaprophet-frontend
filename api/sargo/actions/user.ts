@@ -41,13 +41,17 @@ export async function signIn(
       body: JSON.stringify({ identifier, password }),
     })
 
+    // Set the cookie
     cookies().set('jwt', response.jwt, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'strict',
-      maxAge: 30 * 24 * 60 * 60, // 30 days
+      maxAge: 30 * 24 * 60 * 60,
       path: '/',
     })
+
+    // Add a small delay before returning success
+    await new Promise((resolve) => setTimeout(resolve, 100))
 
     return { message: 'Signed in successfully', success: true }
   } catch (error: any) {
@@ -56,15 +60,23 @@ export async function signIn(
   }
 }
 
-export async function signOut() {
-  try {
-    cookies().delete('jwt')
-  } catch (error) {
-    console.error('Sign out error:', error)
-    return { error: 'Failed to sign out' }
-  }
+// export async function signOut() {
+//   try {
+//     cookies().delete('jwt')
+//   } catch (error) {
+//     console.error('Sign out error:', error)
+//     return { error: 'Failed to sign out' }
+//   }
 
-  redirect('/')
+//   redirect('/')
+// }
+export async function signOut() {
+  // Delete the cookie
+  cookies().delete('jwt')
+
+  // Don't use redirect() in the server action
+  // Instead return a success status
+  return { success: true }
 }
 
 export async function signUp(
