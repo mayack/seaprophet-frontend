@@ -59,7 +59,9 @@ export function SignInForm() {
 
   return (
     <div className="max-w-md mx-auto">
-      <h1 className="text-2xl font-bold mb-4">Sign In</h1>
+      <h1 className="text-5xl font-bold mb-12">
+        This site exists only for testing purposes.
+      </h1>
       <form action={handleFormAction} className="space-y-4">
         <div className="space-y-2">
           <Label htmlFor="identifier">Email or Username</Label>
