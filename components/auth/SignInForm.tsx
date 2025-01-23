@@ -58,7 +58,7 @@ export function SignInForm() {
   if (isLoading) return null
 
   return (
-    <div className="max-w-md mx-auto flex flex-col justify-center h-full">
+    <div className="max-w-md mx-auto">
       <h1 className="text-2xl font-bold mb-4">Sign In</h1>
       <form action={handleFormAction} className="space-y-4">
         <div className="space-y-2">
