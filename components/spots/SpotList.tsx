@@ -9,27 +9,33 @@ import {
 import { Separator } from '@/components/ui/separator'
 import { ArrowUp, MousePointer2, Sun, Droplet } from 'lucide-react'
 import { ForecastProps } from '@/api/polvo/interfaces/forecast'
-import TideChart from '@/components/spots/TideChart'
-import { UserUnits } from '@/api/sargo/interfaces/user'
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip'
-import {
-  formatHeight,
-  formatPeriod,
-  formatTemperature,
-  formatWindSpeed,
-} from '@/lib/units'
+
+import dynamic from 'next/dynamic'
+
+// Dynamically import TideChart with SSR disabled
+const TideChart = dynamic(() => import('@/components/spots/TideChart'), {
+  ssr: false, // Disable SSR for TideChart
+})
 
 interface SpotForecastProps {
   data: ForecastProps[]
-  units: UserUnits
+  units: {
+    wind_speed: string
+    swell_height: string
+    tide_height: string
+    temperature: string
+    surf_height: string
+  }
 }
 
-const getCardinalDirection = (degrees: number): string => {
+const getCardinalDirection = (degrees: string): string => {
+  const numericDegrees = parseInt(degrees.replace('°', ''), 10) // Strip degree symbol and convert to number
   const directions = [
     'N',
     'NNE',
@@ -48,17 +54,18 @@ const getCardinalDirection = (degrees: number): string => {
     'NW',
     'NNW',
   ]
-  const index = Math.round(degrees / 22.5) % 16
+  const index = Math.round(numericDegrees / 22.5) % 16
   return directions[index]
 }
 
 interface DirectionProps {
-  degrees: number
+  degrees: string // degrees is a string (e.g., "180°")
   isWind: boolean
 }
 
 function Direction({ degrees, isWind }: DirectionProps) {
-  const intDegrees = Math.round(degrees) - 180
+  const numericDegrees = parseFloat(degrees) // Automatically strips non-numeric characters
+  const intDegrees = Math.round(numericDegrees) - 180
   const cardinalDirection = getCardinalDirection(degrees)
 
   // Adjust rotation for MousePointer2 icon
@@ -79,7 +86,7 @@ function Direction({ degrees, isWind }: DirectionProps) {
         </TooltipTrigger>
         <TooltipContent>
           <p>
-            {degrees}° {cardinalDirection}
+            {degrees} {cardinalDirection}
           </p>
         </TooltipContent>
       </Tooltip>
@@ -87,7 +94,7 @@ function Direction({ degrees, isWind }: DirectionProps) {
   )
 }
 
-export function SpotList({ data, units }: SpotForecastProps) {
+export function SpotList({ data }: SpotForecastProps) {
   return (
     <div className="space-y-6">
       {data.map((day) => (
@@ -119,46 +126,46 @@ export function SpotList({ data, units }: SpotForecastProps) {
                   <div className="grid grid-cols-7 text-sm">
                     <div>{hour}</div>
                     <ForecastItem
-                      value={`${formatHeight(forecast.waveHeight, units.surf_height)} @ ${formatPeriod(forecast.wavePeriod)}`}
-                      direction={forecast.waveDirection}
+                      value={`${forecast.waveHeight} @ ${forecast.wavePeriod}`}
+                      direction={forecast.waveDirection.toString()} // Convert to string
                       isWind={false}
                     />
                     <ForecastItem
-                      value={`${formatHeight(forecast.swellHeight, units.swell_height)} @ ${formatPeriod(forecast.swellPeriod)}`}
-                      direction={forecast.swellDirection}
+                      value={`${forecast.swellHeight} @ ${forecast.swellPeriod}`}
+                      direction={forecast.swellDirection.toString()} // Convert to string
                       isWind={false}
                     />
                     <ForecastItem
-                      value={`${formatHeight(forecast.secondarySwellHeight, units.swell_height)} @ ${formatPeriod(forecast.secondarySwellPeriod)}`}
-                      direction={forecast.secondarySwellDirection}
+                      value={`${forecast.secondarySwellHeight} @ ${forecast.secondarySwellPeriod}`}
+                      direction={forecast.secondarySwellDirection.toString()} // Convert to string
                       isWind={false}
                     />
                     <ForecastItem
-                      value={`${formatHeight(forecast.windWaveHeight, units.surf_height)} @ ${formatPeriod(forecast.windWavePeriod)}`}
-                      direction={forecast.windWaveDirection}
+                      value={`${forecast.windWaveHeight} @ ${forecast.windWavePeriod}`}
+                      direction={forecast.windWaveDirection.toString()} // Convert to string
                       isWind={false}
                     />
                     <ForecastItem
-                      value={`${formatWindSpeed(forecast.windSpeed, units.wind_speed)} (${formatWindSpeed(forecast.gust, units.wind_speed)})`}
-                      direction={forecast.windDirection}
+                      value={`${forecast.windSpeed} (${forecast.gust})`}
+                      direction={forecast.windDirection.toString()} // Convert to string
                       isWind={true}
                     />
                     <TemperatureItem
-                      airTemp={formatTemperature(
-                        forecast.airTemperature,
-                        units.temperature
-                      )}
-                      waterTemp={formatTemperature(
-                        forecast.waterTemperature,
-                        units.temperature
-                      )}
+                      airTemp={forecast.airTemperature}
+                      waterTemp={forecast.waterTemperature}
                     />
                   </div>
                   <Separator className="my-2" />
                 </React.Fragment>
               ))}
             </div>
-            <TideChart data={day.tides} units={units} />
+            <TideChart
+              data={day.tides.map((tide) => ({
+                ...tide,
+                height: tide.height.toString(),
+                type: tide.type as 'high' | 'low',
+              }))}
+            />
           </CardContent>
         </Card>
       ))}
@@ -172,13 +179,13 @@ function ForecastItem({
   isWind,
 }: {
   value: string
-  direction?: number
+  direction?: string // direction is now a string
   isWind?: boolean
 }) {
   return (
     <div className="text-sm flex items-center">
       <span>{value}</span>
-      {direction !== undefined && (
+      {direction && (
         <span className="ml-1">
           <Direction degrees={direction} isWind={isWind || false} />
         </span>

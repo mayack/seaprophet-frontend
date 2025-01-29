@@ -18,13 +18,29 @@ export async function getSpotList() {
 export async function getSpotsByCountry() {
   try {
     const response = await strapi.find('spots', {
-      populate: 'municipality.district.region.country, webcam',
+      populate: {
+        municipality: {
+          populate: {
+            district: {
+              populate: {
+                region: {
+                  populate: {
+                    country: true,
+                  },
+                },
+              },
+            },
+          },
+        },
+        webcam: true,
+      },
+      fields: ['name', 'location_lat', 'location_long'], // Specify only the fields you need
       sort: [
-        'municipality.district.region.country.name', // Sort by country name
-        'municipality.district.region.name', // Sort by region name
-        'municipality.district.name', // Sort by district name
-        'municipality.name', // Sort by municipality name first
-        'name', // Then sort spots by name within municipality
+        'municipality.district.region.country.name',
+        'municipality.district.region.name',
+        'municipality.district.name',
+        'municipality.name',
+        'name',
       ],
     })
 
@@ -65,8 +81,6 @@ export async function getSpotsByCountry() {
             long: spot.attributes.location_long,
           },
           municipality: municipality.name,
-          environment: spot.attributes.environment,
-          rating: spot.attributes.surf_rating,
           webcam: spot.attributes.webcam,
         })
         return acc

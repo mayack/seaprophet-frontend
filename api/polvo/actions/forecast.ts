@@ -2,6 +2,7 @@ import { createPolvoClient } from '@/api/polvo/client'
 import strapi from '@/api/sargo/client'
 import { SpotProps } from '@/api/sargo/interfaces/spot'
 import { ForecastProps } from '@/api/polvo/interfaces/forecast'
+import { UserUnits } from '@/api/sargo/interfaces/user'
 
 interface SpotForecastResponse {
   spot: SpotProps | null
@@ -10,7 +11,8 @@ interface SpotForecastResponse {
 }
 
 export async function getSpotWithForecast(
-  id: number
+  id: number,
+  units: UserUnits
 ): Promise<SpotForecastResponse> {
   console.log(`Fetching spot with forecast for id: ${id}`)
   try {
@@ -27,7 +29,8 @@ export async function getSpotWithForecast(
     try {
       const forecast = await apiClient.getForecast(
         spot.attributes.location_lat,
-        spot.attributes.location_long
+        spot.attributes.location_long,
+        units // Pass the units to the backend
       )
       return { spot, forecast, error: null }
     } catch (forecastError: Error | unknown) {
@@ -45,22 +48,5 @@ export async function getSpotWithForecast(
       forecast: null,
       error: 'Failed to fetch spot data',
     }
-  }
-}
-
-interface SpotListResponse {
-  spots: SpotProps[]
-  error: string | null
-}
-
-export async function getSpotList(): Promise<SpotListResponse> {
-  try {
-    const response = await strapi.find('spot-list', {
-      populate: '*',
-    })
-    return { spots: response.data.attributes.spots.data, error: null }
-  } catch (error: Error | unknown) {
-    console.error('Error fetching spot list:', error)
-    return { spots: [], error: 'Failed to load spots. Please try again later.' }
   }
 }

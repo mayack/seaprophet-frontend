@@ -1,8 +1,8 @@
 'use client'
-import React, { useState, useEffect } from 'react'
-import { SpotProps } from '@/api/sargo/interfaces/spot'
+import React, { useEffect, useState } from 'react'
+import { SpotsByCountry } from '@/api/sargo/interfaces/spot'
 import { SpotCard } from '@/components/spots/SpotCard'
-import strapi from '@/api/sargo/client'
+import { useUser } from '@/contexts/UserContext'
 
 function getDistanceFromLatLonInKm(
   lat1: number,
@@ -10,7 +10,7 @@ function getDistanceFromLatLonInKm(
   lat2: number,
   lon2: number
 ) {
-  const R = 6371
+  const R = 6371 // Radius of the earth in km
   const dLat = deg2rad(lat2 - lat1)
   const dLon = deg2rad(lon2 - lon1)
   const a =
@@ -20,7 +20,7 @@ function getDistanceFromLatLonInKm(
       Math.sin(dLon / 2) *
       Math.sin(dLon / 2)
   const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
-  return R * c
+  return R * c // Distance in km
 }
 
 function deg2rad(deg: number) {
@@ -34,11 +34,13 @@ function formatDistance(distance: number): string {
   return `${distance.toFixed(1)}km`
 }
 
-export function NearbySpots() {
-  const [userLocation, setUserLocation] = useState<[number, number] | null>(
-    null
-  )
-  const [nearbySpots, setNearbySpots] = useState<SpotProps[]>([])
+interface NearbySpotsProps {
+  spotsByCountry: SpotsByCountry
+}
+
+export function NearbySpots({ spotsByCountry }: NearbySpotsProps) {
+  const { userLocation, nearbySpots, setUserLocation, setNearbySpots } =
+    useUser()
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -46,6 +48,13 @@ export function NearbySpots() {
     let isMounted = true
 
     async function initialize() {
+      if (userLocation) {
+        // If location is already set, calculate nearby spots
+        calculateNearbySpots(userLocation)
+        setIsLoading(false)
+        return
+      }
+
       if (!('geolocation' in navigator)) {
         setError('Geolocation is not supported by your browser')
         setIsLoading(false)
@@ -64,23 +73,7 @@ export function NearbySpots() {
         const [lat, lon] = [position.coords.latitude, position.coords.longitude]
         setUserLocation([lat, lon])
 
-        const response = await strapi.find('spots', {
-          populate: '*',
-        })
-
-        if (!isMounted) return
-
-        const spots = response.data.filter((spot: SpotProps) => {
-          const distance = getDistanceFromLatLonInKm(
-            lat,
-            lon,
-            spot.attributes.location_lat,
-            spot.attributes.location_long
-          )
-          return distance <= 50
-        })
-
-        setNearbySpots(spots)
+        calculateNearbySpots([lat, lon])
       } catch (error) {
         if (!isMounted) return
         setError(
@@ -95,12 +88,41 @@ export function NearbySpots() {
       }
     }
 
+    function calculateNearbySpots([lat, lon]: [number, number]) {
+      // Flatten the spotsByCountry object into an array of spots
+      const allSpots = Object.values(spotsByCountry).flatMap((regions) =>
+        Object.values(regions).flatMap((districts) =>
+          Object.values(districts).flat()
+        )
+      )
+
+      // Filter spots within 50km of the user's location
+      const nearby = allSpots.filter((spot) => {
+        const distance = getDistanceFromLatLonInKm(
+          lat,
+          lon,
+          spot.location.lat,
+          spot.location.long
+        )
+        return distance <= 50
+      })
+
+      setNearbySpots(nearby)
+    }
+
     initialize()
 
     return () => {
       isMounted = false
     }
-  }, [])
+  }, [spotsByCountry, userLocation, setUserLocation, setNearbySpots])
+
+  // If userLocation is already available, skip loading state
+  useEffect(() => {
+    if (userLocation) {
+      setIsLoading(false)
+    }
+  }, [userLocation])
 
   if (isLoading) {
     return <div>Loading nearby spots...</div>
@@ -118,21 +140,21 @@ export function NearbySpots() {
     <div>
       <div className="font-bold text-4xl mb-10">Surf spots nearby</div>
       <ul className="grid grid-cols-4 gap-4">
-        {nearbySpots.map((spot: SpotProps) => {
+        {nearbySpots.map((spot) => {
           const distance = getDistanceFromLatLonInKm(
             userLocation![0],
             userLocation![1],
-            spot.attributes.location_lat,
-            spot.attributes.location_long
+            spot.location.lat,
+            spot.location.long
           )
 
           return (
             <li key={spot.id} className="col-span-1">
               <SpotCard
                 id={spot.id}
-                name={spot.attributes.name}
+                name={spot.name}
                 subtitle={formatDistance(distance)}
-                webcam={spot.attributes.webcam}
+                webcam={spot.webcam}
               />
             </li>
           )

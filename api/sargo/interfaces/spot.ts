@@ -96,8 +96,6 @@ export interface SpotSummary {
     long: number
   }
   municipality: string
-  environment: string | null
-  rating: number | null
   webcam: WebcamConfig | undefined
 }
 

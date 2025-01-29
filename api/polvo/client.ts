@@ -1,4 +1,5 @@
 import { ForecastProps } from '@/api/polvo/interfaces/forecast'
+import { UserUnits } from '@/api/sargo/interfaces/user'
 
 export class PolvoClient {
   private baseUrl: string
@@ -52,7 +53,7 @@ export class PolvoClient {
 
     const response = await fetch(url, {
       headers,
-      cache: 'no-store',
+      cache: 'no-store', // Ensure fresh data is fetched
     })
 
     if (!response.ok) {
@@ -65,12 +66,23 @@ export class PolvoClient {
 
   async getForecast(
     latitude: number,
-    longitude: number
+    longitude: number,
+    units: UserUnits
   ): Promise<{ days: ForecastProps[] }> {
-    const url = `${this.baseUrl}/api/forecast/${latitude}/${longitude}`
-    console.log('Fetching forecast from URL:', url)
+    // Construct the URL with query parameters for units
+    const url = new URL(`${this.baseUrl}/api/forecast/${latitude}/${longitude}`)
+    url.searchParams.set('windUnits', units.wind_speed)
+    url.searchParams.set('swellUnits', units.swell_height)
+    url.searchParams.set('tideUnits', units.tide_height)
+    url.searchParams.set('tempUnits', units.temperature)
+    url.searchParams.set('surfUnits', units.surf_height)
+
+    console.log('Fetching forecast from URL:', url.toString())
+
     try {
-      const data = await this.fetchJson<{ days: ForecastProps[] }>(url)
+      const data = await this.fetchJson<{ days: ForecastProps[] }>(
+        url.toString()
+      )
       return data
     } catch (error) {
       console.error('Error in getForecast:', error)

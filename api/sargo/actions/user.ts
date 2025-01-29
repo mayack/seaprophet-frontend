@@ -1,7 +1,6 @@
 'use server'
 
 import { cookies } from 'next/headers'
-import { redirect } from 'next/navigation'
 import { FormState } from '@/api/sargo/interfaces/formState'
 import { UserUnits } from '../interfaces/user'
 

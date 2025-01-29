@@ -1,24 +1,25 @@
-import React, { useState, useRef, useMemo } from 'react'
-import { UserUnits } from '@/api/sargo/interfaces/user'
+'use client'
+
+import React, { useState, useRef, useMemo, useCallback } from 'react'
 
 interface ExtendedTideProps {
   time: string
-  height: number
+  height: string // height is now a string
   type: 'prevExtreme' | 'high' | 'low' | 'nextExtreme'
 }
 
 interface TideChartProps {
   data: ExtendedTideProps[]
-  units: UserUnits
 }
 
-const TideChart: React.FC<TideChartProps> = ({ data, units }) => {
+const TideChart: React.FC<TideChartProps> = ({ data }) => {
+  console.log(parseFloat(data[0].height), 'tidedata')
   const width = 800
   const height = 150
   const padding = 40
 
   const [mousePosition, setMousePosition] = useState<number | null>(null)
-  const [currentTideValue, setCurrentTideValue] = useState<number | null>(null)
+  const [currentTideValue, setCurrentTideValue] = useState<string | null>(null)
   const svgRef = useRef<SVGSVGElement>(null)
 
   const timeToMinutes = (time: string): number => {
@@ -32,22 +33,25 @@ const TideChart: React.FC<TideChartProps> = ({ data, units }) => {
     return `${hours.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}`
   }
 
-  const interpolate = (
-    start: ExtendedTideProps,
-    end: ExtendedTideProps,
-    minute: number
-  ): number => {
-    let startMinutes = timeToMinutes(start.time)
-    let endMinutes = timeToMinutes(end.time)
+  const interpolate = useCallback(
+    (
+      start: ExtendedTideProps,
+      end: ExtendedTideProps,
+      minute: number
+    ): number => {
+      let startMinutes = timeToMinutes(start.time)
+      let endMinutes = timeToMinutes(end.time)
 
-    if (start.type === 'prevExtreme') startMinutes -= 1440
-    if (end.type === 'nextExtreme') endMinutes += 1440
+      if (start.type === 'prevExtreme') startMinutes -= 1440
+      if (end.type === 'nextExtreme') endMinutes += 1440
 
-    const totalMinutes = endMinutes - startMinutes
-    const progress = (minute - startMinutes) / totalMinutes
-    const t = (1 - Math.cos(progress * Math.PI)) / 2 // Smooth interpolation
-    return start.height * (1 - t) + end.height * t
-  }
+      const totalMinutes = endMinutes - startMinutes
+      const progress = (minute - startMinutes) / totalMinutes
+      const t = (1 - Math.cos(progress * Math.PI)) / 2 // Smooth interpolation
+      return parseFloat(start.height) * (1 - t) + parseFloat(end.height) * t
+    },
+    []
+  )
 
   const tideData = useMemo(() => {
     const sortedData = [...data].sort(
@@ -74,18 +78,11 @@ const TideChart: React.FC<TideChartProps> = ({ data, units }) => {
     ]
   }, [data])
 
-  const minHeight = Math.min(...tideData.map((tide) => tide.height))
-  const maxHeight = Math.max(...tideData.map((tide) => tide.height))
+  const minHeight = Math.min(...tideData.map((tide) => parseFloat(tide.height)))
+  const maxHeight = Math.max(...tideData.map((tide) => parseFloat(tide.height)))
 
   const xScale = (width - 2 * padding) / 1440 // 1440 minutes in a day
   const yScale = (height - 2 * padding) / (maxHeight - minHeight)
-
-  const formatTideHeight = (height: number): string => {
-    if (units.tide_height === 'feet') {
-      return (height * 3.28084).toFixed(2)
-    }
-    return height.toFixed(2)
-  }
 
   // Generate curve points
   const curvePoints = useMemo(() => {
@@ -113,7 +110,7 @@ const TideChart: React.FC<TideChartProps> = ({ data, units }) => {
       points.push(`${x},${yPos}`)
     }
     return points
-  }, [tideData, xScale, yScale, height, padding, minHeight])
+  }, [tideData, xScale, yScale, height, padding, minHeight, interpolate])
 
   const pathData = `M ${curvePoints.join(' L ')}`
 
@@ -145,7 +142,7 @@ const TideChart: React.FC<TideChartProps> = ({ data, units }) => {
         }
 
         const tideHeight = interpolate(startTide, endTide, minutes)
-        setCurrentTideValue(tideHeight)
+        setCurrentTideValue(tideHeight.toFixed(2))
       } else {
         setMousePosition(null)
         setCurrentTideValue(null)
@@ -177,7 +174,8 @@ const TideChart: React.FC<TideChartProps> = ({ data, units }) => {
           )
           .map((tide, index) => {
             const x = padding + timeToMinutes(tide.time) * xScale
-            const y = height - padding - (tide.height - minHeight) * yScale
+            const y =
+              height - padding - (parseFloat(tide.height) - minHeight) * yScale
             return (
               <g key={index}>
                 <circle cx={x} cy={y} r="4" fill="red" />
@@ -185,8 +183,7 @@ const TideChart: React.FC<TideChartProps> = ({ data, units }) => {
                   {tide.time}
                 </text>
                 <text x={x} y={y - 10} textAnchor="middle" fontSize="12">
-                  {formatTideHeight(tide.height)}
-                  {units.tide_height === 'feet' ? 'ft' : 'm'}
+                  {tide.height}
                 </text>
               </g>
             )
@@ -219,10 +216,7 @@ const TideChart: React.FC<TideChartProps> = ({ data, units }) => {
           <p className="text-sm font-semibold">
             Time: {minutesToTime(mousePosition)}
           </p>
-          <p className="text-sm">
-            Tide: {formatTideHeight(currentTideValue)}
-            {units.tide_height === 'feet' ? 'ft' : 'm'}
-          </p>
+          <p className="text-sm">Tide: {currentTideValue}</p>
         </div>
       )}
     </div>

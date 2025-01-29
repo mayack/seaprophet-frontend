@@ -7,7 +7,7 @@ export interface ForecastProps {
 }
 
 export interface HourlyForecastProps {
-  airTemperature: number
+  airTemperature: string
   cloudCover: number
   gust: number
   humidity: number
@@ -20,7 +20,7 @@ export interface HourlyForecastProps {
   swellHeight: number
   swellPeriod: number
   visibility: number
-  waterTemperature: number
+  waterTemperature: string
   waveDirection: number
   waveHeight: number
   wavePeriod: number

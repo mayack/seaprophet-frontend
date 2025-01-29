@@ -7,7 +7,19 @@ import { WebcamViewer } from '@/components/spots/WebcamViewer'
 import { getCurrentUser } from '@/api/sargo/actions/user'
 
 async function SpotContent({ id }: { id: string }) {
-  const { spot, forecast, error } = await getSpotWithForecast(parseInt(id))
+  const user = await getCurrentUser()
+  const units = user?.settings?.units || {
+    wind_speed: 'knots',
+    swell_height: 'feet',
+    tide_height: 'feet',
+    temperature: 'celsius',
+    surf_height: 'feet',
+  }
+
+  const { spot, forecast, error } = await getSpotWithForecast(
+    parseInt(id),
+    units
+  )
 
   if (error) {
     return <div className="text-red-500">{error}</div>
@@ -23,7 +35,8 @@ async function SpotContent({ id }: { id: string }) {
   ]
 
   const webcamConfig = spot.attributes.webcam
-  const user = await getCurrentUser()
+
+  console.log(forecast?.days[0], 'forecast')
 
   return (
     <>
