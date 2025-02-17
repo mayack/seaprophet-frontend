@@ -1,10 +1,9 @@
 import { Suspense } from 'react'
 import { getSpotWithForecast } from '@/api/polvo/actions/forecast'
 import { SpotsWithForecast } from '@/components/spots/SpotsWithForecast'
-import { Map } from '@/components/spots/Map'
 import SpotLoading from './loading'
-import { WebcamViewer } from '@/components/spots/WebcamViewer'
 import { getCurrentUser } from '@/api/sargo/actions/user'
+import { SpotVisual } from '@/components/spots/SpotVisual'
 
 async function SpotContent({ id }: { id: string }) {
   const user = await getCurrentUser()
@@ -39,20 +38,15 @@ async function SpotContent({ id }: { id: string }) {
   console.log(forecast?.days[0], 'forecast')
 
   return (
-    <>
-      <h1 className="text-5xl font-bold mb-6">{spot.attributes.name}</h1>
-      <div className="my-6">
-        <Map center={mapCenter} zoom={12} />
-      </div>
-
-      {user && webcamConfig && (
-        <WebcamViewer
-          config={webcamConfig}
-          title={`${spot?.attributes.name} Webcam`}
-        />
-      )}
+    <div className="space-y-16">
+      <SpotVisual
+        mapCenter={mapCenter}
+        webcamConfig={webcamConfig}
+        spotName={spot.attributes.name}
+        user={user}
+      />
       <SpotsWithForecast data={forecast} />
-    </>
+    </div>
   )
 }
 

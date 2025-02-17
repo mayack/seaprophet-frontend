@@ -1,5 +1,4 @@
 import React from 'react'
-import { Separator } from '@/components/ui/separator'
 import { ArrowUp, MousePointer2, Sun, Droplet } from 'lucide-react'
 import { ForecastProps } from '@/api/polvo/interfaces/forecast'
 import {
@@ -91,8 +90,8 @@ function Direction({ degrees, isWind }: DirectionProps) {
 export function SpotList({ data }: SpotForecastProps) {
   return (
     <div className="relative">
-      <div className="sticky top-0 bg-background flex items-center gap-16 py-2 z-20 border-b">
-        <div className="w-80 text-lg">Forecast</div>
+      <div className="sticky top-0 bg-background flex items-center gap-16 py-2 z-20">
+        <div className="w-80">Forecast</div>
         <div className="flex flex-1 text-xs font-semibold">
           <div className="w-20">Time</div>
           <div className="flex-1">Wave</div>
@@ -103,12 +102,12 @@ export function SpotList({ data }: SpotForecastProps) {
           <div className="flex-1">Temperature</div>
         </div>
       </div>
-      <div className="space-y-16 pt-4">
+      <div className="space-y-16 pt-2">
         {data.map((day) => (
           <div key={day.date} className="flex gap-16">
-            <aside className="w-80 flex flex-col gap-8">
+            <aside className="w-80 flex flex-col gap-8 pt-3">
               <h3>
-                <div className="text-3xl">
+                <div className="text-3xl font-semibold">
                   {new Date(day.date).toLocaleDateString('en-US', {
                     weekday: 'long',
                   })}
@@ -135,7 +134,7 @@ export function SpotList({ data }: SpotForecastProps) {
               {Object.entries(day.forecast).map(([hour, forecast], index) => (
                 <div
                   key={hour}
-                  className={`py-3 flex text-sm ${index !== 0 ? 'border-t' : ''}`}
+                  className={`py-3 flex items-center text-sm ${index !== 0 ? 'border-t' : ''}`}
                 >
                   <div className="text-sm w-20">{hour}</div>
                   <ForecastItem

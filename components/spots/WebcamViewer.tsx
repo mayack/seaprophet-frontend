@@ -1,7 +1,6 @@
 'use client'
 
 import { useEffect, useRef } from 'react'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import Hls from 'hls.js'
 import { webcamProviders } from '@/config/webcamProviders'
 import { WebcamConfig } from '@/api/sargo/interfaces/spot'
@@ -88,22 +87,15 @@ export function WebcamViewer({ config }: WebcamViewerProps) {
   }, [config])
 
   return (
-    <Card className="w-full mb-6">
-      <CardHeader>
-        <CardTitle className="font-semibold">Live Webcam</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <div className="aspect-video relative">
-          <video
-            ref={videoRef}
-            className="w-full h-full"
-            controls
-            playsInline
-            autoPlay
-            muted
-          />
-        </div>
-      </CardContent>
-    </Card>
+    <div className="aspect-video relative">
+      <video
+        ref={videoRef}
+        className="w-full h-full"
+        controls
+        playsInline
+        autoPlay
+        muted
+      />
+    </div>
   )
 }
