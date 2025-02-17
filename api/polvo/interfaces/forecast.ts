@@ -4,6 +4,7 @@ export interface ForecastProps {
     [hour: string]: HourlyForecastProps
   }
   tides: TideProps[]
+  astronomical: AstronomicalProps
 }
 
 export interface HourlyForecastProps {
@@ -33,6 +34,13 @@ export interface HourlyForecastProps {
 
 export interface TideProps {
   time: string
-  height: number
-  type: 'high' | 'low'
+  height: string
+  type: 'high' | 'low' | 'prevExtreme' | 'nextExtreme'
+}
+
+export interface AstronomicalProps {
+  sunrise: string
+  sunset: string
+  firstLight: string
+  lastLight: string
 }

@@ -1,11 +1,4 @@
 import React from 'react'
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-  CardDescription,
-} from '@/components/ui/card'
 import { Separator } from '@/components/ui/separator'
 import { ArrowUp, MousePointer2, Sun, Droplet } from 'lucide-react'
 import { ForecastProps } from '@/api/polvo/interfaces/forecast'
@@ -17,6 +10,7 @@ import {
 } from '@/components/ui/tooltip'
 
 import dynamic from 'next/dynamic'
+import { AstronomicalBreakdown } from './AstronomicalBreakdown'
 
 // Dynamically import TideChart with SSR disabled
 const TideChart = dynamic(() => import('@/components/spots/TideChart'), {
@@ -96,79 +90,89 @@ function Direction({ degrees, isWind }: DirectionProps) {
 
 export function SpotList({ data }: SpotForecastProps) {
   return (
-    <div className="space-y-6">
-      {data.map((day) => (
-        <Card key={day.date}>
-          <CardHeader>
-            <CardTitle>
-              {new Date(day.date).toLocaleDateString('en-US', {
-                weekday: 'long',
-                year: 'numeric',
-                month: 'long',
-                day: 'numeric',
-              })}
-            </CardTitle>
-            <CardDescription>Tidal and Weather Forecast</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4 mb-10">
-              <div className="grid grid-cols-7 text-xs font-medium">
-                <div>Time</div>
-                <div>Wave</div>
-                <div>Primary Swell</div>
-                <div>Secondary Swell</div>
-                <div>Wind Wave</div>
-                <div>Wind</div>
-                <div>Temperature</div>
-              </div>
-              {Object.entries(day.forecast).map(([hour, forecast]) => (
-                <React.Fragment key={hour}>
-                  <div className="grid grid-cols-7 text-sm">
-                    <div>{hour}</div>
-                    <ForecastItem
-                      value={`${forecast.waveHeight} @ ${forecast.wavePeriod}`}
-                      direction={forecast.waveDirection.toString()} // Convert to string
-                      isWind={false}
-                    />
-                    <ForecastItem
-                      value={`${forecast.swellHeight} @ ${forecast.swellPeriod}`}
-                      direction={forecast.swellDirection.toString()} // Convert to string
-                      isWind={false}
-                    />
-                    <ForecastItem
-                      value={`${forecast.secondarySwellHeight} @ ${forecast.secondarySwellPeriod}`}
-                      direction={forecast.secondarySwellDirection.toString()} // Convert to string
-                      isWind={false}
-                    />
-                    <ForecastItem
-                      value={`${forecast.windWaveHeight} @ ${forecast.windWavePeriod}`}
-                      direction={forecast.windWaveDirection.toString()} // Convert to string
-                      isWind={false}
-                    />
-                    <ForecastItem
-                      value={`${forecast.windSpeed} (${forecast.gust})`}
-                      direction={forecast.windDirection.toString()} // Convert to string
-                      isWind={true}
-                    />
-                    <TemperatureItem
-                      airTemp={forecast.airTemperature}
-                      waterTemp={forecast.waterTemperature}
-                    />
-                  </div>
-                  <Separator className="my-2" />
-                </React.Fragment>
+    <div className="relative">
+      <div className="sticky top-0 bg-background flex items-center gap-16 py-2 z-20 border-b">
+        <div className="w-80 text-lg">Forecast</div>
+        <div className="flex flex-1 text-xs font-semibold">
+          <div className="w-20">Time</div>
+          <div className="flex-1">Wave</div>
+          <div className="flex-1">Primary Swell</div>
+          <div className="flex-1">Secondary Swell</div>
+          <div className="flex-1">Wind Wave</div>
+          <div className="flex-1">Wind</div>
+          <div className="flex-1">Temperature</div>
+        </div>
+      </div>
+      <div className="space-y-16 pt-4">
+        {data.map((day) => (
+          <div key={day.date} className="flex gap-16">
+            <aside className="w-80 flex flex-col gap-8">
+              <h3>
+                <div className="text-3xl">
+                  {new Date(day.date).toLocaleDateString('en-US', {
+                    weekday: 'long',
+                  })}
+                </div>
+                <div className="text-muted-foreground">
+                  {new Date(day.date).toLocaleDateString('en-US', {
+                    month: 'long',
+                    day: 'numeric',
+                  })}
+                </div>
+              </h3>
+
+              <TideChart
+                data={day.tides.map((tide) => ({
+                  ...tide,
+                  height: tide.height.toString(),
+                  type: tide.type as 'high' | 'low',
+                }))}
+                astronomical={day.astronomical}
+              />
+              <AstronomicalBreakdown astronomical={day.astronomical} />
+            </aside>
+            <div className="flex-1">
+              {Object.entries(day.forecast).map(([hour, forecast], index) => (
+                <div
+                  key={hour}
+                  className={`py-3 flex text-sm ${index !== 0 ? 'border-t' : ''}`}
+                >
+                  <div className="text-sm w-20">{hour}</div>
+                  <ForecastItem
+                    value={`${forecast.waveHeight} @ ${forecast.wavePeriod}`}
+                    direction={forecast.waveDirection.toString()} // Convert to string
+                    isWind={false}
+                  />
+                  <ForecastItem
+                    value={`${forecast.swellHeight} @ ${forecast.swellPeriod}`}
+                    direction={forecast.swellDirection.toString()} // Convert to string
+                    isWind={false}
+                  />
+                  <ForecastItem
+                    value={`${forecast.secondarySwellHeight} @ ${forecast.secondarySwellPeriod}`}
+                    direction={forecast.secondarySwellDirection.toString()} // Convert to string
+                    isWind={false}
+                  />
+                  <ForecastItem
+                    value={`${forecast.windWaveHeight} @ ${forecast.windWavePeriod}`}
+                    direction={forecast.windWaveDirection.toString()} // Convert to string
+                    isWind={false}
+                  />
+                  <ForecastItem
+                    value={`${forecast.windSpeed} (${forecast.gust})`}
+                    direction={forecast.windDirection.toString()} // Convert to string
+                    isWind={true}
+                  />
+                  <TemperatureItem
+                    airTemp={forecast.airTemperature}
+                    waterTemp={forecast.waterTemperature}
+                  />
+                </div>
               ))}
             </div>
-            <TideChart
-              data={day.tides.map((tide) => ({
-                ...tide,
-                height: tide.height.toString(),
-                type: tide.type as 'high' | 'low',
-              }))}
-            />
-          </CardContent>
-        </Card>
-      ))}
+          </div>
+        ))}
+      </div>
     </div>
   )
 }
@@ -183,7 +187,7 @@ function ForecastItem({
   isWind?: boolean
 }) {
   return (
-    <div className="text-sm flex items-center">
+    <div className="flex-1 text-sm flex items-center">
       <span>{value}</span>
       {direction && (
         <span className="ml-1">
@@ -202,7 +206,7 @@ function TemperatureItem({
   waterTemp: string
 }) {
   return (
-    <div className="text-sm flex items-center space-x-2">
+    <div className="text-sm flex flex-1 items-center space-x-2">
       <span className="flex items-center">
         <Sun className="w-4 h-4 mr-1" />
         {airTemp}
