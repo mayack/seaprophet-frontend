@@ -10,7 +10,7 @@ export function AstronomicalBreakdown({
   astronomical,
 }: AstronomicalBreakdownProps) {
   return (
-    <div className="space-y-2">
+    <div className="space-y-1">
       <InfoBreakdownLine
         icon={<MoonStar className="w-4 h-4" />}
         label="First Light"

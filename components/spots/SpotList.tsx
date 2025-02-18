@@ -111,7 +111,7 @@ function Direction({ degrees, isWind, size = 'medium' }: DirectionProps) {
 function WaveItem({ height, period, direction }: WaveItemProps) {
   return (
     <div className="col-span-6">
-      <div className="text-sm inline-flex gap-2 items-center bg-muted rounded py-1 px-2 whitespace-nowrap">
+      <div className="inline-flex gap-2 items-center bg-muted rounded py-1 px-2 whitespace-nowrap">
         <div className="font-medium">{height}</div>
         <div>{period}</div>
         <Direction degrees={direction} isWind={false} />
@@ -122,7 +122,7 @@ function WaveItem({ height, period, direction }: WaveItemProps) {
 
 function SwellItem({ height, period, direction }: SwellItemProps) {
   return (
-    <div className="col-span-5 text-xs flex gap-2 items-center">
+    <div className="text-sm col-span-5 flex gap-2 items-center">
       <span className="font-medium">{height}</span>
       <span>{period}</span>
       <Direction degrees={direction} isWind={false} size="small" />
@@ -135,17 +135,17 @@ function WindItem({ speed, gust, direction }: WindItemProps) {
   const gustValue = gust.match(/(\d+)/)?.[1] ?? ''
 
   return (
-    <div className="col-span-5 flex gap-1.5 items-center">
-      <div className="flex items-center gap-1.5">
-        <div className="min-w-6 text-lg">{speedValue}</div>
+    <div className="col-span-5 flex gap-3 items-center">
+      <div className="flex items-center gap-1">
+        <div className="min-w-7 text-center text-lg">{speedValue}</div>
         <div className="flex flex-col">
-          <div className="text-xs leading-none">{gustValue}</div>
+          <div className="text-2xs leading-none">{gustValue}</div>
           <div className="text-2xs leading-none">{unit}</div>
         </div>
       </div>
-      <span className="ml-1">
+      <div className="w-7 h-7 bg-muted rounded-full flex items-center justify-center">
         <Direction degrees={direction} isWind={true} size="large" />
-      </span>
+      </div>
     </div>
   )
 }
@@ -202,7 +202,7 @@ export function SpotList({ data }: SpotForecastProps) {
               {Object.entries(day.forecast).map(([hour, forecast], index) => (
                 <div
                   key={hour}
-                  className={`py-2.5 grid grid-cols-32 items-center text-sm ${index !== 0 ? 'border-t' : ''}`}
+                  className={`py-2.5 grid grid-cols-32 items-center ${index !== 0 ? 'border-t' : ''}`}
                 >
                   <div className="col-span-3 text-xs">{hour}</div>
                   <WaveItem

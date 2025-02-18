@@ -255,7 +255,8 @@ const TideChart: React.FC<TideChartProps> = ({ data, astronomical }) => {
                   x={getTextPosition(x).x}
                   y={y - 24}
                   textAnchor={getTextPosition(x).anchor}
-                  fontSize="12"
+                  fontSize="10"
+                  fontWeight="500"
                 >
                   {tide.time}
                 </text>
@@ -294,11 +295,9 @@ const TideChart: React.FC<TideChartProps> = ({ data, astronomical }) => {
           }}
         >
           <p className="text-xs font-semibold leading-none">
-            {currentTideValue}
-          </p>
-          <p className="text-2xs leading-none">
             {minutesToTime(mousePosition)}
           </p>
+          <p className="text-2xs leading-none">{currentTideValue}</p>
         </div>
       )}
     </div>
