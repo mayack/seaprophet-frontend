@@ -1,5 +1,5 @@
 import React from 'react'
-import { ArrowUp, MousePointer2, Sun, Droplet } from 'lucide-react'
+import { ArrowUp, MousePointer2, Sun } from 'lucide-react'
 import { ForecastProps } from '@/api/polvo/interfaces/forecast'
 import {
   Tooltip,
@@ -7,13 +7,12 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip'
-
 import dynamic from 'next/dynamic'
 import { AstronomicalBreakdown } from './AstronomicalBreakdown'
+import { GeneralBreakdown } from './GeneralBreakdown'
 
-// Dynamically import TideChart with SSR disabled
 const TideChart = dynamic(() => import('@/components/spots/TideChart'), {
-  ssr: false, // Disable SSR for TideChart
+  ssr: false,
 })
 
 interface SpotForecastProps {
@@ -27,8 +26,32 @@ interface SpotForecastProps {
   }
 }
 
+interface DirectionProps {
+  degrees: string
+  isWind: boolean
+  size?: 'small' | 'medium' | 'large'
+}
+
+interface WaveItemProps {
+  height: string
+  period: string
+  direction: string
+}
+
+interface SwellItemProps extends WaveItemProps {}
+
+interface WindItemProps {
+  speed: string
+  gust: string
+  direction: string
+}
+
+interface TemperatureItemProps {
+  airTemp: string
+}
+
 const getCardinalDirection = (degrees: string): string => {
-  const numericDegrees = parseInt(degrees.replace('°', ''), 10) // Strip degree symbol and convert to number
+  const numericDegrees = parseInt(degrees.replace('°', ''), 10)
   const directions = [
     'N',
     'NNE',
@@ -51,28 +74,26 @@ const getCardinalDirection = (degrees: string): string => {
   return directions[index]
 }
 
-interface DirectionProps {
-  degrees: string // degrees is a string (e.g., "180°")
-  isWind: boolean
-}
-
-function Direction({ degrees, isWind }: DirectionProps) {
-  const numericDegrees = parseFloat(degrees) // Automatically strips non-numeric characters
+function Direction({ degrees, isWind, size = 'medium' }: DirectionProps) {
+  const numericDegrees = parseFloat(degrees)
   const intDegrees = Math.round(numericDegrees) - 180
   const cardinalDirection = getCardinalDirection(degrees)
-
-  // Adjust rotation for MousePointer2 icon
   const adjustedDegrees = isWind ? intDegrees : (intDegrees + 45) % 360
-
   const Icon = isWind ? ArrowUp : MousePointer2
+  const sizes = {
+    small: 'w-3 h-3',
+    medium: 'w-4 h-4',
+    large: 'w-5 h-5',
+  }
+  const iconSize = sizes[size]
 
   return (
     <TooltipProvider>
       <Tooltip>
-        <TooltipTrigger>
-          <div className="relative inline-flex items-center justify-center w-6 h-6">
+        <TooltipTrigger className="flex">
+          <div className="relative inline-flex items-center justify-center">
             <Icon
-              className="w-4 h-4 text-foreground"
+              className={`${iconSize} text-foreground`}
               style={{ transform: `rotate(${adjustedDegrees}deg)` }}
             />
           </div>
@@ -87,25 +108,76 @@ function Direction({ degrees, isWind }: DirectionProps) {
   )
 }
 
+function WaveItem({ height, period, direction }: WaveItemProps) {
+  return (
+    <div className="col-span-6">
+      <div className="text-sm inline-flex gap-2 items-center bg-muted rounded py-1 px-2 whitespace-nowrap">
+        <div className="font-medium">{height}</div>
+        <div>{period}</div>
+        <Direction degrees={direction} isWind={false} />
+      </div>
+    </div>
+  )
+}
+
+function SwellItem({ height, period, direction }: SwellItemProps) {
+  return (
+    <div className="col-span-5 text-xs flex gap-2 items-center">
+      <span className="font-medium">{height}</span>
+      <span>{period}</span>
+      <Direction degrees={direction} isWind={false} size="small" />
+    </div>
+  )
+}
+
+function WindItem({ speed, gust, direction }: WindItemProps) {
+  const [speedValue, unit] = speed.match(/(\d+)(\w+)/)?.slice(1) ?? ['', '']
+  const gustValue = gust.match(/(\d+)/)?.[1] ?? ''
+
+  return (
+    <div className="col-span-5 flex gap-1.5 items-center">
+      <div className="flex items-center gap-1.5">
+        <div className="min-w-6 text-lg">{speedValue}</div>
+        <div className="flex flex-col">
+          <div className="text-xs leading-none">{gustValue}</div>
+          <div className="text-2xs leading-none">{unit}</div>
+        </div>
+      </div>
+      <span className="ml-1">
+        <Direction degrees={direction} isWind={true} size="large" />
+      </span>
+    </div>
+  )
+}
+
+function TemperatureItem({ airTemp }: TemperatureItemProps) {
+  return (
+    <div className="col-span-3 text-sm flex items-center gap-2">
+      <Sun className="w-4 h-4" />
+      {airTemp}
+    </div>
+  )
+}
+
 export function SpotList({ data }: SpotForecastProps) {
   return (
     <div className="relative container mx-auto">
       <div className="sticky top-0 bg-background flex items-center gap-16 py-2 z-20">
-        <div className="w-80">Forecast</div>
-        <div className="flex flex-1 text-xs font-semibold">
-          <div className="w-20">Time</div>
-          <div className="flex-1">Wave</div>
-          <div className="flex-1">Primary Swell</div>
-          <div className="flex-1">Secondary Swell</div>
-          <div className="flex-1">Wind Wave</div>
-          <div className="flex-1">Wind</div>
-          <div className="flex-1">Temperature</div>
+        <div className="w-72 font-medium">Forecast</div>
+        <div className="grid grid-cols-32 flex-1 text-xs font-semibold">
+          <div className="col-span-3">Time</div>
+          <div className="col-span-6">Surf</div>
+          <div className="col-span-5">Primary Swell</div>
+          <div className="col-span-5">Secondary Swell</div>
+          <div className="col-span-5">Wind Wave</div>
+          <div className="col-span-5">Wind</div>
+          <div className="col-span-3">Weather</div>
         </div>
       </div>
       <div className="space-y-16 pt-2">
         {data.map((day) => (
           <div key={day.date} className="flex gap-16">
-            <aside className="w-80 flex flex-col gap-8 pt-3">
+            <aside className="w-72 flex flex-col gap-8 pt-3">
               <h3>
                 <div className="text-3xl font-semibold">
                   {new Date(day.date).toLocaleDateString('en-US', {
@@ -120,100 +192,51 @@ export function SpotList({ data }: SpotForecastProps) {
                 </div>
               </h3>
 
-              <TideChart
-                data={day.tides.map((tide) => ({
-                  ...tide,
-                  height: tide.height.toString(),
-                  type: tide.type as 'high' | 'low',
-                }))}
-                astronomical={day.astronomical}
-              />
-              <AstronomicalBreakdown astronomical={day.astronomical} />
+              <TideChart data={day.tides} astronomical={day.astronomical} />
+              <div className="space-y-4">
+                <AstronomicalBreakdown astronomical={day.astronomical} />
+                <GeneralBreakdown general={day.general} />
+              </div>
             </aside>
             <div className="flex-1">
               {Object.entries(day.forecast).map(([hour, forecast], index) => (
                 <div
                   key={hour}
-                  className={`py-3 flex items-center text-sm ${index !== 0 ? 'border-t' : ''}`}
+                  className={`py-2.5 grid grid-cols-32 items-center text-sm ${index !== 0 ? 'border-t' : ''}`}
                 >
-                  <div className="text-sm w-20">{hour}</div>
-                  <ForecastItem
-                    value={`${forecast.waveHeight} @ ${forecast.wavePeriod}`}
-                    direction={forecast.waveDirection.toString()} // Convert to string
-                    isWind={false}
+                  <div className="col-span-3 text-xs">{hour}</div>
+                  <WaveItem
+                    height={forecast.waveHeight}
+                    period={forecast.wavePeriod}
+                    direction={forecast.waveDirection}
                   />
-                  <ForecastItem
-                    value={`${forecast.swellHeight} @ ${forecast.swellPeriod}`}
-                    direction={forecast.swellDirection.toString()} // Convert to string
-                    isWind={false}
+                  <SwellItem
+                    height={forecast.swellHeight}
+                    period={forecast.swellPeriod}
+                    direction={forecast.swellDirection}
                   />
-                  <ForecastItem
-                    value={`${forecast.secondarySwellHeight} @ ${forecast.secondarySwellPeriod}`}
-                    direction={forecast.secondarySwellDirection.toString()} // Convert to string
-                    isWind={false}
+                  <SwellItem
+                    height={forecast.secondarySwellHeight}
+                    period={forecast.secondarySwellPeriod}
+                    direction={forecast.secondarySwellDirection}
                   />
-                  <ForecastItem
-                    value={`${forecast.windWaveHeight} @ ${forecast.windWavePeriod}`}
-                    direction={forecast.windWaveDirection.toString()} // Convert to string
-                    isWind={false}
+                  <SwellItem
+                    height={forecast.windWaveHeight}
+                    period={forecast.windWavePeriod}
+                    direction={forecast.windWaveDirection}
                   />
-                  <ForecastItem
-                    value={`${forecast.windSpeed} (${forecast.gust})`}
-                    direction={forecast.windDirection.toString()} // Convert to string
-                    isWind={true}
+                  <WindItem
+                    speed={forecast.windSpeed}
+                    gust={forecast.gust}
+                    direction={forecast.windDirection}
                   />
-                  <TemperatureItem
-                    airTemp={forecast.airTemperature}
-                    waterTemp={forecast.waterTemperature}
-                  />
+                  <TemperatureItem airTemp={forecast.airTemperature} />
                 </div>
               ))}
             </div>
           </div>
         ))}
       </div>
-    </div>
-  )
-}
-
-function ForecastItem({
-  value,
-  direction,
-  isWind,
-}: {
-  value: string
-  direction?: string // direction is now a string
-  isWind?: boolean
-}) {
-  return (
-    <div className="flex-1 text-sm flex items-center">
-      <span>{value}</span>
-      {direction && (
-        <span className="ml-1">
-          <Direction degrees={direction} isWind={isWind || false} />
-        </span>
-      )}
-    </div>
-  )
-}
-
-function TemperatureItem({
-  airTemp,
-  waterTemp,
-}: {
-  airTemp: string
-  waterTemp: string
-}) {
-  return (
-    <div className="text-sm flex flex-1 items-center space-x-2">
-      <span className="flex items-center">
-        <Sun className="w-4 h-4 mr-1" />
-        {airTemp}
-      </span>
-      <span className="flex items-center">
-        <Droplet className="w-4 h-4 mr-1" />
-        {waterTemp}
-      </span>
     </div>
   )
 }

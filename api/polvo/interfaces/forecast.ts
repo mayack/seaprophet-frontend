@@ -5,31 +5,31 @@ export interface ForecastProps {
   }
   tides: TideProps[]
   astronomical: AstronomicalProps
+  general: GeneralProps
 }
 
 export interface HourlyForecastProps {
   airTemperature: string
-  cloudCover: number
-  gust: number
-  humidity: number
-  precipitation: number
-  pressure: number
-  secondarySwellDirection: number
-  secondarySwellHeight: number
-  secondarySwellPeriod: number
-  swellDirection: number
-  swellHeight: number
-  swellPeriod: number
-  visibility: number
-  waterTemperature: string
-  waveDirection: number
-  waveHeight: number
-  wavePeriod: number
-  windDirection: number
-  windSpeed: number
-  windWaveDirection: number
-  windWaveHeight: number
-  windWavePeriod: number
+  cloudCover: string
+  gust: string
+  humidity: string
+  precipitation: string
+  pressure: string
+  secondarySwellDirection: string
+  secondarySwellHeight: string
+  secondarySwellPeriod: string
+  swellDirection: string
+  swellHeight: string
+  swellPeriod: string
+  visibility: string
+  waveDirection: string
+  waveHeight: string
+  wavePeriod: string
+  windDirection: string
+  windSpeed: string
+  windWaveDirection: string
+  windWaveHeight: string
+  windWavePeriod: string
 }
 
 export interface TideProps {
@@ -43,4 +43,8 @@ export interface AstronomicalProps {
   sunset: string
   firstLight: string
   lastLight: string
+}
+
+export interface GeneralProps {
+  averageWaterTemperature: string
 }

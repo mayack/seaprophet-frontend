@@ -15,7 +15,7 @@ const PADDING = {
 } as const
 
 const TideChart: React.FC<TideChartProps> = ({ data, astronomical }) => {
-  const height = 100
+  const height = 90
   const svgRef = useRef<SVGSVGElement>(null)
   const [containerWidth, setContainerWidth] = useState(800)
   const [mousePosition, setMousePosition] = useState<number | null>(null)
@@ -279,14 +279,13 @@ const TideChart: React.FC<TideChartProps> = ({ data, astronomical }) => {
             y2={height}
             stroke="hsl(var(--primary))"
             strokeWidth="1"
-            strokeDasharray="5,5"
           />
         )}
       </svg>
 
       {mousePosition !== null && currentTideValue !== null && (
         <div
-          className="absolute bg-background border border-border rounded p-2 shadow-md whitespace-nowrap text-center"
+          className="absolute bg-foreground text-background rounded px-2 py-1.5 whitespace-nowrap text-center flex flex-col gap-1"
           style={{
             left: `${PADDING.left + mousePosition * xScale}px`,
             top: `${PADDING.top - 80}px`,
@@ -294,8 +293,12 @@ const TideChart: React.FC<TideChartProps> = ({ data, astronomical }) => {
             pointerEvents: 'none',
           }}
         >
-          <p className="text-sm font-semibold">{currentTideValue}</p>
-          <p className="text-sm">{minutesToTime(mousePosition)}</p>
+          <p className="text-xs font-semibold leading-none">
+            {currentTideValue}
+          </p>
+          <p className="text-2xs leading-none">
+            {minutesToTime(mousePosition)}
+          </p>
         </div>
       )}
     </div>

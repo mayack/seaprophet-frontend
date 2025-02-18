@@ -1,5 +1,6 @@
 import { Sunrise, Sunset, Moon, MoonStar } from 'lucide-react'
 import { AstronomicalProps } from '@/api/polvo/interfaces/forecast'
+import { InfoBreakdownLine } from './InfoBreakdownLine'
 
 interface AstronomicalBreakdownProps {
   astronomical: AstronomicalProps
@@ -9,38 +10,27 @@ export function AstronomicalBreakdown({
   astronomical,
 }: AstronomicalBreakdownProps) {
   return (
-    <div className="space-y-1">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <MoonStar className="w-4 h-4" />
-          <span className="text-sm font-medium">First Light</span>
-        </div>
-        <span className="font-mono text-sm">{astronomical.firstLight}</span>
-      </div>
-
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <Sunrise className="w-4 h-4" />
-          <span className="text-sm font-medium">Sunrise</span>
-        </div>
-        <span className="font-mono text-sm">{astronomical.sunrise}</span>
-      </div>
-
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <Sunset className="w-4 h-4" />
-          <span className="text-sm font-medium">Sunset</span>
-        </div>
-        <span className="font-mono text-sm">{astronomical.sunset}</span>
-      </div>
-
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <Moon className="w-4 h-4" />
-          <span className="text-sm font-medium">Last Light</span>
-        </div>
-        <span className="font-mono text-sm">{astronomical.lastLight}</span>
-      </div>
+    <div className="space-y-2">
+      <InfoBreakdownLine
+        icon={<MoonStar className="w-4 h-4" />}
+        label="First Light"
+        value={astronomical.firstLight}
+      />
+      <InfoBreakdownLine
+        icon={<Sunrise className="w-4 h-4" />}
+        label="Sunrise"
+        value={astronomical.sunrise}
+      />
+      <InfoBreakdownLine
+        icon={<Sunset className="w-4 h-4" />}
+        label="Sunset"
+        value={astronomical.sunset}
+      />
+      <InfoBreakdownLine
+        icon={<Moon className="w-4 h-4" />}
+        label="Last Light"
+        value={astronomical.lastLight}
+      />
     </div>
   )
 }

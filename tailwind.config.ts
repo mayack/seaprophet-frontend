@@ -68,6 +68,12 @@ const config: Config = {
         md: 'calc(var(--radius) - 2px)',
         sm: 'calc(var(--radius) - 4px)',
       },
+      fontSize: {
+        '2xs': '0.625rem', // 10px
+      },
+      gridTemplateColumns: {
+        '32': 'repeat(32, minmax(0, 1fr))',
+      },
       keyframes: {
         'accordion-down': {
           from: {
