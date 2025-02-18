@@ -7,7 +7,7 @@ export default async function Home() {
   const spotsByCountry = await getSpotsByCountry()
 
   return (
-    <div className="space-y-20">
+    <div className="container mx-auto space-y-20">
       <Suspense fallback={<div>Loading nearby spots...</div>}>
         <NearbySpots spotsByCountry={spotsByCountry} />
       </Suspense>

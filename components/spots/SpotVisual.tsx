@@ -22,7 +22,7 @@ export function SpotVisual({
   return (
     <div>
       <Tabs defaultValue="webcam" className="w-full">
-        <div className="flex items-end mb-6">
+        <div className="flex items-end mb-6 container mx-auto">
           <h1 className="flex-1 text-4xl font-bold">{spotName}</h1>
           <TabsList>
             {user && webcamConfig && (
@@ -43,7 +43,12 @@ export function SpotVisual({
           </TabsContent>
         )}
         <TabsContent value="map">
-          <Map center={mapCenter} zoom={12} />
+          <Map
+            center={mapCenter}
+            zoom={12}
+            className="aspect-video"
+            height="auto"
+          />
         </TabsContent>
       </Tabs>
     </div>

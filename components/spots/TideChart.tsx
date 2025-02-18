@@ -96,6 +96,22 @@ const TideChart: React.FC<TideChartProps> = ({ data, astronomical }) => {
   const yScale =
     (height - PADDING.top - PADDING.bottom) / (maxHeight - minHeight)
 
+  const getTextPosition = useCallback(
+    (x: number) => {
+      const MARGIN = 30
+      const leftEdge = PADDING.left + MARGIN
+      const rightEdge = containerWidth - PADDING.right - MARGIN
+      const isNearLeftEdge = x < leftEdge
+      const isNearRightEdge = x > rightEdge
+
+      return {
+        x: isNearLeftEdge ? x - 4 : isNearRightEdge ? x + 4 : x,
+        anchor: isNearLeftEdge ? 'start' : isNearRightEdge ? 'end' : 'middle',
+      }
+    },
+    [containerWidth]
+  )
+
   const curvePoints = useMemo(() => {
     const points: string[] = []
     for (let minute = 0; minute <= 1440; minute++) {
@@ -231,13 +247,24 @@ const TideChart: React.FC<TideChartProps> = ({ data, astronomical }) => {
               height -
               PADDING.bottom -
               (parseFloat(tide.height) - minHeight) * yScale
+
             return (
               <g key={index}>
-                <circle cx={x} cy={y} r="4" fill="hsl(--var(primary))" />
-                <text x={x} y={y - 24} textAnchor="middle" fontSize="12">
+                <circle cx={x} cy={y} r="4" fill="hsl(var(--primary))" />
+                <text
+                  x={getTextPosition(x).x}
+                  y={y - 24}
+                  textAnchor={getTextPosition(x).anchor}
+                  fontSize="12"
+                >
                   {tide.time}
                 </text>
-                <text x={x} y={y - 10} textAnchor="middle" fontSize="10">
+                <text
+                  x={getTextPosition(x).x}
+                  y={y - 10}
+                  textAnchor={getTextPosition(x).anchor}
+                  fontSize="10"
+                >
                   {tide.height}
                 </text>
               </g>
@@ -259,7 +286,7 @@ const TideChart: React.FC<TideChartProps> = ({ data, astronomical }) => {
 
       {mousePosition !== null && currentTideValue !== null && (
         <div
-          className="absolute bg-white border border-gray-300 rounded p-2 shadow-md whitespace-nowrap text-center"
+          className="absolute bg-background border border-border rounded p-2 shadow-md whitespace-nowrap text-center"
           style={{
             left: `${PADDING.left + mousePosition * xScale}px`,
             top: `${PADDING.top - 80}px`,

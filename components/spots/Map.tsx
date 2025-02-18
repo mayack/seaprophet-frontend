@@ -1,5 +1,4 @@
 'use client'
-
 import React, { useRef, useEffect, useState } from 'react'
 import mapboxgl from 'mapbox-gl'
 import 'mapbox-gl/dist/mapbox-gl.css'
@@ -13,9 +12,23 @@ if (process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN) {
 interface MapProps {
   center: [number, number]
   zoom: number
+  className?: string
+  width?: string
+  height?: string
+  pinSize?: {
+    width: string
+    height: string
+  }
 }
 
-export function Map({ center = [0, 0], zoom = 2 }: MapProps) {
+export function Map({
+  center = [0, 0],
+  zoom = 2,
+  className = '',
+  width = '100%',
+  height = '400px',
+  pinSize = { width: '42px', height: '42px' },
+}: MapProps) {
   const mapContainer = useRef<HTMLDivElement>(null)
   const mapInstance = useRef<mapboxgl.Map | null>(null)
   const markerRef = useRef<mapboxgl.Marker | null>(null)
@@ -23,8 +36,6 @@ export function Map({ center = [0, 0], zoom = 2 }: MapProps) {
 
   useEffect(() => {
     if (mapInstance.current || !mapContainer.current) return
-
-    // Validate center coordinates
     const [lng, lat] = center
     if (!isValidCoordinate(lng, lat)) {
       console.error('Invalid coordinates:', center)
@@ -33,7 +44,7 @@ export function Map({ center = [0, 0], zoom = 2 }: MapProps) {
 
     mapInstance.current = new mapboxgl.Map({
       container: mapContainer.current,
-      style: 'mapbox://styles/mapbox/streets-v11',
+      style: 'mapbox://styles/mayack/cm7a9jq2x002i01s87y377mrx',
       center: center,
       zoom: zoom,
     })
@@ -42,8 +53,20 @@ export function Map({ center = [0, 0], zoom = 2 }: MapProps) {
       setMapLoaded(true)
     })
 
-    // Add marker
-    markerRef.current = new mapboxgl.Marker()
+    const el = document.createElement('div')
+    el.className = 'custom-marker'
+    el.style.backgroundImage = 'url(/map-pin.svg)'
+    el.style.width = pinSize.width
+    el.style.height = pinSize.height
+    el.style.backgroundSize = '100%'
+    el.style.backgroundRepeat = 'no-repeat'
+    el.style.backgroundPosition = 'center'
+    el.style.pointerEvents = 'auto'
+
+    markerRef.current = new mapboxgl.Marker({
+      element: el,
+      anchor: 'bottom',
+    })
       .setLngLat(center)
       .addTo(mapInstance.current)
 
@@ -54,18 +77,14 @@ export function Map({ center = [0, 0], zoom = 2 }: MapProps) {
       mapInstance.current?.remove()
       mapInstance.current = null
     }
-  }, [zoom, center])
+  }, [zoom, center, pinSize])
 
   useEffect(() => {
     if (!mapLoaded || !mapInstance.current) return
-
-    // Validate center coordinates before updating
     const [lng, lat] = center
     if (isValidCoordinate(lng, lat)) {
       mapInstance.current.setCenter(center)
       mapInstance.current.setZoom(zoom)
-
-      // Update marker position
       if (markerRef.current) {
         markerRef.current.setLngLat(center)
       }
@@ -77,13 +96,12 @@ export function Map({ center = [0, 0], zoom = 2 }: MapProps) {
   return (
     <div
       ref={mapContainer}
-      className="pointer-events-none"
-      style={{ width: '100%', height: '400px' }}
+      className={`pointer-events-none ${className}`}
+      style={{ width, height }}
     />
   )
 }
 
-// Helper function to validate coordinates
 function isValidCoordinate(lng: number, lat: number): boolean {
   return (
     !isNaN(lng) && !isNaN(lat) && Math.abs(lng) <= 180 && Math.abs(lat) <= 90

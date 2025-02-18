@@ -14,7 +14,7 @@ export async function getSpotWithForecast(
   id: number,
   units: UserUnits
 ): Promise<SpotForecastResponse> {
-  console.log(`Fetching spot with forecast for id: ${id}`)
+  // console.log(`Fetching spot with forecast for id: ${id}`)
   try {
     const spotResponse = await strapi.findOne('spots', id, {
       populate: '*',

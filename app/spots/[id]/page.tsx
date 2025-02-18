@@ -35,8 +35,6 @@ async function SpotContent({ id }: { id: string }) {
 
   const webcamConfig = spot.attributes.webcam
 
-  console.log(forecast?.days[0], 'forecast')
-
   return (
     <div className="space-y-16">
       <SpotVisual

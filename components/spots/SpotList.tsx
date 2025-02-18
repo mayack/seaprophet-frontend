@@ -89,7 +89,7 @@ function Direction({ degrees, isWind }: DirectionProps) {
 
 export function SpotList({ data }: SpotForecastProps) {
   return (
-    <div className="relative">
+    <div className="relative container mx-auto">
       <div className="sticky top-0 bg-background flex items-center gap-16 py-2 z-20">
         <div className="w-80">Forecast</div>
         <div className="flex flex-1 text-xs font-semibold">
