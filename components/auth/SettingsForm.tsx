@@ -1,4 +1,5 @@
 'use client'
+
 import { useFormState } from 'react-dom'
 import { useEffect, useState } from 'react'
 import { Button } from '@/components/ui/button'
@@ -16,6 +17,7 @@ import { updateUserSettings } from '@/api/sargo/actions/user'
 import { FormState } from '@/api/sargo/interfaces/formState'
 import { useUser } from '@/contexts/UserContext'
 import { UserUnits } from '@/api/sargo/interfaces/user'
+import { useRouter } from 'next/navigation'
 
 const initialState: FormState = {
   message: '',
@@ -31,23 +33,30 @@ const defaultUnits: UserUnits = {
 }
 
 export function SettingsForm() {
+  const router = useRouter()
   const { user, refreshUser } = useUser()
   const [state, formAction] = useFormState(updateUserSettings, initialState)
   const { toast } = useToast()
   const [isChangingPassword, setIsChangingPassword] = useState(false)
 
   useEffect(() => {
-    if (state.message) {
+    if (state.message && state.success) {
       toast({
-        title: state.success ? 'Success' : 'Error',
+        title: 'Success',
         description: state.message,
-        variant: state.success ? 'default' : 'destructive',
+        variant: 'default',
       })
-      if (state.success) {
-        refreshUser()
-      }
+      refreshUser().then(() => {
+        router.refresh()
+      })
+    } else if (state.message) {
+      toast({
+        title: 'Error',
+        description: state.message,
+        variant: 'destructive',
+      })
     }
-  }, [state, toast, refreshUser])
+  }, [state, toast, refreshUser, router])
 
   const units = user?.settings?.units || defaultUnits
 

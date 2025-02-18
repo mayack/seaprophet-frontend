@@ -5,7 +5,7 @@ import { Toaster } from '@/components/ui/toaster'
 import { getCurrentUser } from '@/api/sargo/actions/user'
 import { UserProvider } from '@/contexts/UserContext'
 import { User } from '@/api/sargo/interfaces/user'
-import { UserMenu } from '@/components/UserMenu'
+import { UserMenu } from '@/components/common/UserMenu'
 
 const inter = Inter({
   subsets: ['latin'],
@@ -34,11 +34,11 @@ export default async function RootLayout({
   const initialUser = await getCurrentUser()
   return (
     <html lang="en" className={'min-h-full h-full ' + inter.variable}>
-      <body className="min-h-full h-full">
+      <body className="min-h-full h-full flex flex-col">
         <UserProvider initialUser={initialUser}>
           {initialUser && <NavBar initialUser={initialUser} />}
-          <main className="py-12 min-h-full flex items-center">
-            <div className="flex-1">{children}</div>
+          <main className="flex-1 flex items-center justify-center w-full">
+            {children}
           </main>
           <Toaster />
         </UserProvider>

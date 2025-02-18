@@ -1,15 +1,17 @@
 'use client'
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import Hls from 'hls.js'
 import { webcamProviders } from '@/config/webcamProviders'
 import { WebcamConfig } from '@/api/sargo/interfaces/spot'
+import { Expand, Shrink } from 'lucide-react'
+import { Button } from '../ui/button'
 
 interface WebcamViewerProps {
   config: WebcamConfig
-  title: string
 }
 
 export function WebcamViewer({ config }: WebcamViewerProps) {
+  const [expanded, setExpanded] = useState(false)
   const videoRef = useRef<HTMLVideoElement | null>(null)
   const hlsRef = useRef<Hls | null>(null)
 
@@ -65,6 +67,7 @@ export function WebcamViewer({ config }: WebcamViewerProps) {
         ? `/api/proxy?url=${encodeURIComponent(config.url)}&provider=${config.provider}`
         : config.url
     }
+
     return () => {
       if (hlsRef.current) {
         hlsRef.current.destroy()
@@ -73,7 +76,9 @@ export function WebcamViewer({ config }: WebcamViewerProps) {
   }, [config])
 
   return (
-    <div className="aspect-video relative">
+    <div
+      className={`bg-foreground relative ${expanded ? 'aspect-video' : 'aspect-3/1'}`}
+    >
       <video
         ref={videoRef}
         className="w-full h-full"
@@ -81,6 +86,19 @@ export function WebcamViewer({ config }: WebcamViewerProps) {
         autoPlay
         muted
       />
+      <Button
+        onClick={() => setExpanded(!expanded)}
+        size="icon"
+        variant="outline"
+        className="absolute bottom-4 right-4"
+        aria-label={expanded ? 'Collapse webcam' : 'Expand webcam'}
+      >
+        {expanded ? (
+          <Shrink className="h-4 w-4" />
+        ) : (
+          <Expand className="h-4 w-4" />
+        )}
+      </Button>
     </div>
   )
 }

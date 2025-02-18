@@ -18,12 +18,9 @@ export class PolvoClient {
     }
 
     try {
-      // console.log('Fetching token from:', `${this.baseUrl}/api/auth/token`)
       const response = await fetch(`${this.baseUrl}/api/auth/token`, {
         method: 'GET',
       })
-
-      // console.log('Token response status:', response.status)
 
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`)
@@ -32,7 +29,6 @@ export class PolvoClient {
       const data = await response.json()
 
       this.token = data.token
-      // console.log('Retrieved token:', this.token)
       return this.token
     } catch (error) {
       console.error('Error fetching token:', error)
@@ -76,8 +72,6 @@ export class PolvoClient {
     url.searchParams.set('tideUnits', units.tide_height)
     url.searchParams.set('tempUnits', units.temperature)
     url.searchParams.set('surfUnits', units.surf_height)
-
-    // console.log('Fetching forecast from URL:', url.toString())
 
     try {
       const data = await this.fetchJson<{ days: ForecastProps[] }>(

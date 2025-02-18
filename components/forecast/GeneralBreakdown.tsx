@@ -1,5 +1,5 @@
 import { Droplet } from 'lucide-react'
-import { InfoBreakdownLine } from './InfoBreakdownLine'
+import { InfoBreakdownLine } from '../common/InfoBreakdownLine'
 
 interface GeneralBreakdownProps {
   general: {

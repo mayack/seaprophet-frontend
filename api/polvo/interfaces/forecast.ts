@@ -1,3 +1,8 @@
+export interface ForecastResponse {
+  days: ForecastProps[]
+  tidalDatum: string
+}
+
 export interface ForecastProps {
   date: string
   forecast: {

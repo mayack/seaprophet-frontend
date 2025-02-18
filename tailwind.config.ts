@@ -21,6 +21,9 @@ const config: Config = {
       sans: ['var(--font-inter)', ...fontFamily.sans],
     },
     extend: {
+      aspectRatio: {
+        '3/1': '3 / 1',
+      },
       colors: {
         border: 'hsl(var(--border))',
         input: 'hsl(var(--input))',

@@ -1,6 +1,6 @@
 import { Sunrise, Sunset, Moon, MoonStar } from 'lucide-react'
 import { AstronomicalProps } from '@/api/polvo/interfaces/forecast'
-import { InfoBreakdownLine } from './InfoBreakdownLine'
+import { InfoBreakdownLine } from '../common/InfoBreakdownLine'
 
 interface AstronomicalBreakdownProps {
   astronomical: AstronomicalProps
