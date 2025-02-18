@@ -19,24 +19,42 @@ export function useNearbySpots(spotsByCountry: SpotsByCountry) {
         )
       )
 
-      const sortedSpots = allSpots
-        .map((spot) => ({
-          spot,
-          distance: getDistanceFromLatLonInKm(
-            lat,
-            lon,
-            spot.location.lat,
-            spot.location.long
-          ),
-        }))
-        .filter((item) => item.distance <= 50)
+      console.log('User location:', { lat, lon })
+      console.log('Total spots:', allSpots.length)
+
+      const spotsWithDistances = allSpots.map((spot) => {
+        const distance = getDistanceFromLatLonInKm(
+          lat,
+          lon,
+          spot.location.lat,
+          spot.location.long
+        )
+        console.log(`Distance to ${spot.name}:`, distance)
+        return { spot, distance }
+      })
+
+      const nearbySpots = spotsWithDistances
+        .filter((item) => {
+          const isNearby = item.distance <= 50
+          if (isNearby) {
+            console.log('Found nearby spot:', item.spot.name, item.distance)
+          }
+          return isNearby
+        })
         .sort((a, b) => a.distance - b.distance)
         .map((item) => item.spot)
 
-      setNearbySpots(sortedSpots)
+      console.log('Filtered nearby spots:', nearbySpots.length)
+      setNearbySpots(nearbySpots)
     }
 
     async function initialize() {
+      if (!window.isSecureContext) {
+        setError('Geolocation requires a secure connection (HTTPS)')
+        setIsLoading(false)
+        return
+      }
+
       if (userLocation) {
         calculateNearbySpots(userLocation)
         setIsLoading(false)
@@ -66,16 +84,29 @@ export function useNearbySpots(spotsByCountry: SpotsByCountry) {
           position.coords.latitude,
           position.coords.longitude,
         ]
+        console.log('Retrieved location:', location)
 
         setUserLocation(location)
         calculateNearbySpots(location)
       } catch (error) {
         if (!isMounted) return
-        setError(
-          error instanceof GeolocationPositionError
-            ? 'Unable to retrieve your location'
-            : 'Failed to fetch nearby spots'
-        )
+
+        if (error instanceof GeolocationPositionError) {
+          const errorMessages = {
+            [GeolocationPositionError.PERMISSION_DENIED as number]:
+              'Location access was denied. Please enable location permissions in your browser settings.',
+            [GeolocationPositionError.POSITION_UNAVAILABLE as number]:
+              'Location information is unavailable. Please check your device settings.',
+            [GeolocationPositionError.TIMEOUT as number]:
+              'Location request timed out. Please try again.',
+          } as const
+
+          setError(errorMessages[error.code] || 'Unable to retrieve location')
+          console.error('Geolocation error:', {
+            code: error.code,
+            message: error.message,
+          })
+        }
       } finally {
         if (isMounted) {
           setIsLoading(false)
