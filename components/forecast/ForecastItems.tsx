@@ -1,4 +1,3 @@
-import { Sun } from 'lucide-react'
 import { formatValueDisplay, getUnit, getValue } from '@/lib/units'
 import { IconDirection } from './IconDirection'
 import {
@@ -6,6 +5,7 @@ import {
   WaveItemProps,
   WindItemProps,
 } from '@/types/forecast'
+import { WeatherIcon } from '../common/WeatherIcon'
 
 export function WaveItem({ height, period, direction }: WaveItemProps) {
   console.log(height)
@@ -61,10 +61,13 @@ export function WindItem({ speed, gust, direction }: WindItemProps) {
   )
 }
 
-export function TemperatureItem({ airTemp }: TemperatureItemProps) {
+export function TemperatureItem({
+  airTemp,
+  weatherType,
+}: TemperatureItemProps) {
   return (
     <div className="col-span-3 text-sm flex items-center gap-2">
-      <Sun className="w-4 h-4" />
+      <WeatherIcon weatherType={weatherType} />
       {formatValueDisplay(airTemp)}
     </div>
   )

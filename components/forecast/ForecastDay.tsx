@@ -74,7 +74,10 @@ export const ForecastDay = memo(function ForecastDay({
               gust={forecast.gust}
               direction={forecast.windDirection}
             />
-            <TemperatureItem airTemp={forecast.airTemperature} />
+            <TemperatureItem
+              airTemp={forecast.airTemperature}
+              weatherType={forecast.weatherType}
+            />
           </div>
         ))}
       </div>

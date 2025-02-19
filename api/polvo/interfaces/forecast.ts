@@ -36,6 +36,7 @@ export interface HourlyForecastProps {
   secondarySwellPeriod: FormattedValue
   wavePeriod: FormattedValue
   windWavePeriod: FormattedValue
+  weatherType: WeatherType
 
   // Optional properties that might not use FormattedValue
   cloudCover?: string
@@ -61,3 +62,20 @@ export interface AstronomicalProps {
 export interface GeneralProps {
   averageWaterTemperature: FormattedValue
 }
+
+export type WeatherType =
+  | 'clear-day'
+  | 'clear-night'
+  | 'partly-cloudy-day'
+  | 'partly-cloudy-night'
+  | 'stormy-day'
+  | 'stormy-night'
+  | 'windy-day'
+  | 'windy-night'
+  | 'rain-day'
+  | 'rain-night'
+  | 'drizzle-day'
+  | 'drizzle-night'
+  | 'thunder-day'
+  | 'thunder-night'
+  | 'gale'

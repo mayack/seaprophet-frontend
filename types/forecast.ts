@@ -1,4 +1,4 @@
-import { FormattedValue } from '@/api/polvo/interfaces/forecast'
+import { FormattedValue, WeatherType } from '@/api/polvo/interfaces/forecast'
 
 export interface DirectionProps {
   degrees: number
@@ -20,4 +20,5 @@ export interface WindItemProps {
 
 export interface TemperatureItemProps {
   airTemp: FormattedValue
+  weatherType: WeatherType
 }
