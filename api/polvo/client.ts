@@ -1,6 +1,17 @@
 import { ForecastProps } from '@/api/polvo/interfaces/forecast'
 import { UserUnits } from '@/api/sargo/interfaces/user'
 
+interface ApiResponse<T> {
+  data: T
+  _meta?: {
+    success: boolean
+    cached: boolean
+    timestamp: string
+    processedIn?: number
+    source?: 'cache' | 'stormglass' | 'system'
+  }
+}
+
 export class PolvoClient {
   private baseUrl: string
   private token: string | null = null
@@ -26,9 +37,8 @@ export class PolvoClient {
         throw new Error(`HTTP error! status: ${response.status}`)
       }
 
-      const data = await response.json()
-
-      this.token = data.token
+      const data = (await response.json()) as ApiResponse<{ token: string }>
+      this.token = data.data.token // Update to use new structure
       return this.token
     } catch (error) {
       console.error('Error fetching token:', error)
@@ -49,15 +59,15 @@ export class PolvoClient {
 
     const response = await fetch(url, {
       headers,
-      cache: 'no-store', // Ensure fresh data is fetched
+      cache: 'no-store',
     })
 
     if (!response.ok) {
       throw new Error(`HTTP error! status: ${response.status}`)
     }
 
-    const data = await response.json()
-    return data as T
+    const apiResponse = (await response.json()) as ApiResponse<T>
+    return apiResponse.data // Return the data property of the response
   }
 
   async getForecast(
@@ -65,7 +75,6 @@ export class PolvoClient {
     longitude: number,
     units: UserUnits
   ): Promise<{ days: ForecastProps[] }> {
-    // Construct the URL with query parameters for units
     const url = new URL(`${this.baseUrl}/api/forecast/${latitude}/${longitude}`)
     url.searchParams.set('windUnits', units.wind_speed)
     url.searchParams.set('swellUnits', units.swell_height)

@@ -8,7 +8,6 @@ import {
 import { WeatherIcon } from '../common/WeatherIcon'
 
 export function WaveItem({ height, period, direction }: WaveItemProps) {
-  console.log(height)
   return (
     <div className="col-span-6">
       <div className="inline-flex gap-2 items-center bg-muted rounded py-1 px-2 whitespace-nowrap">

@@ -18,7 +18,6 @@ export const ForecastDay = memo(function ForecastDay({
   day,
 }: ForecastDayProps) {
   const date = new Date(day.date)
-  console.log(day.forecast)
 
   return (
     <div className="flex gap-16">
