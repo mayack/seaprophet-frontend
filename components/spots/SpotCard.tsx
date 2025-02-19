@@ -13,7 +13,9 @@ export function SpotCard({ id, name, subtitle, webcam }: SpotCardProps) {
   return (
     <Link
       href={`/spots/${id}`}
-      className="block border-border border p-4 rounded-lg shadow-sm text-primary hover:bg-muted bg-background"
+      className={`border-border border px-4 py-2 rounded-lg shadow-sm text-primary hover:bg-muted bg-background justify-center flex flex-col ${
+        subtitle ? 'min-h-20' : 'min-h-14'
+      }`}
     >
       <div className="flex items-center">
         <div className="text-md font-semibold flex-grow">{name}</div>
