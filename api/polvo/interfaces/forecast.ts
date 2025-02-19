@@ -78,4 +78,6 @@ export type WeatherType =
   | 'drizzle-night'
   | 'thunder-day'
   | 'thunder-night'
+  | 'fog-day'
+  | 'fog-night'
   | 'gale'
