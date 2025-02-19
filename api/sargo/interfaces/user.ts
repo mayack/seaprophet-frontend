@@ -1,5 +1,5 @@
 export interface UserUnits {
-  wind_speed: 'knots' | 'mph' | 'kph'
+  wind_speed: 'knots' | 'mph' | 'kph' | 'mps'
   surf_height: 'feet' | 'meters'
   swell_height: 'feet' | 'meters'
   tide_height: 'feet' | 'meters'

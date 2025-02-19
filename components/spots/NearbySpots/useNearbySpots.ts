@@ -19,42 +19,24 @@ export function useNearbySpots(spotsByCountry: SpotsByCountry) {
         )
       )
 
-      console.log('User location:', { lat, lon })
-      console.log('Total spots:', allSpots.length)
-
-      const spotsWithDistances = allSpots.map((spot) => {
-        const distance = getDistanceFromLatLonInKm(
-          lat,
-          lon,
-          spot.location.lat,
-          spot.location.long
-        )
-        console.log(`Distance to ${spot.name}:`, distance)
-        return { spot, distance }
-      })
-
-      const nearbySpots = spotsWithDistances
-        .filter((item) => {
-          const isNearby = item.distance <= 50
-          if (isNearby) {
-            console.log('Found nearby spot:', item.spot.name, item.distance)
-          }
-          return isNearby
-        })
+      const sortedSpots = allSpots
+        .map((spot) => ({
+          spot,
+          distance: getDistanceFromLatLonInKm(
+            lat,
+            lon,
+            spot.location.lat,
+            spot.location.long
+          ),
+        }))
+        .filter((item) => item.distance <= 50)
         .sort((a, b) => a.distance - b.distance)
         .map((item) => item.spot)
 
-      console.log('Filtered nearby spots:', nearbySpots.length)
-      setNearbySpots(nearbySpots)
+      setNearbySpots(sortedSpots)
     }
 
     async function initialize() {
-      if (!window.isSecureContext) {
-        setError('Geolocation requires a secure connection (HTTPS)')
-        setIsLoading(false)
-        return
-      }
-
       if (userLocation) {
         calculateNearbySpots(userLocation)
         setIsLoading(false)
@@ -84,7 +66,6 @@ export function useNearbySpots(spotsByCountry: SpotsByCountry) {
           position.coords.latitude,
           position.coords.longitude,
         ]
-        console.log('Retrieved location:', location)
 
         setUserLocation(location)
         calculateNearbySpots(location)
@@ -100,12 +81,7 @@ export function useNearbySpots(spotsByCountry: SpotsByCountry) {
             [GeolocationPositionError.TIMEOUT as number]:
               'Location request timed out. Please try again.',
           } as const
-
           setError(errorMessages[error.code] || 'Unable to retrieve location')
-          console.error('Geolocation error:', {
-            code: error.code,
-            message: error.message,
-          })
         }
       } finally {
         if (isMounted) {

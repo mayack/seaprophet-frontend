@@ -1,6 +1,6 @@
 import { memo } from 'react'
 import dynamic from 'next/dynamic'
-import { WaveItem, SwellItem, WindItem, TemperatureItem } from './ForecastItems'
+import { SwellItem, TemperatureItem, WaveItem, WindItem } from './ForecastItems'
 import type { ForecastProps } from '@/api/polvo/interfaces/forecast'
 import { AstronomicalBreakdown } from './AstronomicalBreakdown'
 import { GeneralBreakdown } from './GeneralBreakdown'
@@ -18,6 +18,7 @@ export const ForecastDay = memo(function ForecastDay({
   day,
 }: ForecastDayProps) {
   const date = new Date(day.date)
+  console.log(day.forecast)
 
   return (
     <div className="flex gap-16">

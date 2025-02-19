@@ -1,32 +1,49 @@
 import { Sun } from 'lucide-react'
-import type { WaveItemProps, WindItemProps } from '@/types/forecast'
+import { formatValueDisplay, getUnit, getValue } from '@/lib/units'
 import { IconDirection } from './IconDirection'
+import {
+  TemperatureItemProps,
+  WaveItemProps,
+  WindItemProps,
+} from '@/types/forecast'
 
 export function WaveItem({ height, period, direction }: WaveItemProps) {
+  console.log(height)
   return (
     <div className="col-span-6">
       <div className="inline-flex gap-2 items-center bg-muted rounded py-1 px-2 whitespace-nowrap">
-        <div className="font-medium">{height}</div>
-        <div>{period}</div>
-        <IconDirection degrees={direction} isWind={false} />
+        <div className="flex items-baseline gap-px font-medium min-w-12">
+          <div className="">{getValue(height)}</div>
+          <div className="text-sm">{getUnit(height)}</div>
+        </div>
+        <div className="flex items-baseline gap-px min-w-7">
+          <div>{getValue(period)}</div>
+          <div className="text-sm">{getUnit(period)}</div>
+        </div>
+        <IconDirection degrees={direction.value} isWind={false} />
       </div>
     </div>
   )
 }
 
 export function SwellItem({ height, period, direction }: WaveItemProps) {
+  // If height is 0, return empty div with proper column span
+  if (height.value === 0) {
+    return <div className="col-span-5" />
+  }
+
   return (
     <div className="text-sm col-span-5 flex gap-2 items-center">
-      <span className="font-medium">{height}</span>
-      <span>{period}</span>
-      <IconDirection degrees={direction} isWind={false} size="small" />
+      <div className="font-medium">{formatValueDisplay(height)}</div>
+      <div>{formatValueDisplay(period)}</div>
+      <IconDirection degrees={direction.value} isWind={false} size="small" />
     </div>
   )
 }
 
 export function WindItem({ speed, gust, direction }: WindItemProps) {
-  const [speedValue, unit] = speed.match(/(\d+)(\w+)/)?.slice(1) ?? ['', '']
-  const gustValue = gust.match(/(\d+)/)?.[1] ?? ''
+  const [speedValue, unit] = [speed.value.toString(), speed.unit]
+  const gustValue = gust.value.toString()
 
   return (
     <div className="col-span-5 flex gap-3 items-center">
@@ -38,17 +55,17 @@ export function WindItem({ speed, gust, direction }: WindItemProps) {
         </div>
       </div>
       <div className="w-7 h-7 bg-muted rounded-full flex items-center justify-center">
-        <IconDirection degrees={direction} isWind={true} size="large" />
+        <IconDirection degrees={direction.value} isWind={true} size="large" />
       </div>
     </div>
   )
 }
 
-export function TemperatureItem({ airTemp }: { airTemp: string }) {
+export function TemperatureItem({ airTemp }: TemperatureItemProps) {
   return (
     <div className="col-span-3 text-sm flex items-center gap-2">
       <Sun className="w-4 h-4" />
-      {airTemp}
+      {formatValueDisplay(airTemp)}
     </div>
   )
 }

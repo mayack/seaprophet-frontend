@@ -1,3 +1,8 @@
+export interface FormattedValue {
+  value: number
+  unit: string
+}
+
 export interface ForecastResponse {
   days: ForecastProps[]
   tidalDatum: string
@@ -14,32 +19,35 @@ export interface ForecastProps {
 }
 
 export interface HourlyForecastProps {
-  airTemperature: string
-  cloudCover: string
-  gust: string
-  humidity: string
-  precipitation: string
-  pressure: string
-  secondarySwellDirection: string
-  secondarySwellHeight: string
-  secondarySwellPeriod: string
-  swellDirection: string
-  swellHeight: string
-  swellPeriod: string
-  visibility: string
-  waveDirection: string
-  waveHeight: string
-  wavePeriod: string
-  windDirection: string
-  windSpeed: string
-  windWaveDirection: string
-  windWaveHeight: string
-  windWavePeriod: string
+  airTemperature: FormattedValue
+  waterTemperature: FormattedValue
+  windSpeed: FormattedValue
+  gust: FormattedValue
+  swellHeight: FormattedValue
+  secondarySwellHeight: FormattedValue
+  waveHeight: FormattedValue
+  windWaveHeight: FormattedValue
+  windDirection: FormattedValue
+  waveDirection: FormattedValue
+  swellDirection: FormattedValue
+  secondarySwellDirection: FormattedValue
+  windWaveDirection: FormattedValue
+  swellPeriod: FormattedValue
+  secondarySwellPeriod: FormattedValue
+  wavePeriod: FormattedValue
+  windWavePeriod: FormattedValue
+
+  // Optional properties that might not use FormattedValue
+  cloudCover?: string
+  humidity?: string
+  precipitation?: string
+  pressure?: string
+  visibility?: string
 }
 
 export interface TideProps {
   time: string
-  height: string
+  height: FormattedValue
   type: 'high' | 'low' | 'prevExtreme' | 'nextExtreme'
 }
 
@@ -51,5 +59,5 @@ export interface AstronomicalProps {
 }
 
 export interface GeneralProps {
-  averageWaterTemperature: string
+  averageWaterTemperature: FormattedValue
 }

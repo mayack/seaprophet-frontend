@@ -1,5 +1,6 @@
 'use client'
 import { AstronomicalProps, TideProps } from '@/api/polvo/interfaces/forecast'
+import { formatValueDisplay, getValue } from '@/lib/units'
 import React, { useState, useRef, useMemo, useCallback, useEffect } from 'react'
 
 interface TideChartProps {
@@ -47,7 +48,9 @@ const TideChart: React.FC<TideChartProps> = ({ data, astronomical }) => {
   const minutesToTime = (minutes: number): string => {
     const hours = Math.floor(minutes / 60) % 24
     const mins = minutes % 60
-    return `${hours.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}`
+    return `${hours.toString().padStart(2, '0')}:${mins
+      .toString()
+      .padStart(2, '0')}`
   }
 
   const interpolate = useCallback(
@@ -59,7 +62,7 @@ const TideChart: React.FC<TideChartProps> = ({ data, astronomical }) => {
       const totalMinutes = endMinutes - startMinutes
       const progress = (minute - startMinutes) / totalMinutes
       const t = (1 - Math.cos(progress * Math.PI)) / 2
-      return parseFloat(start.height) * (1 - t) + parseFloat(end.height) * t
+      return getValue(start.height) * (1 - t) + getValue(end.height) * t
     },
     []
   )
@@ -89,8 +92,8 @@ const TideChart: React.FC<TideChartProps> = ({ data, astronomical }) => {
     ]
   }, [data])
 
-  const minHeight = Math.min(...tideData.map((tide) => parseFloat(tide.height)))
-  const maxHeight = Math.max(...tideData.map((tide) => parseFloat(tide.height)))
+  const minHeight = Math.min(...tideData.map((tide) => getValue(tide.height)))
+  const maxHeight = Math.max(...tideData.map((tide) => getValue(tide.height)))
 
   const xScale = (containerWidth - PADDING.left - PADDING.right) / 1440
   const yScale =
@@ -165,7 +168,7 @@ const TideChart: React.FC<TideChartProps> = ({ data, astronomical }) => {
           }
         }
 
-        const unit = startTide.height.slice(-1)
+        const unit = startTide.height.unit
         const tideHeight = interpolate(startTide, endTide, minutes)
         setCurrentTideValue(`${tideHeight.toFixed(2)}${unit}`)
       } else {
@@ -246,7 +249,7 @@ const TideChart: React.FC<TideChartProps> = ({ data, astronomical }) => {
             const y =
               height -
               PADDING.bottom -
-              (parseFloat(tide.height) - minHeight) * yScale
+              (getValue(tide.height) - minHeight) * yScale
 
             return (
               <g key={index}>
@@ -266,7 +269,7 @@ const TideChart: React.FC<TideChartProps> = ({ data, astronomical }) => {
                   textAnchor={getTextPosition(x).anchor}
                   fontSize="10"
                 >
-                  {tide.height}
+                  {formatValueDisplay(tide.height)}
                 </text>
               </g>
             )

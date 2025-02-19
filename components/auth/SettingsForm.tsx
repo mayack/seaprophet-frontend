@@ -80,6 +80,7 @@ export function SettingsForm() {
             <SelectItem value="knots">Knots</SelectItem>
             <SelectItem value="mph">Miles per hour (mph)</SelectItem>
             <SelectItem value="kph">Kilometers per hour (kph)</SelectItem>
+            <SelectItem value="mps">Meters per second (mps)</SelectItem>
           </SelectContent>
         </Select>
       </div>

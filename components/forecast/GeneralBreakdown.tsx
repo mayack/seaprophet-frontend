@@ -1,10 +1,10 @@
 import { Droplet } from 'lucide-react'
 import { InfoBreakdownLine } from '../common/InfoBreakdownLine'
+import { GeneralProps } from '@/api/polvo/interfaces/forecast'
+import { formatValueDisplay } from '@/lib/units'
 
 interface GeneralBreakdownProps {
-  general: {
-    averageWaterTemperature: string
-  }
+  general: GeneralProps
 }
 
 export function GeneralBreakdown({ general }: GeneralBreakdownProps) {
@@ -13,7 +13,7 @@ export function GeneralBreakdown({ general }: GeneralBreakdownProps) {
       <InfoBreakdownLine
         icon={<Droplet className="w-4 h-4" />}
         label="Water Temperature"
-        value={general.averageWaterTemperature}
+        value={formatValueDisplay(general.averageWaterTemperature)}
       />
     </div>
   )

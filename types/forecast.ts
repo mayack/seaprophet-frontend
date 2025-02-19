@@ -1,17 +1,23 @@
+import { FormattedValue } from '@/api/polvo/interfaces/forecast'
+
 export interface DirectionProps {
-  degrees: string
+  degrees: number
   isWind: boolean
   size?: 'small' | 'medium' | 'large'
 }
 
 export interface WaveItemProps {
-  height: string
-  period: string
-  direction: string
+  height: FormattedValue
+  period: FormattedValue
+  direction: FormattedValue
 }
 
 export interface WindItemProps {
-  speed: string
-  gust: string
-  direction: string
+  speed: FormattedValue
+  gust: FormattedValue
+  direction: FormattedValue
+}
+
+export interface TemperatureItemProps {
+  airTemp: FormattedValue
 }

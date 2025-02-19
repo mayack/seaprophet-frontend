@@ -39,9 +39,8 @@ export function IconDirection({
   size = 'medium',
 }: DirectionProps) {
   const { adjustedDegrees, cardinalDirection } = useMemo(() => {
-    const numericDegrees = parseFloat(degrees)
-    const intDegrees = Math.round(numericDegrees) - 180
-    const index = Math.round(numericDegrees / 22.5) % 16
+    const intDegrees = Math.round(degrees) - 180
+    const index = Math.round(degrees / 22.5) % 16
 
     return {
       adjustedDegrees: isWind ? intDegrees : (intDegrees + 45) % 360,
