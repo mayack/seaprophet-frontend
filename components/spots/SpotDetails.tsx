@@ -45,12 +45,7 @@ export function SpotDetails({
           </TabsContent>
         )}
         <TabsContent value="map">
-          <Map
-            center={mapCenter}
-            zoom={12}
-            className="aspect-3/1"
-            height="auto"
-          />
+          <Map center={mapCenter} zoom={12} width="100%" height="50vh" />
         </TabsContent>
       </Tabs>
     </div>

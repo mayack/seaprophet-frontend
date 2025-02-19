@@ -77,6 +77,9 @@ const config: Config = {
       gridTemplateColumns: {
         '32': 'repeat(32, minmax(0, 1fr))',
       },
+      height: {
+        '50vh': '50vh',
+      },
       keyframes: {
         'accordion-down': {
           from: {
