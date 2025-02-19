@@ -45,7 +45,7 @@ export function SpotDetails({
           </TabsContent>
         )}
         <TabsContent value="map">
-          <Map center={mapCenter} zoom={12} width="100%" height="50vh" />
+          <Map center={mapCenter} zoom={12} width="100%" height="60vh" />
         </TabsContent>
       </Tabs>
     </div>

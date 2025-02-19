@@ -1,5 +1,5 @@
 'use client'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, useCallback } from 'react'
 import Hls from 'hls.js'
 import { webcamProviders } from '@/config/webcamProviders'
 import { WebcamConfig } from '@/api/sargo/interfaces/spot'
@@ -19,7 +19,7 @@ export function WebcamViewer({ config }: WebcamViewerProps) {
   const hlsRef = useRef<Hls | null>(null)
   const afkTimerRef = useRef<NodeJS.Timeout | null>(null)
 
-  const startAfkTimer = () => {
+  const startAfkTimer = useCallback(() => {
     if (afkTimerRef.current) {
       clearTimeout(afkTimerRef.current)
     }
@@ -33,13 +33,13 @@ export function WebcamViewer({ config }: WebcamViewerProps) {
       }
       setShowAfkAlert(true)
     }, 120000)
-  }
+  }, [])
 
-  const handleActivity = () => {
+  const handleActivity = useCallback(() => {
     if (!showAfkAlert) {
       startAfkTimer()
     }
-  }
+  }, [showAfkAlert, startAfkTimer])
 
   const handleKeepWatching = () => {
     if (videoRef.current) {
@@ -80,7 +80,7 @@ export function WebcamViewer({ config }: WebcamViewerProps) {
   useEffect(() => {
     document.addEventListener('mousemove', handleActivity)
     document.addEventListener('keypress', handleActivity)
-    document.addEventListener('scroll', handleActivity, true) // true for capture phase to catch all scroll events
+    document.addEventListener('scroll', handleActivity, true)
     startAfkTimer()
 
     return () => {
@@ -91,7 +91,7 @@ export function WebcamViewer({ config }: WebcamViewerProps) {
       document.removeEventListener('keypress', handleActivity)
       document.removeEventListener('scroll', handleActivity, true)
     }
-  }, [])
+  }, [handleActivity, startAfkTimer])
 
   useEffect(() => {
     if (!videoRef.current || !config.url) return
@@ -154,7 +154,7 @@ export function WebcamViewer({ config }: WebcamViewerProps) {
   }, [config])
 
   return (
-    <div ref={containerRef} className="relative bg-foreground h-50vh">
+    <div ref={containerRef} className="relative bg-foreground h-60vh">
       <video
         ref={videoRef}
         className="w-full h-full"
