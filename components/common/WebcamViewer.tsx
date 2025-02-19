@@ -6,6 +6,7 @@ import { WebcamConfig } from '@/api/sargo/interfaces/spot'
 import { ChevronRight, Expand, Shrink } from 'lucide-react'
 import { Button } from '../ui/button'
 import { Alert, AlertDescription } from '@/components/ui/alert'
+import { Spinner } from '../ui/spinner'
 
 interface WebcamViewerProps {
   config: WebcamConfig
@@ -14,6 +15,8 @@ interface WebcamViewerProps {
 export function WebcamViewer({ config }: WebcamViewerProps) {
   const [isFullscreen, setIsFullscreen] = useState(false)
   const [showAfkAlert, setShowAfkAlert] = useState(false)
+  const [isLoading, setIsLoading] = useState(true)
+  const [hasError, setHasError] = useState(false)
   const videoRef = useRef<HTMLVideoElement | null>(null)
   const containerRef = useRef<HTMLDivElement | null>(null)
   const hlsRef = useRef<Hls | null>(null)
@@ -70,6 +73,16 @@ export function WebcamViewer({ config }: WebcamViewerProps) {
     }
   }
 
+  const handleVideoPlay = () => {
+    setIsLoading(false)
+    setHasError(false)
+  }
+
+  const handleVideoError = () => {
+    setIsLoading(false)
+    setHasError(true)
+  }
+
   useEffect(() => {
     document.addEventListener('fullscreenchange', handleFullscreenChange)
     return () => {
@@ -95,11 +108,18 @@ export function WebcamViewer({ config }: WebcamViewerProps) {
 
   useEffect(() => {
     if (!videoRef.current || !config.url) return
+
+    setIsLoading(true)
+    setHasError(false)
+
     const video = videoRef.current
     const providerConfig =
       webcamProviders[config.provider as keyof typeof webcamProviders] ||
       webcamProviders.generic
     const baseUrl = config.url.substring(0, config.url.lastIndexOf('/') + 1)
+
+    video.addEventListener('playing', handleVideoPlay)
+    video.addEventListener('error', handleVideoError)
 
     if (Hls.isSupported()) {
       const hls = new Hls({
@@ -125,6 +145,8 @@ export function WebcamViewer({ config }: WebcamViewerProps) {
       hls.on(Hls.Events.ERROR, function (event, data) {
         if (data.fatal) {
           console.error('Fatal HLS error:', data)
+          setHasError(true)
+          setIsLoading(false)
           switch (data.type) {
             case Hls.ErrorTypes.NETWORK_ERROR:
               console.log('Trying to recover from network error...')
@@ -147,6 +169,8 @@ export function WebcamViewer({ config }: WebcamViewerProps) {
     }
 
     return () => {
+      video.removeEventListener('playing', handleVideoPlay)
+      video.removeEventListener('error', handleVideoError)
       if (hlsRef.current) {
         hlsRef.current.destroy()
       }
@@ -162,6 +186,19 @@ export function WebcamViewer({ config }: WebcamViewerProps) {
         autoPlay
         muted
       />
+
+      {isLoading && (
+        <div className="absolute inset-0 flex items-center justify-center">
+          <Spinner size="lg" className="text-background" />
+        </div>
+      )}
+
+      {hasError && (
+        <div className="absolute inset-0 flex items-center justify-center text-background">
+          Failed to load webcam stream. Please try again later.
+        </div>
+      )}
+
       <Button
         onClick={toggleFullscreen}
         size="icon"
@@ -175,6 +212,7 @@ export function WebcamViewer({ config }: WebcamViewerProps) {
           <Expand className="h-4 w-4" />
         )}
       </Button>
+
       {showAfkAlert && (
         <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
           <Alert className="w-auto">

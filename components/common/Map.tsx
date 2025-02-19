@@ -96,7 +96,7 @@ export function Map({
   return (
     <div
       ref={mapContainer}
-      className={`pointer-events-none ${className}`}
+      className={`pointer-events-none bg-muted ${className}`}
       style={{ width, height }}
     />
   )
