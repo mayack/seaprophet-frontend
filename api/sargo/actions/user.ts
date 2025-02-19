@@ -71,7 +71,6 @@ export async function signIn(
 // }
 export async function signOut() {
   try {
-    // Delete the cookie
     cookies().delete('jwt')
     return { success: true }
   } catch (error) {

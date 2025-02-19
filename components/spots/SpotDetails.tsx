@@ -20,10 +20,7 @@ export function SpotDetails({
 }: SpotDetailsProps) {
   return (
     <div>
-      <Tabs
-        defaultValue={user && webcamConfig ? 'webcam' : 'map'}
-        className="w-full"
-      >
+      <Tabs defaultValue={webcamConfig ? 'webcam' : 'map'} className="w-full">
         <div className="flex items-end mb-6 container mx-auto">
           <h1 className="flex-1 text-4xl font-bold">{spotName}</h1>
           <TabsList>
@@ -39,7 +36,7 @@ export function SpotDetails({
             </TabsTrigger>
           </TabsList>
         </div>
-        {user && webcamConfig && (
+        {webcamConfig && (
           <TabsContent value="webcam">
             <WebcamViewer config={webcamConfig} />
           </TabsContent>

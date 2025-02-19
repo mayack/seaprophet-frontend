@@ -1,17 +1,15 @@
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 
-let lastRequest: string | undefined
-
 export function middleware(request: NextRequest) {
-  const { pathname, searchParams } = request.nextUrl
+  const { pathname } = request.nextUrl
 
-  // Skip middleware for non-page routes
+  // Skip middleware for static files, api routes, and special Next.js routes
   if (
     pathname.startsWith('/_next') ||
-    pathname.startsWith('/api') ||
+    pathname.startsWith('/api/') ||
     pathname.includes('favicon.ico') ||
-    searchParams.has('_rsc')
+    pathname.includes('.') // For other static files
   ) {
     return NextResponse.next()
   }
@@ -20,33 +18,34 @@ export function middleware(request: NextRequest) {
   const isAuthenticated = !!token
   const authPaths = ['/auth/signin', '/auth/signup']
 
-  // Only log non-repeat requests
-  const requestId = `${pathname}-${isAuthenticated}`
-  if (lastRequest !== requestId) {
-    console.log('MIDDLEWARE RUNNING for:', pathname)
-    console.log('Auth status:', { isAuthenticated, pathname })
-    lastRequest = requestId
-  }
-
-  // Skip redirection during the logout process
-  if (request.method === 'POST' && !isAuthenticated) {
+  // Allow unauthenticated access to auth routes
+  if (authPaths.includes(pathname)) {
+    // Redirect to home if already authenticated
+    if (isAuthenticated) {
+      return NextResponse.redirect(new URL('/', request.url))
+    }
     return NextResponse.next()
   }
 
-  // Handle authentication redirects
-  if (!isAuthenticated && !authPaths.includes(pathname)) {
-    console.log('Redirecting to signin - no auth')
+  // Require authentication for all other routes
+  if (!isAuthenticated) {
     return NextResponse.redirect(new URL('/auth/signin', request.url))
-  }
-
-  if (isAuthenticated && authPaths.includes(pathname)) {
-    console.log('Redirecting to home - already authenticated')
-    return NextResponse.redirect(new URL('/', request.url))
   }
 
   return NextResponse.next()
 }
 
 export const config = {
-  matcher: ['/((?!_next/static|_next/image|api|favicon.ico).*)'],
+  matcher: [
+    /*
+     * Match all request paths except:
+     * 1. /api/ routes
+     * 2. /_next/ (Next.js internals)
+     * 3. /fonts/ (inside /public)
+     * 4. /icons/ (inside /public)
+     * 5. /images/ (inside /public)
+     * 6. all root files inside /public (e.g. /favicon.ico)
+     */
+    '/((?!api|_next|fonts|icons|images|[\\w-]+\\.\\w+).*)',
+  ],
 }

@@ -6,7 +6,7 @@ import type { SpotsByCountry } from '@/api/sargo/interfaces/spot'
 import { formatDistance, getDistanceFromLatLonInKm } from '@/lib/location'
 import { NearbySpotsSkeleton } from './Skeleton'
 import { EmptyState } from './EmptyState'
-import { MapPin, Search } from 'lucide-react'
+import { MapPin, SearchX } from 'lucide-react'
 
 interface NearbySpotsProps {
   spotsByCountry: SpotsByCountry
@@ -25,13 +25,13 @@ export function NearbySpots({ spotsByCountry }: NearbySpotsProps) {
       ) : !userLocation ? (
         <EmptyState
           icon={MapPin}
-          title="Enable Location Services"
+          title="Enable location services"
           description="Enable location services in your browser settings to discover surf spots near you."
         />
       ) : nearbySpots.length === 0 ? (
         <EmptyState
-          icon={Search}
-          title="No Spots Found"
+          icon={SearchX}
+          title="No spots found"
           description="No surf spots found within 50km of your location."
         />
       ) : (

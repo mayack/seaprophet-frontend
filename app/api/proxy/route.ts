@@ -1,7 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { webcamProviders } from '@/config/webcamProviders'
+import { cookies } from 'next/headers'
 
 export async function GET(request: NextRequest) {
+  // Check authentication
+  const token = cookies().get('jwt')
+  if (!token) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+
   const url = request.nextUrl.searchParams.get('url')
   const provider = request.nextUrl.searchParams.get('provider') || 'generic'
 

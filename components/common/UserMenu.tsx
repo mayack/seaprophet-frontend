@@ -1,6 +1,7 @@
 'use client'
 
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import {
   DropdownMenu,
@@ -10,9 +11,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { Settings, LogOut, ChevronDown } from 'lucide-react'
-import { useRouter } from 'next/navigation'
 import { signOut } from '@/api/sargo/actions/user'
-import { useUser } from '@/contexts/UserContext'
 import { User } from '@/api/sargo/interfaces/user'
 
 interface UserMenuProps {
@@ -21,26 +20,15 @@ interface UserMenuProps {
 
 export function UserMenu({ user }: UserMenuProps) {
   const router = useRouter()
-  const { refreshUser } = useUser()
 
-  const handleSignOut = async (e: React.MouseEvent<HTMLButtonElement>) => {
-    // Prevent button from being clicked multiple times
-    e.currentTarget.disabled = true
-
+  const handleSignOut = async () => {
     try {
       const result = await signOut()
-
       if (result.success) {
-        // Clear user context
-        await refreshUser()
-
-        // Use replace for navigation
-        router.replace('/auth/signin')
+        router.push('/auth/signin')
       }
     } catch (error) {
       console.error('Error signing out:', error)
-      // Re-enable the button in case of error
-      e.currentTarget.disabled = false
     }
   }
 
@@ -75,7 +63,7 @@ export function UserMenu({ user }: UserMenuProps) {
             <span>Settings</span>
           </Link>
         </DropdownMenuItem>
-        <DropdownMenuItem asChild>
+        <DropdownMenuItem>
           <button
             onClick={handleSignOut}
             className="flex items-center gap-2 cursor-pointer w-full"

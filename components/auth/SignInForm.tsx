@@ -1,14 +1,13 @@
 'use client'
 import { useFormState, useFormStatus } from 'react-dom'
 import { useEffect, useState } from 'react'
-import { useRouter } from 'next/navigation' // Add this
+import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { useToast } from '@/hooks/useToast'
 import { signIn } from '@/api/sargo/actions/user'
 import { FormState } from '@/api/sargo/interfaces/formState'
-import { useUser } from '@/contexts/UserContext'
 
 function SubmitButton() {
   const { pending } = useFormStatus()
@@ -27,9 +26,8 @@ const initialState: FormState = {
 export function SignInForm() {
   const [state, formAction] = useFormState(signIn, initialState)
   const { toast } = useToast()
-  const { refreshUser } = useUser()
   const [isLoading, setIsLoading] = useState(false)
-  const router = useRouter() // Add this
+  const router = useRouter()
 
   const handleFormAction = async (formData: FormData) => {
     setIsLoading(true)
@@ -38,8 +36,8 @@ export function SignInForm() {
 
   useEffect(() => {
     if (state.success) {
-      refreshUser()
-      router.replace('/') // Add this
+      // Instead of using refreshUser, just redirect
+      router.replace('/')
       toast({
         title: 'Success',
         description: state.message,
@@ -53,7 +51,7 @@ export function SignInForm() {
         variant: 'destructive',
       })
     }
-  }, [state, toast, refreshUser, router]) // Add router to deps
+  }, [state, toast, router])
 
   if (isLoading) return null
 

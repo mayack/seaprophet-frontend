@@ -31,7 +31,7 @@ export function SpotsByCountryList({
                     )
 
                     return (
-                      <div key={districtName} className="">
+                      <div key={districtName}>
                         <h4 className="font-semibold text-xl mb-3">
                           {districtName}
                         </h4>
