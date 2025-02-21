@@ -20,6 +20,7 @@ export function WebcamViewer({ config }: WebcamViewerProps) {
   const [isLoading, setIsLoading] = useState(true)
   const [hasError, setHasError] = useState(false)
   const [isTabActive, setIsTabActive] = useState(true)
+  const [isWindowActive, setIsWindowActive] = useState(true)
   const videoRef = useRef<HTMLVideoElement | null>(null)
   const containerRef = useRef<HTMLDivElement | null>(null)
   const hlsRef = useRef<Hls | null>(null)
@@ -37,7 +38,7 @@ export function WebcamViewer({ config }: WebcamViewerProps) {
   const startStream = useCallback(() => {
     if (videoRef.current && hlsRef.current) {
       hlsRef.current.startLoad()
-      videoRef.current.play().catch((err) => {
+      videoRef.current.play().catch(err => {
         console.error('Error playing video:', err)
       })
     }
@@ -55,10 +56,10 @@ export function WebcamViewer({ config }: WebcamViewerProps) {
   }, [stopStream])
 
   const handleActivity = useCallback(() => {
-    if (!showAfkAlert && isTabActive) {
+    if (!showAfkAlert && isTabActive && isWindowActive) {
       startAfkTimer()
     }
-  }, [showAfkAlert, isTabActive, startAfkTimer])
+  }, [showAfkAlert, isTabActive, isWindowActive, startAfkTimer])
 
   const handleKeepWatching = () => {
     setShowAfkAlert(false)
@@ -109,15 +110,35 @@ export function WebcamViewer({ config }: WebcamViewerProps) {
     setHasError(true)
   }
 
+  const handleWindowFocus = useCallback(() => {
+    setIsWindowActive(true)
+    if (!showAfkAlert && isTabActive) {
+      startStream()
+      startAfkTimer()
+    }
+  }, [showAfkAlert, isTabActive, startStream, startAfkTimer])
+
+  const handleWindowBlur = useCallback(() => {
+    setIsWindowActive(false)
+    stopStream()
+    if (afkTimerRef.current) {
+      clearTimeout(afkTimerRef.current)
+    }
+  }, [stopStream])
+
   useEffect(() => {
     document.addEventListener('fullscreenchange', handleFullscreenChange)
     document.addEventListener('visibilitychange', handleVisibilityChange)
+    window.addEventListener('focus', handleWindowFocus)
+    window.addEventListener('blur', handleWindowBlur)
 
     return () => {
       document.removeEventListener('fullscreenchange', handleFullscreenChange)
       document.removeEventListener('visibilitychange', handleVisibilityChange)
+      window.removeEventListener('focus', handleWindowFocus)
+      window.removeEventListener('blur', handleWindowBlur)
     }
-  }, [handleVisibilityChange])
+  }, [handleVisibilityChange, handleWindowFocus, handleWindowBlur])
 
   useEffect(() => {
     if (isTabActive && !showAfkAlert) {
