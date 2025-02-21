@@ -259,14 +259,14 @@ export function WebcamViewer({ config }: WebcamViewerProps) {
       <Button
         onClick={toggleFullscreen}
         size="icon"
-        variant="outline"
+        variant="white"
         className="absolute bottom-4 right-4"
         aria-label={isFullscreen ? 'Exit fullscreen' : 'Enter fullscreen'}
       >
         {isFullscreen ? (
-          <Shrink className="h-4 w-4" />
+          <Shrink className="h-6 w-6" />
         ) : (
-          <Expand className="h-4 w-4" />
+          <Expand className="h-6 w-6" />
         )}
       </Button>
     </div>

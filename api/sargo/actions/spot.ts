@@ -49,6 +49,35 @@ function organizeSpotsByCountry(spots: Spot[]): SpotsByCountry {
   }, {})
 }
 
+export async function getSpot(id: number): Promise<SpotActionResponse<Spot>> {
+  const timestamp = new Date().toISOString()
+
+  try {
+    const response = await sargoClient.getSpot(id, true)
+
+    return {
+      data: response.spot,
+      error: null,
+      meta: {
+        timestamp,
+        source: 'spot-detail',
+        success: true,
+      },
+    }
+  } catch (error) {
+    console.error('getSpot error:', error)
+    return {
+      data: null,
+      error: error instanceof Error ? error.message : 'Failed to load spot',
+      meta: {
+        timestamp,
+        source: 'error',
+        success: false,
+      },
+    }
+  }
+}
+
 export async function getSpotsByCountry(): Promise<
   SpotActionResponse<SpotsByCountry>
 > {
@@ -71,35 +100,6 @@ export async function getSpotsByCountry(): Promise<
     return {
       data: {},
       error: error instanceof Error ? error.message : 'Failed to load spots',
-      meta: {
-        timestamp,
-        source: 'error',
-        success: false,
-      },
-    }
-  }
-}
-
-export async function getSpot(id: number): Promise<SpotActionResponse<Spot>> {
-  const timestamp = new Date().toISOString()
-
-  try {
-    const spotResponse = await sargoClient.getSpot(id, true)
-
-    return {
-      data: spotResponse.spot, // This returns the SpotProps directly
-      error: null,
-      meta: {
-        timestamp,
-        source: 'spot-detail',
-        success: true,
-      },
-    }
-  } catch (error) {
-    console.error('getSpot error:', error)
-    return {
-      data: null,
-      error: error instanceof Error ? error.message : 'Failed to load spot',
       meta: {
         timestamp,
         source: 'error',

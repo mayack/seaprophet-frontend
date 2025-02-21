@@ -152,18 +152,16 @@ export class SargoClient extends BaseApiClient {
         CONFIG.api.endpoints.sargo.spots.detail(id),
         isPublic
       )
-      Object.assign(headers, {
-        'Cache-Control': isPublic
-          ? 'public, max-age=3600'
-          : 'private, max-age=3600', // 1 hour
-      })
 
       const response = await this.fetch<{ data: Spot }>(
         CONFIG.api.endpoints.sargo.spots.detail(id),
         {
           init: {
             headers,
-            next: { revalidate: 3600 }, // Revalidate every 1 hour
+            next: {
+              revalidate: 3600,
+              tags: [`spot-${id}`],
+            },
           },
         }
       )
@@ -195,18 +193,16 @@ export class SargoClient extends BaseApiClient {
       CONFIG.api.endpoints.sargo.spots.byCountry,
       isPublic
     )
-    Object.assign(headers, {
-      'Cache-Control': isPublic
-        ? 'public, max-age=3600'
-        : 'private, max-age=3600', // 1 hour
-    })
 
     return this.fetch(
       `${CONFIG.api.endpoints.sargo.spots.byCountry}?${queryParams}`,
       {
         init: {
           headers,
-          next: { revalidate: 3600 }, // Revalidate every 1 hour
+          next: {
+            revalidate: 3600,
+            tags: ['spots'],
+          },
         },
       }
     )
