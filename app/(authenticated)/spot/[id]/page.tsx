@@ -28,9 +28,9 @@ export default async function SpotPage({ params }: SpotPageProps) {
       lon: spot.location_long,
       orientationFrom: spot.beach_orientation_from ?? undefined,
       orientationTo: spot.beach_orientation_to ?? undefined,
-      waveFactor: spot.surf_rating ? spot.surf_rating / 5 : undefined,
-      adjustmentFactor: spot.surf_consistency ? spot.surf_consistency / 100 : undefined,
-    })
+      waveFactor: spot.wave_factor ?? undefined,
+      adjustmentFactor: spot.adjustment_factor ?? undefined,
+    }),
   ])
 
   if (!forecastResponse.data) {

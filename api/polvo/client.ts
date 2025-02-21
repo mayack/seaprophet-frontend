@@ -94,12 +94,15 @@ export class PolvoClient extends BaseApiClient {
       orientationTo: params.orientationTo?.toString(),
       waveFactor: params.waveFactor?.toString(),
       adjustmentFactor: params.adjustmentFactor?.toString(),
-    }).reduce((acc, [key, value]) => {
-      if (value !== undefined && value !== null) {
-        acc[key] = value
-      }
-      return acc
-    }, {} as Record<string, string>)
+    }).reduce(
+      (acc, [key, value]) => {
+        if (value !== undefined && value !== null) {
+          acc[key] = value
+        }
+        return acc
+      },
+      {} as Record<string, string>
+    )
 
     const queryParams = new URLSearchParams(queryObject)
     const url = `${CONFIG.api.urls.polvo}${CONFIG.api.endpoints.polvo.forecast.get(latitude, longitude)}?${queryParams.toString()}`
@@ -113,7 +116,9 @@ export class PolvoClient extends BaseApiClient {
     }
 
     try {
-      console.log(`Fetching forecast for lat=${latitude}, lon=${longitude}, params=${JSON.stringify(params)}`)
+      console.log(
+        `Fetching forecast for lat=${latitude}, lon=${longitude}, params=${JSON.stringify(params)}`
+      )
       const response = await fetch(url, {
         method: 'GET',
         headers,

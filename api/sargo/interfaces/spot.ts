@@ -49,8 +49,8 @@ export interface SpotAttributes {
   surf_skill_from: number | null
   surf_skill_to: number | null
   surf_walk: number | null
-  wave_factor: number | null;
-  adjustment_factor: number | null;
+  wave_factor: number | null
+  adjustment_factor: number | null
   createdAt: string
   updatedAt: string
   publishedAt: string

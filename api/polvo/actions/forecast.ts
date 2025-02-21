@@ -15,7 +15,9 @@ interface ForecastActionResponse {
   }
 }
 
-export async function getForecast(params: ForecastParams): Promise<ForecastActionResponse> {
+export async function getForecast(
+  params: ForecastParams
+): Promise<ForecastActionResponse> {
   const timestamp = new Date().toISOString()
   const cookieStore = await cookies()
   const headerStore = await headers()
