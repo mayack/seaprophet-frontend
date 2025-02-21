@@ -44,16 +44,20 @@ export function WebcamViewer({ config }: WebcamViewerProps) {
     }
   }, [])
 
+  // Only start AFK timer when tab or window is not active
   const startAfkTimer = useCallback(() => {
     if (afkTimerRef.current) {
       clearTimeout(afkTimerRef.current)
     }
 
-    afkTimerRef.current = setTimeout(() => {
-      setShowAfkAlert(true)
-      stopStream()
-    }, CONFIG.webcam.afk_timer)
-  }, [stopStream])
+    // Only set AFK timer if user is actually away
+    if (!isTabActive || !isWindowActive) {
+      afkTimerRef.current = setTimeout(() => {
+        setShowAfkAlert(true)
+        stopStream()
+      }, CONFIG.webcam.afk_timer)
+    }
+  }, [stopStream, isTabActive, isWindowActive])
 
   const handleKeepWatching = () => {
     setShowAfkAlert(false)
@@ -126,10 +130,7 @@ export function WebcamViewer({ config }: WebcamViewerProps) {
     window.addEventListener('focus', handleWindowFocus)
     window.addEventListener('blur', handleWindowBlur)
 
-    // Start AFK timer on initial mount if tab and window are active
-    if (isTabActive && isWindowActive && !showAfkAlert) {
-      startAfkTimer()
-    }
+    // Don't start AFK timer on mount since user is actively viewing
 
     return () => {
       if (afkTimerRef.current) {

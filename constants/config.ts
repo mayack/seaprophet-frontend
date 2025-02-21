@@ -70,7 +70,7 @@ export const CONFIG = {
     } as const,
   },
   webcam: {
-    afk_timer: 60 * 1000, // 1 minute
+    afk_timer: 120 * 1000, // 1 minute
   },
 } as const
 
