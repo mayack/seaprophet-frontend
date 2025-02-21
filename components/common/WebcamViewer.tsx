@@ -55,12 +55,6 @@ export function WebcamViewer({ config }: WebcamViewerProps) {
     }, CONFIG.webcam.afk_timer)
   }, [stopStream])
 
-  const handleActivity = useCallback(() => {
-    if (!showAfkAlert && isTabActive && isWindowActive) {
-      startAfkTimer()
-    }
-  }, [showAfkAlert, isTabActive, isWindowActive, startAfkTimer])
-
   const handleKeepWatching = () => {
     setShowAfkAlert(false)
     startStream()
@@ -76,11 +70,27 @@ export function WebcamViewer({ config }: WebcamViewerProps) {
       if (afkTimerRef.current) {
         clearTimeout(afkTimerRef.current)
       }
-    } else if (!showAfkAlert) {
+    } else if (!showAfkAlert && isWindowActive) {
       startStream()
       startAfkTimer()
     }
-  }, [showAfkAlert, stopStream, startStream, startAfkTimer])
+  }, [showAfkAlert, isWindowActive, stopStream, startStream, startAfkTimer])
+
+  const handleWindowFocus = useCallback(() => {
+    setIsWindowActive(true)
+    if (!showAfkAlert && isTabActive) {
+      startStream()
+      startAfkTimer()
+    }
+  }, [showAfkAlert, isTabActive, startStream, startAfkTimer])
+
+  const handleWindowBlur = useCallback(() => {
+    setIsWindowActive(false)
+    stopStream()
+    if (afkTimerRef.current) {
+      clearTimeout(afkTimerRef.current)
+    }
+  }, [stopStream])
 
   const handleFullscreenChange = () => {
     setIsFullscreen(!!document.fullscreenElement)
@@ -110,41 +120,14 @@ export function WebcamViewer({ config }: WebcamViewerProps) {
     setHasError(true)
   }
 
-  const handleWindowFocus = useCallback(() => {
-    setIsWindowActive(true)
-    if (!showAfkAlert && isTabActive) {
-      startStream()
-      startAfkTimer()
-    }
-  }, [showAfkAlert, isTabActive, startStream, startAfkTimer])
-
-  const handleWindowBlur = useCallback(() => {
-    setIsWindowActive(false)
-    stopStream()
-    if (afkTimerRef.current) {
-      clearTimeout(afkTimerRef.current)
-    }
-  }, [stopStream])
-
   useEffect(() => {
     document.addEventListener('fullscreenchange', handleFullscreenChange)
     document.addEventListener('visibilitychange', handleVisibilityChange)
     window.addEventListener('focus', handleWindowFocus)
     window.addEventListener('blur', handleWindowBlur)
 
-    return () => {
-      document.removeEventListener('fullscreenchange', handleFullscreenChange)
-      document.removeEventListener('visibilitychange', handleVisibilityChange)
-      window.removeEventListener('focus', handleWindowFocus)
-      window.removeEventListener('blur', handleWindowBlur)
-    }
-  }, [handleVisibilityChange, handleWindowFocus, handleWindowBlur])
-
-  useEffect(() => {
-    if (isTabActive && !showAfkAlert) {
-      document.addEventListener('mousemove', handleActivity)
-      document.addEventListener('keypress', handleActivity)
-      document.addEventListener('scroll', handleActivity, true)
+    // Start AFK timer on initial mount if tab and window are active
+    if (isTabActive && isWindowActive && !showAfkAlert) {
       startAfkTimer()
     }
 
@@ -152,11 +135,20 @@ export function WebcamViewer({ config }: WebcamViewerProps) {
       if (afkTimerRef.current) {
         clearTimeout(afkTimerRef.current)
       }
-      document.removeEventListener('mousemove', handleActivity)
-      document.removeEventListener('keypress', handleActivity)
-      document.removeEventListener('scroll', handleActivity, true)
+      document.removeEventListener('fullscreenchange', handleFullscreenChange)
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
+      window.removeEventListener('focus', handleWindowFocus)
+      window.removeEventListener('blur', handleWindowBlur)
     }
-  }, [handleActivity, startAfkTimer, isTabActive, showAfkAlert])
+  }, [
+    handleVisibilityChange,
+    handleWindowFocus,
+    handleWindowBlur,
+    startAfkTimer,
+    isTabActive,
+    isWindowActive,
+    showAfkAlert,
+  ])
 
   useEffect(() => {
     if (!videoRef.current || !config.url) return
