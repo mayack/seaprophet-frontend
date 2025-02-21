@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic'
+
 import { getCurrentUser, updateSettings } from '@/api/sargo/actions/auth'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'

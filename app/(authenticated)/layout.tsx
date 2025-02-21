@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic'
+
 import { getCurrentUser } from '@/api/sargo/actions/auth'
 import { Header } from '@/components/common/Header'
 import { redirect } from 'next/navigation'

@@ -4,7 +4,6 @@ import { SpotsBrowse } from '@/components/spot/SpotsBrowse'
 import { SpotsByCountry } from '@/api/sargo/interfaces/spot'
 import { Suspense } from 'react'
 import { SpotsBrowseSkeleton } from '@/components/spot/SpotsBrowse/Skeleton'
-import { SpotsNearbySkeleton } from '@/components/spot/SpotsNearby/Skeleton'
 
 export default async function Page() {
   console.log('SpotContent - Starting')
