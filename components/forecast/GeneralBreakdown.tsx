@@ -1,10 +1,10 @@
 import { Droplet } from 'lucide-react'
 import { InfoBreakdownLine } from '../common/InfoBreakdownLine'
-import { GeneralProps } from '@/api/polvo/interfaces/forecast'
 import { formatValueDisplay } from '@/lib/units'
+import { General } from '@/api/polvo/interfaces/forecast'
 
 interface GeneralBreakdownProps {
-  general: GeneralProps
+  general: General
 }
 
 export function GeneralBreakdown({ general }: GeneralBreakdownProps) {
