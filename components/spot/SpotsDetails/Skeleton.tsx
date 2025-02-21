@@ -9,7 +9,7 @@ export function SpotDetailsSkeleton() {
         </div>
         <Skeleton className="h-10 w-48" /> {/* Tabs */}
       </div>
-      <Skeleton className="h-[60vh] w-full" /> {/* Map/Webcam area */}
+      <Skeleton className="h-60vh w-full" /> {/* Map/Webcam area */}
     </div>
   )
 }

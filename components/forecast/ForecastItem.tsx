@@ -39,7 +39,7 @@ export function ForecastItem({ day }: ForecastItemProps) {
           {Object.entries(day.forecast).map(([hour, forecast]) => (
             <div
               key={hour}
-              className="grid aspect-[3/1] items-center border-t py-2.5"
+              className="grid grid-cols-32 items-center border-t py-2.5"
             >
               <div className="col-span-3 text-xs">{hour}</div>
               <WaveItem

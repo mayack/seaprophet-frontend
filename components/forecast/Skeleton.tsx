@@ -19,7 +19,7 @@ export function ForecastSkeleton() {
             {/* Forecast grid */}
             <div className="flex-1">
               {/* Header */}
-              <div className="grid aspect-[3/1] py-2">
+              <div className="grid grid-cols-32 py-2">
                 {[...Array(8)].map((_, i) => (
                   <div key={i} className="col-span-4">
                     <Skeleton className="h-4 w-2/3" />
@@ -31,7 +31,7 @@ export function ForecastSkeleton() {
               {[...Array(8)].map((_, rowIndex) => (
                 <div
                   key={rowIndex}
-                  className="grid aspect-[3/1] items-center border-t py-2.5"
+                  className="grid grid-cols-32 items-center border-t py-2.5"
                 >
                   {[...Array(8)].map((_, cellIndex) => (
                     <div key={cellIndex} className="col-span-4">

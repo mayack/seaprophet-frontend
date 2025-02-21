@@ -9,6 +9,9 @@ export default {
   ],
   theme: {
     extend: {
+      aspectRatio: {
+        '3/1': '3 / 1',
+      },
       colors: {
         background: 'hsl(var(--background))',
         foreground: 'hsl(var(--foreground))',
@@ -58,6 +61,12 @@ export default {
       },
       fontSize: {
         '2xs': '0.625rem', // 10px
+      },
+      gridTemplateColumns: {
+        '32': 'repeat(32, minmax(0, 1fr))',
+      },
+      height: {
+        '60vh': '60vh',
       },
     },
   },

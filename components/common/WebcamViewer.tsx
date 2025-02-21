@@ -2,13 +2,14 @@
 
 import { useEffect, useRef, useState, useCallback } from 'react'
 import Hls from 'hls.js'
-import { ChevronRight, Expand, Shrink } from 'lucide-react'
+import { Expand, Shrink, RefreshCw, Play } from 'lucide-react'
 import { Button } from '../ui/button'
-import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Spinner } from '../ui/spinner'
 import { WebcamConfig } from '@/api/sargo/interfaces/webcam'
 import { webcamProviders } from '@/constants/webcamProviders'
 import { CONFIG } from '@/constants/config'
+
+const AFK_TIMEOUT = CONFIG.webcam.afk_timer
 
 interface WebcamViewerProps {
   config: WebcamConfig
@@ -16,230 +17,229 @@ interface WebcamViewerProps {
 
 export function WebcamViewer({ config }: WebcamViewerProps) {
   const [isFullscreen, setIsFullscreen] = useState(false)
-  const [isTabVisible, setIsTabVisible] = useState(
-    document.visibilityState === 'visible'
-  )
-  const [isWindowFocused, setIsWindowFocused] = useState(true)
-  const [isAfk, setIsAfk] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
-  const [hasError, setHasError] = useState(false)
-  const [lastInteraction, setLastInteraction] = useState(Date.now())
-  const videoRef = useRef<HTMLVideoElement | null>(null)
-  const containerRef = useRef<HTMLDivElement | null>(null)
+  const [hasError, setHasError] = useState<string | null>(null)
+  const [isAfk, setIsAfk] = useState(false)
+
+  const videoRef = useRef<HTMLVideoElement>(null)
+  const containerRef = useRef<HTMLDivElement>(null)
   const hlsRef = useRef<Hls | null>(null)
   const afkTimerRef = useRef<NodeJS.Timeout | null>(null)
 
-  const isUserActive = isTabVisible && isWindowFocused
-
-  const pauseStream = useCallback(() => {
-    if (videoRef.current) {
-      videoRef.current.pause()
-    }
-  }, [])
-
-  const resumeStream = useCallback(() => {
-    if (videoRef.current) {
-      videoRef.current.play().catch((err) => {
-        console.error('Error resuming video:', err)
-        setHasError(true)
-      })
-    }
-  }, [])
-
-  const resetAfkTimer = useCallback(() => {
-    if (afkTimerRef.current) {
-      clearTimeout(afkTimerRef.current)
-    }
-
-    setIsAfk(false)
-    if (!videoRef.current?.paused) return // Already playing, no need to resume
-    resumeStream()
-
-    // Start timer only if user isn’t viewing or hasn’t interacted recently
-    if (
-      !isUserActive ||
-      Date.now() - lastInteraction > CONFIG.webcam.afk_timer
-    ) {
-      afkTimerRef.current = setTimeout(() => {
-        setIsAfk(true)
-        pauseStream()
-      }, CONFIG.webcam.afk_timer)
-    }
-  }, [isUserActive, lastInteraction, pauseStream, resumeStream])
-
-  const handleKeepWatching = useCallback(() => {
-    setIsAfk(false)
-    setLastInteraction(Date.now())
-    resetAfkTimer()
-  }, [resetAfkTimer])
-
-  const handleVisibilityChange = useCallback(() => {
-    setIsTabVisible(document.visibilityState === 'visible')
-    resetAfkTimer()
-  }, [resetAfkTimer])
-
-  const handleWindowFocus = useCallback(() => {
-    setIsWindowFocused(true)
-    setLastInteraction(Date.now())
-    resetAfkTimer()
-  }, [resetAfkTimer])
-
-  const handleWindowBlur = useCallback(() => {
-    setIsWindowFocused(false)
-    resetAfkTimer()
-  }, [resetAfkTimer])
-
-  const handleMouseMove = useCallback(() => {
-    if (isUserActive) {
-      setLastInteraction(Date.now())
-      resetAfkTimer()
-    }
-  }, [isUserActive, resetAfkTimer])
-
   const toggleFullscreen = useCallback(async () => {
-    if (!containerRef.current) return
+    const container = containerRef.current
+    if (!container) return
     try {
-      if (!document.fullscreenElement) {
-        await containerRef.current.requestFullscreen()
-        setIsFullscreen(true)
-      } else {
+      if (document.fullscreenElement) {
         await document.exitFullscreen()
         setIsFullscreen(false)
+      } else {
+        await container.requestFullscreen()
+        setIsFullscreen(true)
       }
     } catch (err) {
-      console.error('Error toggling fullscreen:', err)
+      console.error('Fullscreen error:', err)
     }
   }, [])
 
-  useEffect(() => {
+  const destroyStream = useCallback(() => {
+    if (afkTimerRef.current) {
+      clearTimeout(afkTimerRef.current)
+      afkTimerRef.current = null
+    }
+
+    if (hlsRef.current) {
+      hlsRef.current.destroy()
+      hlsRef.current = null
+    }
+
     const video = videoRef.current
-    if (!video || !config.url) return
+    if (video) {
+      video.removeAttribute('src')
+      video.load()
+    }
+  }, [])
+
+  const initStream = useCallback(() => {
+    if (!config.url || isAfk) return
 
     setIsLoading(true)
-    setHasError(false)
+    setHasError(null)
+    destroyStream()
 
-    const providerConfig =
-      webcamProviders[config.provider as keyof typeof webcamProviders] ||
-      webcamProviders.generic
+    const video = videoRef.current
+    if (!video) return
+
+    const provider = webcamProviders[config.provider as keyof typeof webcamProviders] || webcamProviders.generic
     const baseUrl = config.url.substring(0, config.url.lastIndexOf('/') + 1)
-
-    const handleVideoPlay = () => {
-      setIsLoading(false)
-      setHasError(false)
-    }
-    const handleVideoError = () => {
-      setIsLoading(false)
-      setHasError(true)
-    }
-
-    video.addEventListener('playing', handleVideoPlay)
-    video.addEventListener('error', handleVideoError)
+    const streamUrl = provider.requiresProxy
+      ? `/api/proxy?url=${encodeURIComponent(config.url)}&provider=${config.provider}`
+      : config.url
 
     if (Hls.isSupported()) {
       const hls = new Hls({
-        xhrSetup: (xhr, requestUrl) => {
-          let finalUrl = requestUrl
-          if (providerConfig.transformUrl) {
-            finalUrl = providerConfig.transformUrl(baseUrl)(requestUrl)
-          }
-          const proxyUrl = providerConfig.requiresProxy
-            ? `/api/proxy?url=${encodeURIComponent(finalUrl)}&provider=${config.provider}`
-            : finalUrl
-          if (!requestUrl.startsWith('/api/proxy')) {
-            xhr.open('GET', proxyUrl, true)
-          }
+        xhrSetup: (xhr, url) => {
+          const finalUrl = provider.transformUrl ? provider.transformUrl(baseUrl)(url) : url
+          const proxyUrl = provider.requiresProxy ? `/api/proxy?url=${encodeURIComponent(finalUrl)}&provider=${config.provider}` : finalUrl
+          if (!url.startsWith('/api/proxy')) xhr.open('GET', proxyUrl, true)
         },
-        maxBufferHole: 2,
-        maxMaxBufferLength: 10,
+        autoStartLoad: true,
+        lowLatencyMode: true,
       })
-      hlsRef.current = hls
 
-      const streamUrl = providerConfig.requiresProxy
-        ? `/api/proxy?url=${encodeURIComponent(config.url)}&provider=${config.provider}`
-        : config.url
+      hlsRef.current = hls
       hls.loadSource(streamUrl)
       hls.attachMedia(video)
+
+      hls.on(Hls.Events.MANIFEST_PARSED, () => {
+        if (isAfk) {
+          destroyStream()
+          return
+        }
+
+        video.play()
+          .then(() => {
+            if (!isAfk) {
+              setIsLoading(false)
+              startAfkTimer()
+            } else {
+              destroyStream()
+            }
+          })
+          .catch((err) => {
+            setHasError(`Playback failed: ${err.message}`)
+            setIsLoading(false)
+          })
+      })
+
       hls.on(Hls.Events.ERROR, (_, data) => {
+        if (isAfk) {
+          destroyStream()
+          return
+        }
+
         if (data.fatal) {
-          console.error('Fatal HLS error:', data)
-          setHasError(true)
+          setHasError(`Stream error: ${data.type} - ${data.details}`)
           setIsLoading(false)
-          if (data.type === Hls.ErrorTypes.NETWORK_ERROR) {
-            setTimeout(() => hls.startLoad(), 2000)
-          } else if (data.type === Hls.ErrorTypes.MEDIA_ERROR) {
+
+          if (data.type === Hls.ErrorTypes.MEDIA_ERROR) {
             hls.recoverMediaError()
+          } else if (data.type === Hls.ErrorTypes.NETWORK_ERROR) {
+            setTimeout(() => hls.startLoad(), 2000)
           } else {
-            hls.destroy()
+            destroyStream()
+            setTimeout(initStream, 2000)
           }
         }
       })
     } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
-      video.src = providerConfig.requiresProxy
-        ? `/api/proxy?url=${encodeURIComponent(config.url)}&provider=${config.provider}`
-        : config.url
+      video.src = streamUrl
+      video.load()
+      video.play()
+        .then(() => {
+          if (!isAfk) {
+            setIsLoading(false)
+            startAfkTimer()
+          } else {
+            destroyStream()
+          }
+        })
+        .catch((err) => {
+          setHasError(`Native playback failed: ${err.message}`)
+          setIsLoading(false)
+        })
     }
+  }, [config.url, config.provider, destroyStream, isAfk])
 
-    resetAfkTimer()
-
-    return () => {
-      video.removeEventListener('playing', handleVideoPlay)
-      video.removeEventListener('error', handleVideoError)
-      if (hlsRef.current) {
-        hlsRef.current.destroy()
-        hlsRef.current = null
-      }
-      if (afkTimerRef.current) {
-        clearTimeout(afkTimerRef.current)
-      }
+  const startAfkTimer = useCallback(() => {
+    if (afkTimerRef.current) {
+      clearTimeout(afkTimerRef.current)
     }
-  }, [config, resetAfkTimer])
+    if (!isAfk) {
+      afkTimerRef.current = setTimeout(() => {
+        setIsAfk(true)
+        destroyStream()
+      }, AFK_TIMEOUT)
+    }
+  }, [isAfk, destroyStream])
+
+  const handleMouseMove = useCallback(() => {
+    if (!isAfk) {
+      startAfkTimer()
+    }
+  }, [isAfk, startAfkTimer])
+
+  const handleKeepWatching = useCallback(() => {
+    setIsAfk(false)
+    initStream()
+  }, [initStream])
 
   useEffect(() => {
-    document.addEventListener('visibilitychange', handleVisibilityChange)
-    window.addEventListener('focus', handleWindowFocus)
-    window.addEventListener('blur', handleWindowBlur)
+    const video = videoRef.current
+    if (!video) return
+
+    const handlePlay = () => {
+      if (isAfk) {
+        destroyStream()
+        return
+      }
+      setIsLoading(false)
+      startAfkTimer()
+    }
+
+    const handleError = () => {
+      if (isAfk) return
+      setIsLoading(false)
+      setHasError('Video error occurred')
+    }
+
+    video.addEventListener('playing', handlePlay)
+    video.addEventListener('error', handleError)
+
+    if (!isAfk) {
+      initStream()
+      startAfkTimer()
+    }
+
     const container = containerRef.current
     if (container) {
       container.addEventListener('mousemove', handleMouseMove)
     }
 
     return () => {
-      document.removeEventListener('visibilitychange', handleVisibilityChange)
-      window.removeEventListener('focus', handleWindowFocus)
-      window.removeEventListener('blur', handleWindowBlur)
+      video.removeEventListener('playing', handlePlay)
+      video.removeEventListener('error', handleError)
       if (container) {
         container.removeEventListener('mousemove', handleMouseMove)
       }
+      destroyStream()
     }
-  }, [
-    handleVisibilityChange,
-    handleWindowFocus,
-    handleWindowBlur,
-    handleMouseMove,
-  ])
+  }, [initStream, handleMouseMove, startAfkTimer, destroyStream, isAfk])
 
   return (
     <div ref={containerRef} className="relative h-[60vh] bg-foreground">
-      <video
-        ref={videoRef}
-        className="h-full w-full"
-        playsInline
-        autoPlay
-        muted
-      />
-
-      {isLoading && (
+      <video ref={videoRef} className="h-full w-full" playsInline muted />
+      {isLoading && !isAfk && (
         <div className="absolute inset-0 flex items-center justify-center">
           <Spinner size="lg" className="text-background" />
         </div>
       )}
-
-      {hasError && (
-        <div className="absolute inset-0 flex items-center justify-center text-background">
-          Failed to load webcam stream. Please try again later.
+      {hasError && !isAfk && (
+        <div className="absolute inset-0 flex flex-col items-center justify-center text-background gap-4">
+          <div>{hasError || 'Failed to load webcam stream'}</div>
+          <Button onClick={initStream} variant="outline" className="flex items-center gap-2">
+            <RefreshCw className="h-4 w-4" /> Retry
+          </Button>
         </div>
       )}
-
+      {isAfk && (
+        <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/50 text-white gap-4">
+          <div className="font-medium">Are you still there?</div>
+          <Button onClick={handleKeepWatching} variant="white" className="flex items-center gap-2">
+            <Play className="h-4 w-4" /> Keep watching
+          </Button>
+        </div>
+      )}
       <Button
         onClick={toggleFullscreen}
         size="icon"
@@ -247,26 +247,8 @@ export function WebcamViewer({ config }: WebcamViewerProps) {
         className="absolute bottom-4 right-4"
         aria-label={isFullscreen ? 'Exit fullscreen' : 'Enter fullscreen'}
       >
-        {isFullscreen ? (
-          <Shrink className="h-4 w-4" />
-        ) : (
-          <Expand className="h-4 w-4" />
-        )}
+        {isFullscreen ? <Shrink className="h-4 w-4" /> : <Expand className="h-4 w-4" />}
       </Button>
-
-      {isUserActive && isAfk && (
-        <div className="absolute inset-0 flex items-center justify-center bg-black/50">
-          <Alert className="w-auto">
-            <AlertDescription className="flex items-center gap-4">
-              <div className="font-medium">Are you still there?</div>
-              <Button size="sm" onClick={handleKeepWatching} className="gap-1">
-                Keep watching
-                <ChevronRight className="h-4 w-4" />
-              </Button>
-            </AlertDescription>
-          </Alert>
-        </div>
-      )}
     </div>
   )
 }
