@@ -16,22 +16,25 @@ interface WebcamViewerProps {
 
 export function WebcamViewer({ config }: WebcamViewerProps) {
   const [isFullscreen, setIsFullscreen] = useState(false)
-  const [showAfkAlert, setShowAfkAlert] = useState(false)
+  const [isTabVisible, setIsTabVisible] = useState(
+    document.visibilityState === 'visible'
+  )
+  const [isWindowFocused, setIsWindowFocused] = useState(true)
+  const [isAfk, setIsAfk] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
   const [hasError, setHasError] = useState(false)
-  const [isTabActive, setIsTabActive] = useState(true)
-  const [isWindowActive, setIsWindowActive] = useState(true)
   const videoRef = useRef<HTMLVideoElement | null>(null)
   const containerRef = useRef<HTMLDivElement | null>(null)
   const hlsRef = useRef<Hls | null>(null)
   const afkTimerRef = useRef<NodeJS.Timeout | null>(null)
+  const debounceRef = useRef<NodeJS.Timeout | null>(null)
+
+  const isUserActive = isTabVisible && isWindowFocused
 
   const stopStream = useCallback(() => {
-    if (videoRef.current) {
+    if (videoRef.current && hlsRef.current) {
       videoRef.current.pause()
-      if (hlsRef.current) {
-        hlsRef.current.stopLoad()
-      }
+      hlsRef.current.stopLoad()
     }
   }, [])
 
@@ -40,135 +43,95 @@ export function WebcamViewer({ config }: WebcamViewerProps) {
       hlsRef.current.startLoad()
       videoRef.current.play().catch((err) => {
         console.error('Error playing video:', err)
+        setHasError(true)
       })
     }
   }, [])
 
-  // Only start AFK timer when tab or window is not active
-  const startAfkTimer = useCallback(() => {
-    if (afkTimerRef.current) {
-      clearTimeout(afkTimerRef.current)
+  const resetAfkTimer = useCallback(() => {
+    if (debounceRef.current) {
+      clearTimeout(debounceRef.current)
     }
 
-    // Only set AFK timer if user is actually away
-    if (!isTabActive || !isWindowActive) {
-      afkTimerRef.current = setTimeout(() => {
-        setShowAfkAlert(true)
-        stopStream()
-      }, CONFIG.webcam.afk_timer)
-    }
-  }, [stopStream, isTabActive, isWindowActive])
-
-  const handleKeepWatching = () => {
-    setShowAfkAlert(false)
-    startStream()
-    startAfkTimer()
-  }
-
-  const handleVisibilityChange = useCallback(() => {
-    const isVisible = document.visibilityState === 'visible'
-    setIsTabActive(isVisible)
-
-    if (!isVisible) {
-      stopStream()
+    debounceRef.current = setTimeout(() => {
       if (afkTimerRef.current) {
         clearTimeout(afkTimerRef.current)
       }
-    } else if (!showAfkAlert && isWindowActive) {
-      startStream()
-      startAfkTimer()
-    }
-  }, [showAfkAlert, isWindowActive, stopStream, startStream, startAfkTimer])
+
+      if (isUserActive && !isAfk) {
+        startStream()
+        afkTimerRef.current = setTimeout(() => {
+          setIsAfk(true)
+          stopStream()
+        }, CONFIG.webcam.afk_timer)
+      } else {
+        stopStream()
+      }
+    }, 200) // Debounce delay of 200ms
+  }, [isUserActive, isAfk, startStream, stopStream])
+
+  const handleKeepWatching = useCallback(() => {
+    setIsAfk(false)
+    resetAfkTimer()
+  }, [resetAfkTimer])
+
+  const handleVisibilityChange = useCallback(() => {
+    setIsTabVisible(document.visibilityState === 'visible')
+    resetAfkTimer()
+  }, [resetAfkTimer])
 
   const handleWindowFocus = useCallback(() => {
-    setIsWindowActive(true)
-    if (!showAfkAlert && isTabActive) {
-      startStream()
-      startAfkTimer()
-    }
-  }, [showAfkAlert, isTabActive, startStream, startAfkTimer])
+    setIsWindowFocused(true)
+    resetAfkTimer()
+  }, [resetAfkTimer])
 
   const handleWindowBlur = useCallback(() => {
-    setIsWindowActive(false)
-    stopStream()
-    if (afkTimerRef.current) {
-      clearTimeout(afkTimerRef.current)
-    }
-  }, [stopStream])
+    setIsWindowFocused(false)
+    resetAfkTimer()
+  }, [resetAfkTimer])
 
-  const handleFullscreenChange = () => {
-    setIsFullscreen(!!document.fullscreenElement)
-  }
-
-  const toggleFullscreen = async () => {
+  const toggleFullscreen = useCallback(async () => {
     if (!containerRef.current) return
-
     try {
       if (!document.fullscreenElement) {
         await containerRef.current.requestFullscreen()
+        setIsFullscreen(true)
       } else {
         await document.exitFullscreen()
+        setIsFullscreen(false)
       }
     } catch (err) {
       console.error('Error toggling fullscreen:', err)
     }
-  }
-
-  const handleVideoPlay = () => {
-    setIsLoading(false)
-    setHasError(false)
-  }
-
-  const handleVideoError = () => {
-    setIsLoading(false)
-    setHasError(true)
-  }
+  }, [])
 
   useEffect(() => {
-    document.addEventListener('fullscreenchange', handleFullscreenChange)
-    document.addEventListener('visibilitychange', handleVisibilityChange)
-    window.addEventListener('focus', handleWindowFocus)
-    window.addEventListener('blur', handleWindowBlur)
-
-    // Don't start AFK timer on mount since user is actively viewing
-
-    return () => {
-      if (afkTimerRef.current) {
-        clearTimeout(afkTimerRef.current)
-      }
-      document.removeEventListener('fullscreenchange', handleFullscreenChange)
-      document.removeEventListener('visibilitychange', handleVisibilityChange)
-      window.removeEventListener('focus', handleWindowFocus)
-      window.removeEventListener('blur', handleWindowBlur)
-    }
-  }, [
-    handleVisibilityChange,
-    handleWindowFocus,
-    handleWindowBlur,
-    startAfkTimer,
-    isTabActive,
-    isWindowActive,
-    showAfkAlert,
-  ])
-
-  useEffect(() => {
-    if (!videoRef.current || !config.url) return
+    const video = videoRef.current
+    if (!video || !config.url) return
 
     setIsLoading(true)
     setHasError(false)
 
-    const video = videoRef.current
     const providerConfig =
       webcamProviders[config.provider as keyof typeof webcamProviders] ||
       webcamProviders.generic
     const baseUrl = config.url.substring(0, config.url.lastIndexOf('/') + 1)
+
+    const handleVideoPlay = () => {
+      setIsLoading(false)
+      setHasError(false)
+    }
+    const handleVideoError = () => {
+      setIsLoading(false)
+      setHasError(true)
+    }
 
     video.addEventListener('playing', handleVideoPlay)
     video.addEventListener('error', handleVideoError)
 
     if (Hls.isSupported()) {
       const hls = new Hls({
-        xhrSetup: function (xhr, requestUrl) {
+        xhrSetup: (xhr, requestUrl) => {
           let finalUrl = requestUrl
           if (providerConfig.transformUrl) {
             finalUrl = providerConfig.transformUrl(baseUrl)(requestUrl)
@@ -180,30 +143,27 @@ export function WebcamViewer({ config }: WebcamViewerProps) {
             xhr.open('GET', proxyUrl, true)
           }
         },
+        maxBufferHole: 2,
+        maxMaxBufferLength: 10,
       })
       hlsRef.current = hls
+
       const streamUrl = providerConfig.requiresProxy
         ? `/api/proxy?url=${encodeURIComponent(config.url)}&provider=${config.provider}`
         : config.url
       hls.loadSource(streamUrl)
       hls.attachMedia(video)
-      hls.on(Hls.Events.ERROR, function (event, data) {
+      hls.on(Hls.Events.ERROR, (_, data) => {
         if (data.fatal) {
           console.error('Fatal HLS error:', data)
           setHasError(true)
           setIsLoading(false)
-          switch (data.type) {
-            case Hls.ErrorTypes.NETWORK_ERROR:
-              console.log('Trying to recover from network error...')
-              hls.startLoad()
-              break
-            case Hls.ErrorTypes.MEDIA_ERROR:
-              console.log('Trying to recover from media error...')
-              hls.recoverMediaError()
-              break
-            default:
-              hls.destroy()
-              break
+          if (data.type === Hls.ErrorTypes.NETWORK_ERROR) {
+            setTimeout(() => hls.startLoad(), 2000) // Retry after 2s
+          } else if (data.type === Hls.ErrorTypes.MEDIA_ERROR) {
+            hls.recoverMediaError()
+          } else {
+            hls.destroy()
           }
         }
       })
@@ -213,17 +173,38 @@ export function WebcamViewer({ config }: WebcamViewerProps) {
         : config.url
     }
 
+    resetAfkTimer()
+
     return () => {
       video.removeEventListener('playing', handleVideoPlay)
       video.removeEventListener('error', handleVideoError)
       if (hlsRef.current) {
         hlsRef.current.destroy()
+        hlsRef.current = null
+      }
+      if (afkTimerRef.current) {
+        clearTimeout(afkTimerRef.current)
+      }
+      if (debounceRef.current) {
+        clearTimeout(debounceRef.current)
       }
     }
-  }, [config])
+  }, [config, resetAfkTimer])
+
+  useEffect(() => {
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+    window.addEventListener('focus', handleWindowFocus)
+    window.addEventListener('blur', handleWindowBlur)
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
+      window.removeEventListener('focus', handleWindowFocus)
+      window.removeEventListener('blur', handleWindowBlur)
+    }
+  }, [handleVisibilityChange, handleWindowFocus, handleWindowBlur])
 
   return (
-    <div ref={containerRef} className="relative h-60vh bg-foreground">
+    <div ref={containerRef} className="relative h-[60vh] bg-foreground">
       <video
         ref={videoRef}
         className="h-full w-full"
@@ -244,6 +225,12 @@ export function WebcamViewer({ config }: WebcamViewerProps) {
         </div>
       )}
 
+      {!isUserActive && !isAfk && (
+        <div className="absolute inset-0 flex items-center justify-center bg-black/30 text-white">
+          Stream Paused
+        </div>
+      )}
+
       <Button
         onClick={toggleFullscreen}
         size="icon"
@@ -258,7 +245,7 @@ export function WebcamViewer({ config }: WebcamViewerProps) {
         )}
       </Button>
 
-      {showAfkAlert && (
+      {isUserActive && isAfk && (
         <div className="absolute inset-0 flex items-center justify-center bg-black/50">
           <Alert className="w-auto">
             <AlertDescription className="flex items-center gap-4">
