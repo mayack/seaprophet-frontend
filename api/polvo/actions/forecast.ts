@@ -60,6 +60,12 @@ export async function getForecast(coords: {
       units,
       token
     )
+    // Set cache headers for SSR fallback (if ISR isn’t used)
+    const responseHeaders = headers()
+    responseHeaders.set(
+      'Cache-Control',
+      'public, s-maxage=600, stale-while-revalidate=300'
+    )
     return {
       data: forecast,
       error: null,
