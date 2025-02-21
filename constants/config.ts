@@ -69,6 +69,9 @@ export const CONFIG = {
       temperature: 'celsius',
     } as const,
   },
+  webcam: {
+    afk_timer: 60 * 1000 // 1 minute
+  }
 } as const
 
 export type Config = typeof CONFIG

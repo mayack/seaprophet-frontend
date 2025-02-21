@@ -8,6 +8,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Spinner } from '../ui/spinner'
 import { WebcamConfig } from '@/api/sargo/interfaces/webcam'
 import { webcamProviders } from '@/constants/webcamProviders'
+import { CONFIG } from '@/constants/config'
 
 interface WebcamViewerProps {
   config: WebcamConfig
@@ -50,7 +51,7 @@ export function WebcamViewer({ config }: WebcamViewerProps) {
     afkTimerRef.current = setTimeout(() => {
       setShowAfkAlert(true)
       stopStream()
-    }, 60000)
+    }, CONFIG.webcam.afk_timer)
   }, [stopStream])
 
   const handleActivity = useCallback(() => {
