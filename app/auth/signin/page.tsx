@@ -2,13 +2,14 @@ import { signIn } from '@/api/sargo/actions/auth'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
+import { Waves } from 'lucide-react'
 
 export default function SignIn() {
   return (
-    <div className="flex min-h-screen items-center justify-center">
+    <div className="flex flex-col gap-12 min-h-screen items-center justify-center">
       <Card className="w-full max-w-md">
         <CardHeader>
-          <CardTitle>Sign In</CardTitle>
+          <CardTitle className="flex justify-center"><Waves className="w-10 h-10" /></CardTitle>
         </CardHeader>
         <CardContent>
           <form action={signIn} className="space-y-4">
@@ -16,9 +17,8 @@ export default function SignIn() {
               <Input
                 type="text"
                 name="identifier"
-                placeholder="Username or Email"
+                placeholder="Email address"
                 required
-                defaultValue="test@example.com"
               />
             </div>
             <div className="space-y-2">
@@ -35,6 +35,7 @@ export default function SignIn() {
           </form>
         </CardContent>
       </Card>
+      <div className="text-muted-foreground text-xs">This app has been deployed only for testing purposes.</div>
     </div>
   )
 }
