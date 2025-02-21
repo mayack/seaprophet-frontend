@@ -70,7 +70,9 @@ export function WebcamViewer({ config }: WebcamViewerProps) {
     const video = videoRef.current
     if (!video) return
 
-    const provider = webcamProviders[config.provider as keyof typeof webcamProviders] || webcamProviders.generic
+    const provider =
+      webcamProviders[config.provider as keyof typeof webcamProviders] ||
+      webcamProviders.generic
     const baseUrl = config.url.substring(0, config.url.lastIndexOf('/') + 1)
     const streamUrl = provider.requiresProxy
       ? `/api/proxy?url=${encodeURIComponent(config.url)}&provider=${config.provider}`
@@ -79,8 +81,12 @@ export function WebcamViewer({ config }: WebcamViewerProps) {
     if (Hls.isSupported()) {
       const hls = new Hls({
         xhrSetup: (xhr, url) => {
-          const finalUrl = provider.transformUrl ? provider.transformUrl(baseUrl)(url) : url
-          const proxyUrl = provider.requiresProxy ? `/api/proxy?url=${encodeURIComponent(finalUrl)}&provider=${config.provider}` : finalUrl
+          const finalUrl = provider.transformUrl
+            ? provider.transformUrl(baseUrl)(url)
+            : url
+          const proxyUrl = provider.requiresProxy
+            ? `/api/proxy?url=${encodeURIComponent(finalUrl)}&provider=${config.provider}`
+            : finalUrl
           if (!url.startsWith('/api/proxy')) xhr.open('GET', proxyUrl, true)
         },
         autoStartLoad: true,
@@ -97,7 +103,8 @@ export function WebcamViewer({ config }: WebcamViewerProps) {
           return
         }
 
-        video.play()
+        video
+          .play()
           .then(() => {
             if (!isAfk) {
               setIsLoading(false)
@@ -135,7 +142,8 @@ export function WebcamViewer({ config }: WebcamViewerProps) {
     } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
       video.src = streamUrl
       video.load()
-      video.play()
+      video
+        .play()
         .then(() => {
           if (!isAfk) {
             setIsLoading(false)
@@ -225,17 +233,25 @@ export function WebcamViewer({ config }: WebcamViewerProps) {
         </div>
       )}
       {hasError && !isAfk && (
-        <div className="absolute inset-0 flex flex-col items-center justify-center text-background gap-4">
+        <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 text-background">
           <div>{hasError || 'Failed to load webcam stream'}</div>
-          <Button onClick={initStream} variant="outline" className="flex items-center gap-2">
+          <Button
+            onClick={initStream}
+            variant="outline"
+            className="flex items-center gap-2"
+          >
             <RefreshCw className="h-4 w-4" /> Retry
           </Button>
         </div>
       )}
       {isAfk && (
-        <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/50 text-white gap-4">
+        <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 bg-black/50 text-white">
           <div className="font-medium">Are you still there?</div>
-          <Button onClick={handleKeepWatching} variant="white" className="flex items-center gap-2">
+          <Button
+            onClick={handleKeepWatching}
+            variant="white"
+            className="flex items-center gap-2"
+          >
             <Play className="h-4 w-4" /> Keep watching
           </Button>
         </div>
@@ -247,7 +263,11 @@ export function WebcamViewer({ config }: WebcamViewerProps) {
         className="absolute bottom-4 right-4"
         aria-label={isFullscreen ? 'Exit fullscreen' : 'Enter fullscreen'}
       >
-        {isFullscreen ? <Shrink className="h-4 w-4" /> : <Expand className="h-4 w-4" />}
+        {isFullscreen ? (
+          <Shrink className="h-4 w-4" />
+        ) : (
+          <Expand className="h-4 w-4" />
+        )}
       </Button>
     </div>
   )
