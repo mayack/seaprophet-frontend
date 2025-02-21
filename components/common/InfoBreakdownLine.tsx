@@ -15,7 +15,7 @@ export function InfoBreakdownLine({
         {icon}
         <span className="font-medium">{label}</span>
       </div>
-      <span className="font-mono">{value}</span>
+      <div className="">{value}</div>
     </div>
   )
 }

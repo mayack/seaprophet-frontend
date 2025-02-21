@@ -1,6 +1,8 @@
-export interface WebcamConfig {
-  url: string
-  provider: string
+import { WebcamConfig } from './webcam'
+
+export interface Spot {
+  id: number
+  attributes: SpotAttributes
 }
 
 export interface SpotAttributes {
@@ -50,7 +52,7 @@ export interface SpotAttributes {
   createdAt: string
   updatedAt: string
   publishedAt: string
-  webcam?: WebcamConfig
+  webcam: WebcamConfig
   municipality: {
     data: {
       attributes: {
@@ -83,20 +85,12 @@ export interface SpotAttributes {
   }
 }
 
-export interface SpotProps {
-  id: number
-  attributes: SpotAttributes
-}
-
 export interface SpotSummary {
   id: number
   name: string
-  location: {
-    lat: number
-    long: number
-  }
+  location: Location
   municipality: string
-  webcam: WebcamConfig | undefined
+  webcam: WebcamConfig | null
 }
 
 export type RegionsType = {
@@ -107,4 +101,14 @@ export type SpotsByCountry = {
   [country: string]: {
     [region: string]: RegionsType
   }
+}
+
+export interface SpotResponse {
+  spot: Spot | null
+  error: string | null
+}
+
+interface Location {
+  lat: number
+  long: number
 }

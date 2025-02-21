@@ -1,11 +1,12 @@
 'use client'
-import { AstronomicalProps, TideProps } from '@/api/polvo/interfaces/forecast'
-import { formatValueDisplay, getValue } from '@/lib/units'
-import React, { useState, useRef, useMemo, useCallback, useEffect } from 'react'
+
+import { Astronomical, Tide } from '@/api/polvo/interfaces/forecast'
+import { useEffect, useRef, useState } from 'react'
+import { Skeleton } from '../ui/skeleton'
 
 interface TideChartProps {
-  data: TideProps[]
-  astronomical?: AstronomicalProps
+  data: Tide[]
+  astronomical?: Astronomical
 }
 
 const PADDING = {
@@ -15,172 +16,175 @@ const PADDING = {
   right: 0,
 } as const
 
-const TideChart: React.FC<TideChartProps> = ({ data, astronomical }) => {
+const timeToMinutes = (time: string): number => {
+  const [hours, minutes] = time.split(':').map(Number)
+  return hours * 60 + minutes
+}
+
+const normalizeTime = (time: string): number => {
+  let minutes = timeToMinutes(time)
+  if (minutes < 0) minutes += 1440
+  if (minutes > 1440) minutes -= 1440
+  return minutes
+}
+
+const minutesToTime = (minutes: number): string => {
+  const hours = Math.floor(minutes / 60) % 24
+  const mins = minutes % 60
+  return `${hours.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}`
+}
+
+const formatValueDisplay = (value: { value: number; unit: string }) => {
+  return `${value.value.toFixed(2)}${value.unit}`
+}
+
+const getValue = (value: { value: number; unit: string }) => {
+  return value.value
+}
+
+export default function TideChart({ data, astronomical }: TideChartProps) {
   const height = 90
   const svgRef = useRef<SVGSVGElement>(null)
-  const [containerWidth, setContainerWidth] = useState(800)
+  const [width, setWidth] = useState(800)
+  const [isClient, setIsClient] = useState(false)
   const [mousePosition, setMousePosition] = useState<number | null>(null)
   const [currentTideValue, setCurrentTideValue] = useState<string | null>(null)
 
   useEffect(() => {
-    const updateWidth = () => {
-      if (svgRef.current) {
-        setContainerWidth(svgRef.current.getBoundingClientRect().width)
-      }
-    }
-    updateWidth()
-    window.addEventListener('resize', updateWidth)
-    return () => window.removeEventListener('resize', updateWidth)
+    setIsClient(true)
   }, [])
 
-  const timeToMinutes = (time: string): number => {
-    const [hours, minutes] = time.split(':').map(Number)
-    return hours * 60 + minutes
+  useEffect(() => {
+    if (!isClient) return
+
+    const element = svgRef.current
+    if (!element) return
+
+    const updateWidth = () => {
+      const rect = element.getBoundingClientRect()
+      if (rect.width > 0) {
+        setWidth(rect.width)
+      }
+    }
+
+    updateWidth()
+    const observer = new ResizeObserver(updateWidth)
+    observer.observe(element)
+    return () => observer.disconnect()
+  }, [isClient])
+
+  if (!isClient) {
+    return <Skeleton className="h-[90px] w-full" />
   }
 
-  const normalizeTime = (time: string): number => {
-    let minutes = timeToMinutes(time)
-    if (minutes < 0) minutes += 1440
-    if (minutes > 1440) minutes -= 1440
-    return minutes
+  // Process tide data
+  const sortedData = [...data].sort(
+    (a, b) => timeToMinutes(a.time) - timeToMinutes(b.time)
+  )
+  const prevExtreme = sortedData.find((tide) => tide.type === 'prevExtreme')
+  const nextExtreme = sortedData.find((tide) => tide.type === 'nextExtreme')
+  const regularTides = sortedData.filter(
+    (tide) => tide.type === 'high' || tide.type === 'low'
+  )
+
+  const tideData = [
+    prevExtreme || {
+      ...regularTides[0],
+      time: '-00:01',
+      type: 'prevExtreme' as const,
+    },
+    ...regularTides,
+    nextExtreme || {
+      ...regularTides[regularTides.length - 1],
+      time: '24:01',
+      type: 'nextExtreme' as const,
+    },
+  ]
+
+  const minHeight = Math.min(...tideData.map((tide) => getValue(tide.height)))
+  const maxHeight = Math.max(...tideData.map((tide) => getValue(tide.height)))
+  const xScale = (width - PADDING.left - PADDING.right) / 1440
+  const yScale =
+    (height - PADDING.top - PADDING.bottom) / (maxHeight - minHeight)
+
+  const interpolate = (start: Tide, end: Tide, minute: number): number => {
+    let startMinutes = timeToMinutes(start.time)
+    let endMinutes = timeToMinutes(end.time)
+    if (start.type === 'prevExtreme') startMinutes -= 1440
+    if (end.type === 'nextExtreme') endMinutes += 1440
+    const totalMinutes = endMinutes - startMinutes
+    const progress = (minute - startMinutes) / totalMinutes
+    const t = (1 - Math.cos(progress * Math.PI)) / 2
+    return getValue(start.height) * (1 - t) + getValue(end.height) * t
   }
 
-  const minutesToTime = (minutes: number): string => {
-    const hours = Math.floor(minutes / 60) % 24
-    const mins = minutes % 60
-    return `${hours.toString().padStart(2, '0')}:${mins
-      .toString()
-      .padStart(2, '0')}`
+  const getTextPosition = (x: number) => {
+    const MARGIN = 30
+    const leftEdge = PADDING.left + MARGIN
+    const rightEdge = width - PADDING.right - MARGIN
+    const isNearLeftEdge = x < leftEdge
+    const isNearRightEdge = x > rightEdge
+    return {
+      x: isNearLeftEdge ? x - 4 : isNearRightEdge ? x + 4 : x,
+      anchor: isNearLeftEdge ? 'start' : isNearRightEdge ? 'end' : 'middle',
+    }
   }
 
-  const interpolate = useCallback(
-    (start: TideProps, end: TideProps, minute: number): number => {
+  // Generate curve points
+  const curvePoints = Array.from({ length: 1441 }, (_, minute) => {
+    const x = PADDING.left + minute * xScale
+    let y = 0
+
+    for (let i = 0; i < tideData.length - 1; i++) {
+      const start = tideData[i]
+      const end = tideData[i + 1]
       let startMinutes = timeToMinutes(start.time)
       let endMinutes = timeToMinutes(end.time)
       if (start.type === 'prevExtreme') startMinutes -= 1440
       if (end.type === 'nextExtreme') endMinutes += 1440
-      const totalMinutes = endMinutes - startMinutes
-      const progress = (minute - startMinutes) / totalMinutes
-      const t = (1 - Math.cos(progress * Math.PI)) / 2
-      return getValue(start.height) * (1 - t) + getValue(end.height) * t
-    },
-    []
-  )
-
-  const tideData = useMemo(() => {
-    const sortedData = [...data].sort(
-      (a, b) => timeToMinutes(a.time) - timeToMinutes(b.time)
-    )
-    const prevExtreme = sortedData.find((tide) => tide.type === 'prevExtreme')
-    const nextExtreme = sortedData.find((tide) => tide.type === 'nextExtreme')
-    const regularTides = sortedData.filter(
-      (tide) => tide.type === 'high' || tide.type === 'low'
-    )
-
-    return [
-      prevExtreme || {
-        ...regularTides[0],
-        time: '-00:01',
-        type: 'prevExtreme' as const,
-      },
-      ...regularTides,
-      nextExtreme || {
-        ...regularTides[regularTides.length - 1],
-        time: '24:01',
-        type: 'nextExtreme' as const,
-      },
-    ]
-  }, [data])
-
-  const minHeight = Math.min(...tideData.map((tide) => getValue(tide.height)))
-  const maxHeight = Math.max(...tideData.map((tide) => getValue(tide.height)))
-
-  const xScale = (containerWidth - PADDING.left - PADDING.right) / 1440
-  const yScale =
-    (height - PADDING.top - PADDING.bottom) / (maxHeight - minHeight)
-
-  const getTextPosition = useCallback(
-    (x: number) => {
-      const MARGIN = 30
-      const leftEdge = PADDING.left + MARGIN
-      const rightEdge = containerWidth - PADDING.right - MARGIN
-      const isNearLeftEdge = x < leftEdge
-      const isNearRightEdge = x > rightEdge
-
-      return {
-        x: isNearLeftEdge ? x - 4 : isNearRightEdge ? x + 4 : x,
-        anchor: isNearLeftEdge ? 'start' : isNearRightEdge ? 'end' : 'middle',
+      if (minute >= startMinutes && minute <= endMinutes) {
+        y = interpolate(start, end, minute)
+        break
       }
-    },
-    [containerWidth]
-  )
-
-  const curvePoints = useMemo(() => {
-    const points: string[] = []
-    for (let minute = 0; minute <= 1440; minute++) {
-      const x = PADDING.left + minute * xScale
-      let y = 0
-      for (let i = 0; i < tideData.length - 1; i++) {
-        const start = tideData[i]
-        const end = tideData[i + 1]
-        let startMinutes = timeToMinutes(start.time)
-        let endMinutes = timeToMinutes(end.time)
-
-        if (start.type === 'prevExtreme') startMinutes -= 1440
-        if (end.type === 'nextExtreme') endMinutes += 1440
-
-        if (minute >= startMinutes && minute <= endMinutes) {
-          y = interpolate(start, end, minute)
-          break
-        }
-      }
-      const yPos = height - PADDING.bottom - (y - minHeight) * yScale
-      points.push(`${x},${yPos}`)
     }
-    return points
-  }, [tideData, xScale, yScale, height, minHeight, interpolate])
+
+    const yPos = height - PADDING.bottom - (y - minHeight) * yScale
+    return `${x},${yPos}`
+  })
 
   const pathData = `M ${curvePoints.join(' L ')}`
 
   const handleMouseMove = (event: React.MouseEvent<SVGSVGElement>) => {
-    if (svgRef.current) {
-      const rect = svgRef.current.getBoundingClientRect()
-      const x = event.clientX - rect.left - PADDING.left
-      const minutes = Math.round(x / xScale)
-      if (minutes >= 0 && minutes <= 1440) {
-        setMousePosition(minutes)
+    const rect = svgRef.current?.getBoundingClientRect()
+    if (!rect) return
 
-        let startTide = tideData[0]
-        let endTide = tideData[tideData.length - 1]
-        for (let i = 0; i < tideData.length - 1; i++) {
-          const start = tideData[i]
-          const end = tideData[i + 1]
-          let startMinutes = timeToMinutes(start.time)
-          let endMinutes = timeToMinutes(end.time)
+    const x = event.clientX - rect.left - PADDING.left
+    const minutes = Math.round(x / xScale)
 
-          if (start.type === 'prevExtreme') startMinutes -= 1440
-          if (end.type === 'nextExtreme') endMinutes += 1440
-
-          if (minutes >= startMinutes && minutes <= endMinutes) {
-            startTide = start
-            endTide = end
-            break
-          }
-        }
-
-        const unit = startTide.height.unit
-        const tideHeight = interpolate(startTide, endTide, minutes)
-        setCurrentTideValue(`${tideHeight.toFixed(2)}${unit}`)
-      } else {
-        setMousePosition(null)
-        setCurrentTideValue(null)
-      }
+    if (minutes < 0 || minutes > 1440) {
+      setMousePosition(null)
+      setCurrentTideValue(null)
+      return
     }
-  }
 
-  const handleMouseLeave = () => {
-    setMousePosition(null)
-    setCurrentTideValue(null)
+    setMousePosition(minutes)
+
+    const segment = tideData.reduce(
+      (acc, curr, i) => {
+        if (i === tideData.length - 1) return acc
+        let startMinutes = timeToMinutes(curr.time)
+        let endMinutes = timeToMinutes(tideData[i + 1].time)
+        if (curr.type === 'prevExtreme') startMinutes -= 1440
+        if (tideData[i + 1].type === 'nextExtreme') endMinutes += 1440
+        return minutes >= startMinutes && minutes <= endMinutes
+          ? { start: curr, end: tideData[i + 1] }
+          : acc
+      },
+      { start: tideData[0], end: tideData[1] }
+    )
+
+    const tideHeight = interpolate(segment.start, segment.end, minutes)
+    setCurrentTideValue(`${tideHeight.toFixed(2)}${segment.start.height.unit}`)
   }
 
   return (
@@ -189,11 +193,14 @@ const TideChart: React.FC<TideChartProps> = ({ data, astronomical }) => {
         ref={svgRef}
         width="100%"
         height={height}
-        viewBox={`0 0 ${containerWidth} ${height}`}
+        viewBox={`0 0 ${width} ${height}`}
         preserveAspectRatio="xMidYMid meet"
         onMouseMove={handleMouseMove}
-        onMouseLeave={handleMouseLeave}
-        className="bg-border rounded-md"
+        onMouseLeave={() => {
+          setMousePosition(null)
+          setCurrentTideValue(null)
+        }}
+        className="rounded-md bg-border"
       >
         {astronomical && (
           <>
@@ -232,14 +239,12 @@ const TideChart: React.FC<TideChartProps> = ({ data, astronomical }) => {
             />
           </>
         )}
-
         <path
           d={pathData}
           fill="none"
           stroke="hsl(var(--primary))"
           strokeWidth="2"
         />
-
         {tideData
           .filter(
             (tide) => tide.type !== 'prevExtreme' && tide.type !== 'nextExtreme'
@@ -250,23 +255,24 @@ const TideChart: React.FC<TideChartProps> = ({ data, astronomical }) => {
               height -
               PADDING.bottom -
               (getValue(tide.height) - minHeight) * yScale
+            const textPos = getTextPosition(x)
 
             return (
               <g key={index}>
                 <circle cx={x} cy={y} r="4" fill="hsl(var(--primary))" />
                 <text
-                  x={getTextPosition(x).x}
+                  x={textPos.x}
                   y={y - 24}
-                  textAnchor={getTextPosition(x).anchor}
+                  textAnchor={textPos.anchor}
                   fontSize="10"
                   fontWeight="500"
                 >
                   {tide.time}
                 </text>
                 <text
-                  x={getTextPosition(x).x}
+                  x={textPos.x}
                   y={y - 10}
-                  textAnchor={getTextPosition(x).anchor}
+                  textAnchor={textPos.anchor}
                   fontSize="10"
                 >
                   {formatValueDisplay(tide.height)}
@@ -274,7 +280,6 @@ const TideChart: React.FC<TideChartProps> = ({ data, astronomical }) => {
               </g>
             )
           })}
-
         {mousePosition !== null && (
           <line
             x1={PADDING.left + mousePosition * xScale}
@@ -286,10 +291,9 @@ const TideChart: React.FC<TideChartProps> = ({ data, astronomical }) => {
           />
         )}
       </svg>
-
       {mousePosition !== null && currentTideValue !== null && (
         <div
-          className="absolute bg-foreground text-background rounded px-2 py-1.5 whitespace-nowrap text-center flex flex-col gap-1"
+          className="absolute flex flex-col gap-1 whitespace-nowrap rounded bg-foreground px-2 py-1.5 text-center text-background"
           style={{
             left: `${PADDING.left + mousePosition * xScale}px`,
             top: `${PADDING.top - 80}px`,
@@ -306,5 +310,3 @@ const TideChart: React.FC<TideChartProps> = ({ data, astronomical }) => {
     </div>
   )
 }
-
-export default TideChart
