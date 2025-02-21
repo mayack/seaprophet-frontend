@@ -6,10 +6,12 @@ import { Waves } from 'lucide-react'
 
 export default function SignIn() {
   return (
-    <div className="flex flex-col gap-12 min-h-screen items-center justify-center">
+    <div className="flex min-h-screen flex-col items-center justify-center gap-12">
       <Card className="w-full max-w-md">
         <CardHeader>
-          <CardTitle className="flex justify-center"><Waves className="w-10 h-10" /></CardTitle>
+          <CardTitle className="flex justify-center">
+            <Waves className="h-10 w-10" />
+          </CardTitle>
         </CardHeader>
         <CardContent>
           <form action={signIn} className="space-y-4">
@@ -35,7 +37,9 @@ export default function SignIn() {
           </form>
         </CardContent>
       </Card>
-      <div className="text-muted-foreground text-xs">This app has been deployed only for testing purposes.</div>
+      <div className="text-xs text-muted-foreground">
+        This app has been deployed only for testing purposes.
+      </div>
     </div>
   )
 }
