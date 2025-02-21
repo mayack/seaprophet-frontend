@@ -29,11 +29,11 @@ export default async function SpotPage({ params }: SpotPageProps) {
 
   return (
     <div className="space-y-12">
-      <SpotDetails
+      {/* <SpotDetails
         mapCenter={[spot.location_long, spot.location_lat]}
         webcamConfig={spot.webcam}
         spotName={spot.name}
-      />
+      /> */}
       <Forecast days={forecast.data.days} />
     </div>
   )

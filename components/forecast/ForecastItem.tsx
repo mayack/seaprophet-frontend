@@ -10,14 +10,14 @@ interface ForecastItemProps {
 }
 
 export function ForecastItem({ day }: ForecastItemProps) {
-  const date = new Date(day.date)
+  // const date = new Date(day.date)
 
   return (
     <div className="container relative mx-auto space-y-12 pt-2">
       <div className="flex gap-16">
         <aside className="flex w-72 flex-col gap-8 pt-2">
           <h3>
-            <div className="text-3xl font-semibold">
+            {/* <div className="text-3xl font-semibold">
               {date.toLocaleDateString('en-US', { weekday: 'long' })}
             </div>
             <div className="text-muted-foreground">
@@ -25,10 +25,10 @@ export function ForecastItem({ day }: ForecastItemProps) {
                 month: 'long',
                 day: 'numeric',
               })}
-            </div>
+            </div> */}
           </h3>
 
-          <TideChart data={day.tides} astronomical={day.astronomical} />
+          {/* <TideChart data={day.tides} astronomical={day.astronomical} /> */}
           <div className="space-y-4">
             <AstronomicalBreakdown astronomical={day.astronomical} />
             <GeneralBreakdown general={day.general} />
