@@ -2,7 +2,7 @@
 
 import { cookies, headers } from 'next/headers'
 import { polvoClient } from '../client'
-import { ForecastResponse } from '../interfaces/forecast'
+import { ForecastResponse, ForecastParams } from '../interfaces/forecast'
 import { CONFIG } from '@/constants/config'
 
 interface ForecastActionResponse {
@@ -15,10 +15,7 @@ interface ForecastActionResponse {
   }
 }
 
-export async function getForecast(coords: {
-  lat: number
-  lon: number
-}): Promise<ForecastActionResponse> {
+export async function getForecast(params: ForecastParams): Promise<ForecastActionResponse> {
   const timestamp = new Date().toISOString()
   const cookieStore = await cookies()
   const headerStore = await headers()
@@ -26,10 +23,6 @@ export async function getForecast(coords: {
   const token =
     headerStore.get('x-polvo-token') ||
     cookieStore.get(CONFIG.api.tokens.polvo.key)?.value
-  console.log(
-    'Token source:',
-    token ? (headerStore.get('x-polvo-token') ? 'header' : 'cookie') : 'none'
-  )
 
   if (!token) {
     return {
@@ -53,11 +46,21 @@ export async function getForecast(coords: {
     units = CONFIG.units.default
   }
 
+  // Merge provided params with user units
+  const queryParams = {
+    ...params,
+    windUnits: params.windUnits || units.wind_speed,
+    swellUnits: params.swellUnits || units.swell_height,
+    tideUnits: params.tideUnits || units.tide_height,
+    tempUnits: params.tempUnits || units.temperature,
+    surfUnits: params.surfUnits || units.surf_height,
+  }
+
   try {
     const forecast = await polvoClient.getForecast(
-      coords.lat,
-      coords.lon,
-      units,
+      params.lat,
+      params.lon,
+      queryParams,
       token
     )
     return {

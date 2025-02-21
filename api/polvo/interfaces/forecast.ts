@@ -3,6 +3,21 @@ export interface ForecastResponse {
   tidalDatum: string
 }
 
+export interface ForecastParams {
+  lat: number
+  lon: number
+  orientationFrom?: number | null
+  orientationTo?: number | null
+  waveFactor?: number | null
+  adjustmentFactor?: number | null
+  // Make units optional since they'll be handled by the action
+  windUnits?: string
+  swellUnits?: string
+  tideUnits?: string
+  tempUnits?: string
+  surfUnits?: string
+}
+
 export interface ForecastDay {
   date: string
   forecast: {

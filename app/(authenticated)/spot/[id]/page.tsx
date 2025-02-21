@@ -11,30 +11,40 @@ interface SpotPageProps {
 
 export default async function SpotPage({ params }: SpotPageProps) {
   const resolvedParams = await params
-  const spotResponse = await getSpot(Number(resolvedParams.id))
+  const spotId = Number(resolvedParams.id)
+
+  // First get spot data
+  const spotResponse = await getSpot(spotId)
   const spot = spotResponse?.data?.attributes
 
   if (!spot) {
     return <div>Spot not found.</div>
   }
 
-  const forecast = await getForecast({
-    lat: spot.location_lat,
-    lon: spot.location_long,
-  })
+  // Then fetch forecast with spot data
+  const [forecastResponse] = await Promise.all([
+    getForecast({
+      lat: spot.location_lat,
+      lon: spot.location_long,
+      orientationFrom: spot.beach_orientation_from ?? undefined,
+      orientationTo: spot.beach_orientation_to ?? undefined,
+      waveFactor: spot.surf_rating ? spot.surf_rating / 5 : undefined,
+      adjustmentFactor: spot.surf_consistency ? spot.surf_consistency / 100 : undefined,
+    })
+  ])
 
-  if (!forecast.data) {
+  if (!forecastResponse.data) {
     return <div>forecast not found.</div>
   }
 
   return (
     <div className="space-y-12">
-      {/* <SpotDetails
+      <SpotDetails
         mapCenter={[spot.location_long, spot.location_lat]}
         webcamConfig={spot.webcam}
         spotName={spot.name}
-      /> */}
-      <Forecast days={forecast.data.days} />
+      />
+      <Forecast days={forecastResponse.data.days} />
     </div>
   )
 }

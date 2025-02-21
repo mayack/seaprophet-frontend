@@ -1,8 +1,7 @@
 import { BaseApiClient } from '@/lib/baseApiClient'
 import { CONFIG } from '@/constants/config'
 import { AppError, ErrorCode, HTTP_STATUS } from '@/utils/error'
-import { ForecastResponse } from './interfaces/forecast'
-import { UserUnits } from '@/api/sargo/interfaces/user'
+import { ForecastParams, ForecastResponse } from './interfaces/forecast'
 
 interface PolvoAuthResponse {
   data: { token: string }
@@ -73,7 +72,7 @@ export class PolvoClient extends BaseApiClient {
   async getForecast(
     latitude: number,
     longitude: number,
-    units: UserUnits,
+    params: ForecastParams,
     token: string
   ): Promise<ForecastResponse> {
     if (!latitude || !longitude) {
@@ -84,36 +83,42 @@ export class PolvoClient extends BaseApiClient {
       )
     }
 
-    const fullUrl = `${CONFIG.api.urls.polvo}${CONFIG.api.endpoints.polvo.forecast.get(latitude, longitude)}`
-    const url = new URL(fullUrl)
+    // Create an object with all parameters and filter out undefined values
+    const queryObject: Record<string, string> = Object.entries({
+      windUnits: params.windUnits,
+      swellUnits: params.swellUnits,
+      tideUnits: params.tideUnits,
+      tempUnits: params.tempUnits,
+      surfUnits: params.surfUnits,
+      orientationFrom: params.orientationFrom?.toString(),
+      orientationTo: params.orientationTo?.toString(),
+      waveFactor: params.waveFactor?.toString(),
+      adjustmentFactor: params.adjustmentFactor?.toString(),
+    }).reduce((acc, [key, value]) => {
+      if (value !== undefined && value !== null) {
+        acc[key] = value
+      }
+      return acc
+    }, {} as Record<string, string>)
 
-    url.searchParams.append('windUnits', units.wind_speed)
-    url.searchParams.append('swellUnits', units.swell_height)
-    url.searchParams.append('tideUnits', units.tide_height)
-    url.searchParams.append('tempUnits', units.temperature)
-    url.searchParams.append('surfUnits', units.surf_height)
+    const queryParams = new URLSearchParams(queryObject)
+    const url = `${CONFIG.api.urls.polvo}${CONFIG.api.endpoints.polvo.forecast.get(latitude, longitude)}?${queryParams.toString()}`
 
     const headers: HeadersInit = {
       'Content-Type': 'application/json',
       Authorization: `Bearer ${token}`,
       Accept: 'application/json',
-      'Cache-Control': 'public, max-age=3600',
-      'Accept-Encoding': 'gzip', // Request compression
+      'Cache-Control': 'public, max-age=900',
+      'Accept-Encoding': 'gzip',
     }
 
     try {
-      console.log(
-        `Fetching forecast for lat=${latitude}, lon=${longitude}, units=${JSON.stringify(units)}`
-      )
-      const response = await fetch(url.toString(), {
+      console.log(`Fetching forecast for lat=${latitude}, lon=${longitude}, params=${JSON.stringify(params)}`)
+      const response = await fetch(url, {
         method: 'GET',
         headers,
-        next: { revalidate: 3600 }, // 1 hour cache
+        next: { revalidate: 900 },
       })
-      console.log(
-        'Response headers:',
-        Object.fromEntries(response.headers.entries())
-      )
 
       if (!response.ok) {
         const errorText = await response.text()
@@ -137,13 +142,7 @@ export class PolvoClient extends BaseApiClient {
       }
 
       const data = await response.json()
-      console.log(
-        'Raw forecast response size:',
-        `${JSON.stringify(data).length / 1024} KB`
-      )
-      // Optionally log full response for debugging: console.log('Raw forecast response:', JSON.stringify(data, null, 2));
-
-      return data.data // Adjust if necessary
+      return data.data
     } catch (error) {
       console.error('Forecast fetch error:', error)
       if (error instanceof AppError) throw error
