@@ -225,7 +225,7 @@ export function WebcamViewer({ config }: WebcamViewerProps) {
   }, [initStream, handleMouseMove, startAfkTimer, destroyStream, isAfk])
 
   return (
-    <div ref={containerRef} className="relative h-[60vh] bg-foreground">
+    <div ref={containerRef} className="relative h-60vh bg-foreground">
       <video ref={videoRef} className="h-full w-full" playsInline muted />
       {isLoading && !isAfk && (
         <div className="absolute inset-0 flex items-center justify-center">
