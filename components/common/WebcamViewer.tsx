@@ -1,4 +1,5 @@
 'use client'
+
 import { useEffect, useRef, useState, useCallback } from 'react'
 import Hls from 'hls.js'
 import { ChevronRight, Expand, Shrink } from 'lucide-react'
@@ -17,10 +18,29 @@ export function WebcamViewer({ config }: WebcamViewerProps) {
   const [showAfkAlert, setShowAfkAlert] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
   const [hasError, setHasError] = useState(false)
+  const [isTabActive, setIsTabActive] = useState(true)
   const videoRef = useRef<HTMLVideoElement | null>(null)
   const containerRef = useRef<HTMLDivElement | null>(null)
   const hlsRef = useRef<Hls | null>(null)
   const afkTimerRef = useRef<NodeJS.Timeout | null>(null)
+
+  const stopStream = useCallback(() => {
+    if (videoRef.current) {
+      videoRef.current.pause()
+      if (hlsRef.current) {
+        hlsRef.current.stopLoad()
+      }
+    }
+  }, [])
+
+  const startStream = useCallback(() => {
+    if (videoRef.current && hlsRef.current) {
+      hlsRef.current.startLoad()
+      videoRef.current.play().catch(err => {
+        console.error('Error playing video:', err)
+      })
+    }
+  }, [])
 
   const startAfkTimer = useCallback(() => {
     if (afkTimerRef.current) {
@@ -28,32 +48,37 @@ export function WebcamViewer({ config }: WebcamViewerProps) {
     }
 
     afkTimerRef.current = setTimeout(() => {
-      if (videoRef.current) {
-        videoRef.current.pause()
-        if (hlsRef.current) {
-          hlsRef.current.stopLoad()
-        }
-      }
       setShowAfkAlert(true)
-    }, 120000)
-  }, [])
+      stopStream()
+    }, 60000)
+  }, [stopStream])
 
   const handleActivity = useCallback(() => {
-    if (!showAfkAlert) {
+    if (!showAfkAlert && isTabActive) {
       startAfkTimer()
     }
-  }, [showAfkAlert, startAfkTimer])
+  }, [showAfkAlert, isTabActive, startAfkTimer])
 
   const handleKeepWatching = () => {
-    if (videoRef.current) {
-      if (hlsRef.current) {
-        hlsRef.current.startLoad()
-      }
-      videoRef.current.play()
-    }
     setShowAfkAlert(false)
+    startStream()
     startAfkTimer()
   }
+
+  const handleVisibilityChange = useCallback(() => {
+    const isVisible = document.visibilityState === 'visible'
+    setIsTabActive(isVisible)
+
+    if (!isVisible) {
+      stopStream()
+      if (afkTimerRef.current) {
+        clearTimeout(afkTimerRef.current)
+      }
+    } else if (!showAfkAlert) {
+      startStream()
+      startAfkTimer()
+    }
+  }, [showAfkAlert, stopStream, startStream, startAfkTimer])
 
   const handleFullscreenChange = () => {
     setIsFullscreen(!!document.fullscreenElement)
@@ -85,16 +110,21 @@ export function WebcamViewer({ config }: WebcamViewerProps) {
 
   useEffect(() => {
     document.addEventListener('fullscreenchange', handleFullscreenChange)
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+
     return () => {
       document.removeEventListener('fullscreenchange', handleFullscreenChange)
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
     }
-  }, [])
+  }, [handleVisibilityChange])
 
   useEffect(() => {
-    document.addEventListener('mousemove', handleActivity)
-    document.addEventListener('keypress', handleActivity)
-    document.addEventListener('scroll', handleActivity, true)
-    startAfkTimer()
+    if (isTabActive && !showAfkAlert) {
+      document.addEventListener('mousemove', handleActivity)
+      document.addEventListener('keypress', handleActivity)
+      document.addEventListener('scroll', handleActivity, true)
+      startAfkTimer()
+    }
 
     return () => {
       if (afkTimerRef.current) {
@@ -104,7 +134,7 @@ export function WebcamViewer({ config }: WebcamViewerProps) {
       document.removeEventListener('keypress', handleActivity)
       document.removeEventListener('scroll', handleActivity, true)
     }
-  }, [handleActivity, startAfkTimer])
+  }, [handleActivity, startAfkTimer, isTabActive, showAfkAlert])
 
   useEffect(() => {
     if (!videoRef.current || !config.url) return
