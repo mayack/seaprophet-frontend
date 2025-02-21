@@ -160,7 +160,6 @@ export class SargoClient extends BaseApiClient {
             headers,
             next: {
               revalidate: 3600,
-              tags: [`spot-${id}`],
             },
           },
         }
@@ -201,7 +200,6 @@ export class SargoClient extends BaseApiClient {
           headers,
           next: {
             revalidate: 3600,
-            tags: ['spots'],
           },
         },
       }

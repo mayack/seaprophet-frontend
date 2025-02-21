@@ -3,8 +3,6 @@ import { getSpot } from '@/api/sargo/actions/spot'
 import { Forecast } from '@/components/forecast/Forecast'
 import { SpotDetails } from '@/components/spot/SpotsDetails'
 
-export const revalidate = 3600 // 1 hour
-
 interface SpotPageProps {
   params: Promise<{
     id: string

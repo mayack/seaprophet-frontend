@@ -97,7 +97,7 @@ export class PolvoClient extends BaseApiClient {
       'Content-Type': 'application/json',
       Authorization: `Bearer ${token}`,
       Accept: 'application/json',
-      'Cache-Control': 'public, max-age=900',
+      'Cache-Control': 'public, max-age=3600',
       'Accept-Encoding': 'gzip', // Request compression
     }
 
@@ -108,7 +108,7 @@ export class PolvoClient extends BaseApiClient {
       const response = await fetch(url.toString(), {
         method: 'GET',
         headers,
-        next: { revalidate: 900 }, // 15-minute cache
+        next: { revalidate: 3600 }, // 1 hour cache
       })
       console.log(
         'Response headers:',
