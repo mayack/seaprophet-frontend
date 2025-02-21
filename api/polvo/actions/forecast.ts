@@ -1,51 +1,77 @@
-import { createPolvoClient } from '@/api/polvo/client'
-import strapi from '@/api/sargo/client'
-import { SpotProps } from '@/api/sargo/interfaces/spot'
-import { ForecastProps } from '@/api/polvo/interfaces/forecast'
-import { UserUnits } from '@/api/sargo/interfaces/user'
+'use server'
 
-interface SpotForecastResponse {
-  spot: SpotProps | null
-  forecast: { days: ForecastProps[] } | null
+import { cookies, headers } from 'next/headers'
+import { polvoClient } from '../client'
+import { ForecastResponse } from '../interfaces/forecast'
+import { CONFIG } from '@/constants/config'
+
+interface ForecastActionResponse {
+  data: ForecastResponse | null
   error: string | null
+  meta: {
+    timestamp: string
+    source: string
+    success: boolean
+  }
 }
 
-export async function getSpotWithForecast(
-  id: number,
-  units: UserUnits
-): Promise<SpotForecastResponse> {
-  try {
-    const spotResponse = await strapi.findOne('spots', id, {
-      populate: '*',
-    })
-    const spot = spotResponse.data
+export async function getForecast(coords: {
+  lat: number
+  lon: number
+}): Promise<ForecastActionResponse> {
+  const timestamp = new Date().toISOString()
+  const cookieStore = await cookies()
+  const headerStore = await headers()
 
-    if (!spot.attributes.location_lat || !spot.attributes.location_long) {
-      return { spot, forecast: null, error: null }
-    }
+  const token =
+    headerStore.get('x-polvo-token') ||
+    cookieStore.get(CONFIG.api.tokens.polvo.key)?.value
+  console.log(
+    'Token source:',
+    token ? (headerStore.get('x-polvo-token') ? 'header' : 'cookie') : 'none'
+  )
 
-    const apiClient = createPolvoClient()
-    try {
-      const forecast = await apiClient.getForecast(
-        spot.attributes.location_lat,
-        spot.attributes.location_long,
-        units // Pass the units to the backend
-      )
-      return { spot, forecast, error: null }
-    } catch (forecastError: Error | unknown) {
-      console.error('Error fetching forecast:', forecastError)
-      return {
-        spot,
-        forecast: null,
-        error: 'Failed to fetch forecast data. Please try again later.',
-      }
-    }
-  } catch (error: Error | unknown) {
-    console.error('Error fetching spot:', error)
+  if (!token) {
     return {
-      spot: null,
-      forecast: null,
-      error: 'Failed to fetch spot data',
+      data: null,
+      error: 'No Polvo token available',
+      meta: { timestamp, source: 'polvo-auth', success: false },
+    }
+  }
+
+  let units
+  try {
+    const sargoToken = cookieStore.get(CONFIG.api.tokens.sargo.key)?.value
+    if (sargoToken) {
+      const parsed = JSON.parse(sargoToken)
+      units = parsed.user?.settings?.units ?? CONFIG.units.default
+    } else {
+      units = CONFIG.units.default
+    }
+  } catch (error) {
+    console.error('Failed to parse user settings cookie:', error)
+    units = CONFIG.units.default
+  }
+
+  try {
+    const forecast = await polvoClient.getForecast(
+      coords.lat,
+      coords.lon,
+      units,
+      token
+    )
+    return {
+      data: forecast,
+      error: null,
+      meta: { timestamp, source: 'polvo', success: true },
+    }
+  } catch (error) {
+    console.error('Forecast error:', error)
+    return {
+      data: null,
+      error:
+        error instanceof Error ? error.message : 'Failed to fetch forecast',
+      meta: { timestamp, source: 'polvo-error', success: false },
     }
   }
 }

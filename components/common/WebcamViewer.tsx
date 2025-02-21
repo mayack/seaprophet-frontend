@@ -1,12 +1,12 @@
 'use client'
 import { useEffect, useRef, useState, useCallback } from 'react'
 import Hls from 'hls.js'
-import { webcamProviders } from '@/config/webcamProviders'
-import { WebcamConfig } from '@/api/sargo/interfaces/spot'
 import { ChevronRight, Expand, Shrink } from 'lucide-react'
 import { Button } from '../ui/button'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Spinner } from '../ui/spinner'
+import { WebcamConfig } from '@/api/sargo/interfaces/webcam'
+import { webcamProviders } from '@/constants/webcamProviders'
 
 interface WebcamViewerProps {
   config: WebcamConfig
@@ -178,10 +178,10 @@ export function WebcamViewer({ config }: WebcamViewerProps) {
   }, [config])
 
   return (
-    <div ref={containerRef} className="relative bg-foreground h-60vh">
+    <div ref={containerRef} className="relative h-60vh bg-foreground">
       <video
         ref={videoRef}
-        className="w-full h-full"
+        className="h-full w-full"
         playsInline
         autoPlay
         muted
@@ -214,7 +214,7 @@ export function WebcamViewer({ config }: WebcamViewerProps) {
       </Button>
 
       {showAfkAlert && (
-        <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
+        <div className="absolute inset-0 flex items-center justify-center bg-black/50">
           <Alert className="w-auto">
             <AlertDescription className="flex items-center gap-4">
               <div className="font-medium">Are you still there?</div>

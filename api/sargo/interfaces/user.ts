@@ -1,3 +1,17 @@
+export interface UserAuthResponse {
+  jwt: string
+  user: User
+}
+
+export interface User {
+  id: number
+  username: string
+  email: string
+  settings: {
+    units: UserUnits
+  }
+}
+
 export interface UserUnits {
   wind_speed: 'knots' | 'mph' | 'kph' | 'mps'
   surf_height: 'feet' | 'meters'
@@ -6,13 +20,7 @@ export interface UserUnits {
   temperature: 'celsius' | 'fahrenheit'
 }
 
-export interface UserSettings {
-  units: UserUnits
-}
-
-export interface User {
-  id: number
-  username: string
-  email: string
-  settings: UserSettings
+export interface UserLocation {
+  latitude: number | null
+  longitude: number | null
 }

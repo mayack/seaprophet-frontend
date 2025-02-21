@@ -1,24 +1,19 @@
-export interface FormattedValue {
-  value: number
-  unit: string
-}
-
 export interface ForecastResponse {
-  days: ForecastProps[]
+  days: ForecastDay[]
   tidalDatum: string
 }
 
-export interface ForecastProps {
+export interface ForecastDay {
   date: string
   forecast: {
-    [hour: string]: HourlyForecastProps
+    [hour: string]: HourlyForecast
   }
-  tides: TideProps[]
-  astronomical: AstronomicalProps
-  general: GeneralProps
+  tides: Tide[]
+  astronomical: Astronomical
+  general: General
 }
 
-export interface HourlyForecastProps {
+export interface HourlyForecast {
   airTemperature: FormattedValue
   waterTemperature: FormattedValue
   windSpeed: FormattedValue
@@ -37,8 +32,6 @@ export interface HourlyForecastProps {
   wavePeriod: FormattedValue
   windWavePeriod: FormattedValue
   weatherType: WeatherType
-
-  // Optional properties that might not use FormattedValue
   cloudCover?: string
   humidity?: string
   precipitation?: string
@@ -46,20 +39,20 @@ export interface HourlyForecastProps {
   visibility?: string
 }
 
-export interface TideProps {
+export interface Tide {
   time: string
   height: FormattedValue
   type: 'high' | 'low' | 'prevExtreme' | 'nextExtreme'
 }
 
-export interface AstronomicalProps {
+export interface Astronomical {
   sunrise: string
   sunset: string
   firstLight: string
   lastLight: string
 }
 
-export interface GeneralProps {
+export interface General {
   averageWaterTemperature: FormattedValue
 }
 
@@ -81,3 +74,8 @@ export type WeatherType =
   | 'fog-day'
   | 'fog-night'
   | 'gale'
+
+export interface FormattedValue {
+  value: number
+  unit: string
+}
