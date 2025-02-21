@@ -38,7 +38,7 @@ export function WebcamViewer({ config }: WebcamViewerProps) {
   const startStream = useCallback(() => {
     if (videoRef.current && hlsRef.current) {
       hlsRef.current.startLoad()
-      videoRef.current.play().catch(err => {
+      videoRef.current.play().catch((err) => {
         console.error('Error playing video:', err)
       })
     }
