@@ -23,55 +23,53 @@ export function WebcamViewer({ config }: WebcamViewerProps) {
   const [isAfk, setIsAfk] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
   const [hasError, setHasError] = useState(false)
+  const [lastInteraction, setLastInteraction] = useState(Date.now())
   const videoRef = useRef<HTMLVideoElement | null>(null)
   const containerRef = useRef<HTMLDivElement | null>(null)
   const hlsRef = useRef<Hls | null>(null)
   const afkTimerRef = useRef<NodeJS.Timeout | null>(null)
-  const debounceRef = useRef<NodeJS.Timeout | null>(null)
 
   const isUserActive = isTabVisible && isWindowFocused
 
-  const stopStream = useCallback(() => {
-    if (videoRef.current && hlsRef.current) {
+  const pauseStream = useCallback(() => {
+    if (videoRef.current) {
       videoRef.current.pause()
-      hlsRef.current.stopLoad()
     }
   }, [])
 
-  const startStream = useCallback(() => {
-    if (videoRef.current && hlsRef.current) {
-      hlsRef.current.startLoad()
+  const resumeStream = useCallback(() => {
+    if (videoRef.current) {
       videoRef.current.play().catch((err) => {
-        console.error('Error playing video:', err)
+        console.error('Error resuming video:', err)
         setHasError(true)
       })
     }
   }, [])
 
   const resetAfkTimer = useCallback(() => {
-    if (debounceRef.current) {
-      clearTimeout(debounceRef.current)
+    if (afkTimerRef.current) {
+      clearTimeout(afkTimerRef.current)
     }
 
-    debounceRef.current = setTimeout(() => {
-      if (afkTimerRef.current) {
-        clearTimeout(afkTimerRef.current)
-      }
+    setIsAfk(false)
+    if (!videoRef.current?.paused) return // Already playing, no need to resume
+    resumeStream()
 
-      if (isUserActive && !isAfk) {
-        startStream()
-        afkTimerRef.current = setTimeout(() => {
-          setIsAfk(true)
-          stopStream()
-        }, CONFIG.webcam.afk_timer)
-      } else {
-        stopStream()
-      }
-    }, 200) // Debounce delay of 200ms
-  }, [isUserActive, isAfk, startStream, stopStream])
+    // Start timer only if user isn’t viewing or hasn’t interacted recently
+    if (
+      !isUserActive ||
+      Date.now() - lastInteraction > CONFIG.webcam.afk_timer
+    ) {
+      afkTimerRef.current = setTimeout(() => {
+        setIsAfk(true)
+        pauseStream()
+      }, CONFIG.webcam.afk_timer)
+    }
+  }, [isUserActive, lastInteraction, pauseStream, resumeStream])
 
   const handleKeepWatching = useCallback(() => {
     setIsAfk(false)
+    setLastInteraction(Date.now())
     resetAfkTimer()
   }, [resetAfkTimer])
 
@@ -82,6 +80,7 @@ export function WebcamViewer({ config }: WebcamViewerProps) {
 
   const handleWindowFocus = useCallback(() => {
     setIsWindowFocused(true)
+    setLastInteraction(Date.now())
     resetAfkTimer()
   }, [resetAfkTimer])
 
@@ -89,6 +88,13 @@ export function WebcamViewer({ config }: WebcamViewerProps) {
     setIsWindowFocused(false)
     resetAfkTimer()
   }, [resetAfkTimer])
+
+  const handleMouseMove = useCallback(() => {
+    if (isUserActive) {
+      setLastInteraction(Date.now())
+      resetAfkTimer()
+    }
+  }, [isUserActive, resetAfkTimer])
 
   const toggleFullscreen = useCallback(async () => {
     if (!containerRef.current) return
@@ -159,7 +165,7 @@ export function WebcamViewer({ config }: WebcamViewerProps) {
           setHasError(true)
           setIsLoading(false)
           if (data.type === Hls.ErrorTypes.NETWORK_ERROR) {
-            setTimeout(() => hls.startLoad(), 2000) // Retry after 2s
+            setTimeout(() => hls.startLoad(), 2000)
           } else if (data.type === Hls.ErrorTypes.MEDIA_ERROR) {
             hls.recoverMediaError()
           } else {
@@ -185,9 +191,6 @@ export function WebcamViewer({ config }: WebcamViewerProps) {
       if (afkTimerRef.current) {
         clearTimeout(afkTimerRef.current)
       }
-      if (debounceRef.current) {
-        clearTimeout(debounceRef.current)
-      }
     }
   }, [config, resetAfkTimer])
 
@@ -195,13 +198,25 @@ export function WebcamViewer({ config }: WebcamViewerProps) {
     document.addEventListener('visibilitychange', handleVisibilityChange)
     window.addEventListener('focus', handleWindowFocus)
     window.addEventListener('blur', handleWindowBlur)
+    const container = containerRef.current
+    if (container) {
+      container.addEventListener('mousemove', handleMouseMove)
+    }
 
     return () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange)
       window.removeEventListener('focus', handleWindowFocus)
       window.removeEventListener('blur', handleWindowBlur)
+      if (container) {
+        container.removeEventListener('mousemove', handleMouseMove)
+      }
     }
-  }, [handleVisibilityChange, handleWindowFocus, handleWindowBlur])
+  }, [
+    handleVisibilityChange,
+    handleWindowFocus,
+    handleWindowBlur,
+    handleMouseMove,
+  ])
 
   return (
     <div ref={containerRef} className="relative h-[60vh] bg-foreground">
@@ -222,12 +237,6 @@ export function WebcamViewer({ config }: WebcamViewerProps) {
       {hasError && (
         <div className="absolute inset-0 flex items-center justify-center text-background">
           Failed to load webcam stream. Please try again later.
-        </div>
-      )}
-
-      {!isUserActive && !isAfk && (
-        <div className="absolute inset-0 flex items-center justify-center bg-black/30 text-white">
-          Stream Paused
         </div>
       )}
 
