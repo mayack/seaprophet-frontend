@@ -1,4 +1,4 @@
-// @/app/spot/[id]/page.tsx
+'use client'
 import { getForecast } from '@/api/polvo/actions/forecast'
 import { getSpot } from '@/api/sargo/actions/spot'
 import { SpotDetails } from '@/components/spot/SpotsDetails'
@@ -10,7 +10,6 @@ interface SpotPageProps {
 }
 
 export default async function SpotPage({ params }: SpotPageProps) {
-  'use client' // Temporary for debugging
   const timings: Record<string, number> = {}
   const start = Date.now()
   const resolvedParams = await params
