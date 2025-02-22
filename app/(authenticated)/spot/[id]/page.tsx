@@ -1,31 +1,29 @@
-'use client'
+export const revalidate = 900 // Cache for 15 minutes
+
 import { getForecast } from '@/api/polvo/actions/forecast'
 import { getSpot } from '@/api/sargo/actions/spot'
-import { SpotDetails } from '@/components/spot/SpotsDetails'
 import { Forecast } from '@/components/forecast/Forecast'
-import { useEffect } from 'react'
+import { SpotDetails } from '@/components/spot/SpotsDetails'
 
 interface SpotPageProps {
-  params: Promise<{ id: string }>
+  params: Promise<{
+    id: string
+  }>
 }
 
 export default async function SpotPage({ params }: SpotPageProps) {
-  const timings: Record<string, number> = {}
-  const start = Date.now()
   const resolvedParams = await params
   const spotId = Number(resolvedParams.id)
 
-  const spotStart = Date.now()
+  // First get spot data
   const spotResponse = await getSpot(spotId)
-  timings['getSpot'] = Date.now() - spotStart
   const spot = spotResponse?.data?.attributes
 
   if (!spot) {
-    timings['SpotPage'] = Date.now() - start
-    return <ClientLogger timings={timings} message="Spot not found" />
+    return <div>Spot not found.</div>
   }
 
-  const forecastStart = Date.now()
+  // Then fetch forecast with spot data
   const [forecastResponse] = await Promise.all([
     getForecast({
       lat: spot.location_lat,
@@ -36,51 +34,19 @@ export default async function SpotPage({ params }: SpotPageProps) {
       adjustmentFactor: spot.adjustment_factor ?? undefined,
     }),
   ])
-  timings['getForecast'] = Date.now() - forecastStart
 
   if (!forecastResponse.data) {
-    timings['SpotPage'] = Date.now() - start
-    return <ClientLogger timings={timings} message="Forecast not found" />
+    return <div>forecast not found.</div>
   }
 
-  const spotDetailsStart = Date.now()
-  const spotDetails = (
-    <SpotDetails
-      mapCenter={[spot.location_long, spot.location_lat]}
-      webcamConfig={spot.webcam}
-      spotName={spot.name}
-    />
-  )
-  timings['RenderSpotDetails'] = Date.now() - spotDetailsStart
-
-  const forecastRenderStart = Date.now()
-  const forecast = <Forecast days={forecastResponse.data.days.slice(0, 3)} />
-  timings['RenderForecast'] = Date.now() - forecastRenderStart
-
-  timings['SpotPage'] = Date.now() - start
-
   return (
-    <ClientLogger timings={timings}>
-      <div className="space-y-12">
-        {spotDetails}
-        {forecast}
-      </div>
-    </ClientLogger>
+    <div className="space-y-12">
+      <SpotDetails
+        mapCenter={[spot.location_long, spot.location_lat]}
+        webcamConfig={spot.webcam}
+        spotName={spot.name}
+      />
+      <Forecast days={forecastResponse.data.days} />
+    </div>
   )
-}
-
-function ClientLogger({
-  timings,
-  message,
-  children,
-}: {
-  timings: Record<string, number>
-  message?: string
-  children?: React.ReactNode
-}) {
-  'use client'
-  useEffect(() => {
-    console.log('SSR Timings:', timings, message || 'Rendered')
-  }, [timings, message])
-  return children || <div>{message}</div>
 }
