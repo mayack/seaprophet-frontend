@@ -15,7 +15,7 @@ export function ForecastItem({ day }: ForecastItemProps) {
   return (
     <div className="relative space-y-12 pt-2">
       <div className="flex gap-12 xl:gap-16">
-        <aside className="flex w-60 xl:w-72 flex-col gap-8 pt-2">
+        <aside className="flex w-60 flex-col gap-8 pt-2 xl:w-72">
           <h3>
             <div className="text-3xl font-semibold">
               {date.toLocaleDateString('en-US', { weekday: 'long' })}
