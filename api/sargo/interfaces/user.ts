@@ -7,9 +7,11 @@ export interface User {
   id: number
   username: string
   email: string
-  settings: {
-    units: UserUnits
-  }
+  settings: UserSettings
+}
+
+export interface UserSettings {
+  units: UserUnits
 }
 
 export interface UserUnits {

@@ -5,10 +5,10 @@ export function ForecastSkeleton() {
     <div className="container">
       <div className="space-y-12">
         {[...Array(3)].map((_, dayIndex) => (
-          <div key={dayIndex} className="flex gap-16">
+          <div key={dayIndex} className="flex gap-12 xl:gap-16">
             {/* Sidebar */}
-            <aside className="flex w-72 flex-col gap-8 pt-2">
-              <Skeleton className="h-15 w-48" /> {/* Date */}
+            <aside className="flex w-60 flex-col gap-8 pt-2 xl:w-72">
+              <Skeleton className="h-15 w-1/2" /> {/* Date */}
               <Skeleton className="h-24 w-full" /> {/* Tide chart */}
               <div className="space-y-4">
                 <Skeleton className="h-24 w-full" /> {/* Astronomical */}

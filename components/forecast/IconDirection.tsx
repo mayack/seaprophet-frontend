@@ -55,7 +55,7 @@ export function IconDirection({
       <Tooltip>
         <TooltipTrigger
           className="flex"
-          aria-label={`Direction: ${degrees} ${cardinalDirection}`}
+          aria-label={`Direction: ${degrees}&deg; ${cardinalDirection}`}
         >
           <div className="relative inline-flex items-center justify-center">
             <Icon
@@ -65,9 +65,9 @@ export function IconDirection({
           </div>
         </TooltipTrigger>
         <TooltipContent>
-          <p>
-            {degrees} {cardinalDirection}
-          </p>
+          <div className="text-xs font-semibold leading-none">
+            {degrees}&deg; {cardinalDirection}
+          </div>
         </TooltipContent>
       </Tooltip>
     </TooltipProvider>

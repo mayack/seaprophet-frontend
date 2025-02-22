@@ -12,7 +12,7 @@ export function GeneralBreakdown({ general }: GeneralBreakdownProps) {
     <div className="space-y-1">
       <InfoBreakdownLine
         icon={<Droplet className="h-4 w-4" />}
-        label="Water Temperature"
+        label="Water temperature"
         value={formatValueDisplay(general.averageWaterTemperature)}
       />
     </div>

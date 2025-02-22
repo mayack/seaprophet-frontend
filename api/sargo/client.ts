@@ -83,7 +83,7 @@ export class SargoClient extends BaseApiClient {
   }
 
   async updateUserProfile(data: {
-    username: string
+    username?: string
     settings?: { units: UserUnits }
   }): Promise<User> {
     const headers = await this.getHeaders(

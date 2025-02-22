@@ -237,7 +237,7 @@ export function WebcamViewer({ config }: WebcamViewerProps) {
           <div>{hasError || 'Failed to load webcam stream'}</div>
           <Button
             onClick={initStream}
-            variant="outline"
+            variant="white"
             className="flex items-center gap-2"
           >
             <RefreshCw className="h-4 w-4" /> Retry

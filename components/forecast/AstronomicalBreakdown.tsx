@@ -13,7 +13,7 @@ export function AstronomicalBreakdown({
     <div className="space-y-1">
       <InfoBreakdownLine
         icon={<MoonStar className="h-4 w-4" />}
-        label="First Light"
+        label="First light"
         value={astronomical.firstLight}
       />
       <InfoBreakdownLine
@@ -28,7 +28,7 @@ export function AstronomicalBreakdown({
       />
       <InfoBreakdownLine
         icon={<Moon className="h-4 w-4" />}
-        label="Last Light"
+        label="Last light"
         value={astronomical.lastLight}
       />
     </div>

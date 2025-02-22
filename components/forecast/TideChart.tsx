@@ -301,10 +301,10 @@ export default function TideChart({ data, astronomical }: TideChartProps) {
             pointerEvents: 'none',
           }}
         >
-          <p className="text-xs font-semibold leading-none">
+          <div className="text-xs font-semibold leading-none">
             {minutesToTime(mousePosition)}
-          </p>
-          <p className="text-2xs leading-none">{currentTideValue}</p>
+          </div>
+          <div className="text-2xs leading-none">{currentTideValue}</div>
         </div>
       )}
     </div>
