@@ -162,6 +162,17 @@ export async function isAuthenticated(): Promise<boolean> {
   }
 }
 
+async function isTokenExpired(token: string): Promise<boolean> {
+  try {
+    const payload = JSON.parse(atob(token.split('.')[1]))
+    const exp = payload.exp * 1000 // Convert to milliseconds
+    return Date.now() >= exp
+  } catch (error) {
+    console.error('Token decode error:', error)
+    return true // Assume expired if decoding fails
+  }
+}
+
 export async function getCurrentUser(): Promise<UserAuthResponse | null> {
   try {
     const cookieStore = await cookies()
@@ -170,19 +181,25 @@ export async function getCurrentUser(): Promise<UserAuthResponse | null> {
       console.log('getCurrentUser: No cookie found')
       return null
     }
+
     const parsedToken = JSON.parse(sargoToken)
-    const hasJwt = !!parsedToken.jwt && typeof parsedToken.jwt === 'string'
-    if (!hasJwt) {
+    const jwt = parsedToken.jwt
+    if (!jwt || typeof jwt !== 'string') {
       console.log('getCurrentUser: No valid JWT found')
       return null
     }
-    console.log('getCurrentUser: JWT found')
+
+    // Check expiration
+    if (await isTokenExpired(jwt)) {
+      console.log('getCurrentUser: Token expired')
+      cookieStore.delete(CONFIG.api.tokens.sargo.key) // Clear expired token
+      return null // Will trigger redirect to signin
+    }
+
+    console.log('getCurrentUser: JWT valid')
     return parsedToken as UserAuthResponse
   } catch (error) {
-    console.error('Failed to check user cookie for JWT:', {
-      message: error instanceof Error ? error.message : 'Unknown error',
-      stack: error instanceof Error ? error.stack : undefined,
-    })
+    console.error('Failed to check user cookie:', error)
     return null
   }
 }
