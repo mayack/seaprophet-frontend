@@ -29,7 +29,7 @@ export default async function SettingsPage({
   const success = params.success === 'true'
 
   return (
-    <div className="container mx-auto">
+    <div className="container">
       <h1 className="mb-6 text-2xl font-bold">Settings</h1>
       {success && (
         <p className="mb-4 text-green-600">Settings updated successfully!</p>

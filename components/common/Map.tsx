@@ -29,13 +29,13 @@ export function Map({
   height = '400px',
   pinSize = { width: '42px', height: '42px' },
 }: MapProps) {
-  const mapContainer = useRef<HTMLDivElement>(null)
+  const mapcontainer = useRef<HTMLDivElement>(null)
   const mapInstance = useRef<mapboxgl.Map | null>(null)
   const markerRef = useRef<mapboxgl.Marker | null>(null)
   const [mapLoaded, setMapLoaded] = useState(false)
 
   useEffect(() => {
-    if (mapInstance.current || !mapContainer.current) return
+    if (mapInstance.current || !mapcontainer.current) return
     const [lng, lat] = center
     if (!isValidCoordinate(lng, lat)) {
       console.error('Invalid coordinates:', center)
@@ -43,7 +43,7 @@ export function Map({
     }
 
     mapInstance.current = new mapboxgl.Map({
-      container: mapContainer.current,
+      container: mapcontainer.current,
       style: 'mapbox://styles/mayack/cm7a9jq2x002i01s87y377mrx',
       center: center,
       zoom: zoom,
@@ -95,7 +95,7 @@ export function Map({
 
   return (
     <div
-      ref={mapContainer}
+      ref={mapcontainer}
       className={`pointer-events-none bg-muted ${className}`}
       style={{ width, height }}
     />

@@ -2,7 +2,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 
 export function ForecastSkeleton() {
   return (
-    <div className="container mx-auto">
+    <div className="container">
       <div className="space-y-12">
         {[...Array(3)].map((_, dayIndex) => (
           <div key={dayIndex} className="flex gap-16">

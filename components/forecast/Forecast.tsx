@@ -7,7 +7,7 @@ interface ForecastProps {
 
 export function Forecast({ days }: ForecastProps) {
   return (
-    <div className="container relative mx-auto">
+    <div className="container relative">
       <div className="space-y-12 pt-2">
         {days.map((day) => (
           <ForecastItem key={day.date} day={day} />

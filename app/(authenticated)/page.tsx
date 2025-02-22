@@ -19,7 +19,7 @@ export default async function Page() {
     }
 
     return (
-      <div className="container mx-auto space-y-12">
+      <div className="container space-y-12">
         <SpotsNearby spotsByCountry={spotsByCountry} maxDistance={50} />
         <Suspense fallback={<SpotsBrowseSkeleton />}>
           <SpotsBrowse spotsByCountry={spotsByCountry} />

@@ -8,6 +8,17 @@ export default {
     './app/**/*.{js,ts,jsx,tsx,mdx}',
   ],
   theme: {
+    container: {
+      center: true,
+      padding: '2rem',
+      screens: {
+        sm: '100%',
+        md: '100%',
+        lg: '100%',
+        xl: '100%',
+        '2xl': '1536px',
+      },
+    },
     extend: {
       aspectRatio: {
         '3/1': '3 / 1',

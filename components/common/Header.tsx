@@ -9,7 +9,7 @@ interface HeaderProps {
 export function Header({ user }: HeaderProps) {
   return (
     <header className="bg-background">
-      <div className="container mx-auto flex h-16 items-center justify-between">
+      <div className="container flex h-16 items-center justify-between">
         <div className="flex items-center gap-8">
           <Link href="/" className="text-xl font-bold">
             Sea Prophet
