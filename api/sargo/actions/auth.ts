@@ -6,6 +6,7 @@ import { sargoClient } from '../client'
 import { AppError, ErrorCode, HTTP_STATUS } from '@/utils/error'
 import { CONFIG } from '@/constants/config'
 import type { UserAuthResponse } from '../interfaces/user'
+import { polvoClient } from '@/api/polvo/client'
 
 export async function signIn(formData: FormData): Promise<never> {
   const identifier = formData.get('identifier')
@@ -25,9 +26,9 @@ export async function signIn(formData: FormData): Promise<never> {
   }
 
   try {
-    const response = await sargoClient.login(identifier, password)
+    const sargoResponse = await sargoClient.login(identifier, password)
 
-    if (!response?.jwt || !response.user?.username) {
+    if (!sargoResponse?.jwt || !sargoResponse.user?.username) {
       throw new AppError(
         'Invalid response from server',
         ErrorCode.AUTH_INVALID_CREDENTIALS,
@@ -35,19 +36,31 @@ export async function signIn(formData: FormData): Promise<never> {
       )
     }
 
+    // Fetch Polvo token after successful Sargo login
+    const polvoToken = await polvoClient.getAuthToken()
+
     const cookieStore = await cookies()
-    const cookieData = {
-      jwt: response.jwt,
+
+    // Store Sargo token
+    const sargoCookieData = {
+      jwt: sargoResponse.jwt,
       user: {
-        username: response.user.username,
-        email: response.user.email,
-        settings: response.user.settings || CONFIG.units.default,
+        username: sargoResponse.user.username,
+        email: sargoResponse.user.email,
+        settings: sargoResponse.user.settings || CONFIG.units.default,
       },
     }
     cookieStore.set(
       CONFIG.api.tokens.sargo.key,
-      JSON.stringify(cookieData),
+      JSON.stringify(sargoCookieData),
       CONFIG.api.tokens.sargo.options
+    )
+
+    // Store Polvo token
+    cookieStore.set(
+      CONFIG.api.tokens.polvo.key,
+      polvoToken,
+      CONFIG.api.tokens.polvo.options // e.g., maxAge: 24 hours
     )
 
     redirect('/')
@@ -66,7 +79,7 @@ export async function signIn(formData: FormData): Promise<never> {
 export async function signOut(): Promise<never> {
   const cookieStore = await cookies()
   cookieStore.delete(CONFIG.api.tokens.sargo.key)
-  cookieStore.delete(CONFIG.api.tokens.polvo.key)
+  cookieStore.delete(CONFIG.api.tokens.polvo.key) // Already present
   redirect('/auth/signin')
 }
 

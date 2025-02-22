@@ -1,5 +1,6 @@
 import { BaseApiClient } from '@/lib/baseApiClient'
 import { CONFIG } from '@/constants/config'
+import { cookies } from 'next/headers'
 import { AppError, ErrorCode, HTTP_STATUS } from '@/utils/error'
 import { ForecastParams, ForecastResponse } from './interfaces/forecast'
 
@@ -27,7 +28,7 @@ export class PolvoClient extends BaseApiClient {
       'Content-Type': 'application/json',
       Accept: 'application/json',
       'Cache-Control': 'private, max-age=3600',
-      'Accept-Encoding': 'gzip', // Request compression
+      'Accept-Encoding': 'gzip',
     }
 
     try {
@@ -83,7 +84,22 @@ export class PolvoClient extends BaseApiClient {
       )
     }
 
-    // Create an object with all parameters and filter out undefined values
+    // Check token validity and refresh if expired
+    let validToken = token
+    if (!token || this.isTokenExpired(token)) {
+      console.log('Token invalid or expired, fetching new one')
+      validToken = await this.getAuthToken()
+      // Update cookie with new token
+      const cookieStore = await cookies()
+      cookieStore.set(
+        CONFIG.api.tokens.polvo.key,
+        validToken,
+        CONFIG.api.tokens.polvo.options // e.g., maxAge: 24 hours
+      )
+      console.log('New token stored in cookie:', validToken)
+    }
+
+    // Create query parameters
     const queryObject: Record<string, string> = Object.entries({
       windUnits: params.windUnits,
       swellUnits: params.swellUnits,
@@ -109,7 +125,7 @@ export class PolvoClient extends BaseApiClient {
 
     const headers: HeadersInit = {
       'Content-Type': 'application/json',
-      Authorization: `Bearer ${token}`,
+      Authorization: `Bearer ${validToken}`,
       Accept: 'application/json',
       'Cache-Control': 'public, max-age=900',
       'Accept-Encoding': 'gzip',
@@ -122,7 +138,7 @@ export class PolvoClient extends BaseApiClient {
       const response = await fetch(url, {
         method: 'GET',
         headers,
-        next: { revalidate: 900 },
+        next: { revalidate: 900 }, // Cache for 15 minutes
       })
 
       if (!response.ok) {
@@ -156,6 +172,19 @@ export class PolvoClient extends BaseApiClient {
         ErrorCode.API_REQUEST_FAILED,
         HTTP_STATUS.INTERNAL_SERVER_ERROR
       )
+    }
+  }
+
+  private isTokenExpired(token: string): boolean {
+    try {
+      const payload = JSON.parse(atob(token.split('.')[1]))
+      const exp = payload.exp * 1000 // Convert seconds to milliseconds
+      const now = Date.now()
+      console.log('Token expiration check:', { exp, now, expired: now >= exp })
+      return now >= exp
+    } catch (error) {
+      console.error('Token decode error:', error)
+      return true // Assume expired if decoding fails
     }
   }
 }

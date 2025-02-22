@@ -6,12 +6,8 @@ import { Suspense } from 'react'
 import { SpotsBrowseSkeleton } from '@/components/spot/SpotsBrowse/Skeleton'
 
 export default async function Page() {
-  console.log('SpotContent - Starting')
-
   try {
     const response = await getSpotsByCountry()
-    console.log('SpotContent - Got response')
-
     const spotsByCountry: SpotsByCountry = response.data || {}
 
     if (response.error) {
