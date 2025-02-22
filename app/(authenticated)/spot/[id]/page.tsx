@@ -1,3 +1,5 @@
+export const revalidate = 900 // Cache for 15 minutes
+
 import { getForecast } from '@/api/polvo/actions/forecast'
 import { getSpot } from '@/api/sargo/actions/spot'
 import { Forecast } from '@/components/forecast/Forecast'

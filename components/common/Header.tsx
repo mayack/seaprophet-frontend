@@ -1,12 +1,7 @@
 import Link from 'next/link'
 import { UserMenu } from './UserMenu'
-import { User } from '@/api/sargo/interfaces/user'
 
-interface HeaderProps {
-  user: User
-}
-
-export function Header({ user }: HeaderProps) {
+export function Header() {
   return (
     <header className="bg-background">
       <div className="container flex h-16 items-center justify-between">
@@ -15,7 +10,7 @@ export function Header({ user }: HeaderProps) {
             Sea Prophet
           </Link>
         </div>
-        <UserMenu user={user} />
+        <UserMenu />
       </div>
     </header>
   )

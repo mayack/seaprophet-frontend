@@ -1,39 +1,40 @@
-import { NextResponse } from 'next/server'
-import type { NextRequest } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
+import { cookies } from 'next/headers'
 import { CONFIG } from '@/constants/config'
 
-async function sargoAuthMiddleware(request: NextRequest) {
+export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
-  const sargoToken = request.cookies.get(CONFIG.api.tokens.sargo.key)?.value
-  const isAuthPage = pathname.startsWith('/auth/')
+  const cookieStore = await cookies()
+  const sargoToken = cookieStore.get(CONFIG.api.tokens.sargo.key)?.value
 
-  let hasValidJwt = false
+  // Public routes (unauthenticated access allowed)
+  const isPublicRoute = pathname.startsWith('/auth/')
+
+  // Check authentication
+  let isAuthenticated = false
   if (sargoToken) {
     try {
       const parsedToken = JSON.parse(sargoToken)
-      hasValidJwt = !!parsedToken.jwt && typeof parsedToken.jwt === 'string'
+      isAuthenticated = !!parsedToken.jwt && typeof parsedToken.jwt === 'string'
     } catch (error) {
-      console.error('Failed to parse sargo token in middleware:', error)
+      console.error('Failed to parse Sargo token:', error)
     }
   }
 
-  if (hasValidJwt && isAuthPage) {
+  // Redirect logic
+  if (!isAuthenticated && !isPublicRoute) {
+    // Protect all non-public routes
+    return NextResponse.redirect(new URL('/auth/signin', request.url))
+  }
+
+  if (isAuthenticated && isPublicRoute) {
+    // Redirect authenticated users away from auth pages
     return NextResponse.redirect(new URL('/', request.url))
   }
 
   return NextResponse.next()
 }
 
-export async function middleware(request: NextRequest) {
-  const { pathname } = request.nextUrl
-
-  if (pathname.startsWith('/auth/')) {
-    return sargoAuthMiddleware(request)
-  }
-
-  return NextResponse.next()
-}
-
 export const config = {
-  matcher: ['/auth/:path*'], // Only auth routes
+  matcher: '/:path*', // Apply to all routes
 }

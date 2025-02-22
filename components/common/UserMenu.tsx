@@ -1,5 +1,6 @@
 'use client'
 
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import {
@@ -11,13 +12,21 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { Settings, LogOut, ChevronDown } from 'lucide-react'
 import { User } from '@/api/sargo/interfaces/user'
-import { signOut } from '@/api/sargo/actions/auth'
+import { signOut, getCurrentUser } from '@/api/sargo/actions/auth'
 
-interface UserMenuProps {
-  user: User
-}
+export function UserMenu() {
+  const [user, setUser] = useState<User | null>(null)
 
-export function UserMenu({ user }: UserMenuProps) {
+  useEffect(() => {
+    async function fetchUser() {
+      const userToken = await getCurrentUser()
+      if (userToken) {
+        setUser(userToken.user)
+      }
+    }
+    fetchUser()
+  }, [])
+
   const handleSignOut = async () => {
     try {
       await signOut()
@@ -25,6 +34,8 @@ export function UserMenu({ user }: UserMenuProps) {
       console.error('Error signing out:', error)
     }
   }
+
+  if (!user) return null // Or a loading state
 
   return (
     <DropdownMenu>
