@@ -26,15 +26,15 @@ export function WebcamViewer({ config }: WebcamViewerProps) {
   const hlsRef = useRef<Hls | null>(null)
   const afkTimerRef = useRef<NodeJS.Timeout | null>(null)
 
-  const toggleFullscreen = useCallback(async () => {
+  const toggleFullscreen = useCallback(() => {
     const container = containerRef.current
     if (!container) return
     try {
       if (document.fullscreenElement) {
-        await document.exitFullscreen()
+        document.exitFullscreen()
         setIsFullscreen(false)
       } else {
-        await container.requestFullscreen()
+        container.requestFullscreen()
         setIsFullscreen(true)
       }
     } catch (err) {

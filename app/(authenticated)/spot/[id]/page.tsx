@@ -1,29 +1,28 @@
-export const revalidate = 900 // Cache for 15 minutes
-
 import { getForecast } from '@/api/polvo/actions/forecast'
 import { getSpot } from '@/api/sargo/actions/spot'
-import { Forecast } from '@/components/forecast/Forecast'
 import { SpotDetails } from '@/components/spot/SpotsDetails'
+import { Forecast } from '@/components/forecast/Forecast'
 
 interface SpotPageProps {
-  params: Promise<{
-    id: string
-  }>
+  params: Promise<{ id: string }>
 }
 
 export default async function SpotPage({ params }: SpotPageProps) {
+  console.time('SpotPage')
   const resolvedParams = await params
   const spotId = Number(resolvedParams.id)
 
-  // First get spot data
+  console.time('getSpot')
   const spotResponse = await getSpot(spotId)
+  console.timeEnd('getSpot')
   const spot = spotResponse?.data?.attributes
 
   if (!spot) {
+    console.timeEnd('SpotPage')
     return <div>Spot not found.</div>
   }
 
-  // Then fetch forecast with spot data
+  console.time('getForecast')
   const [forecastResponse] = await Promise.all([
     getForecast({
       lat: spot.location_lat,
@@ -34,19 +33,32 @@ export default async function SpotPage({ params }: SpotPageProps) {
       adjustmentFactor: spot.adjustment_factor ?? undefined,
     }),
   ])
+  console.timeEnd('getForecast')
 
   if (!forecastResponse.data) {
-    return <div>forecast not found.</div>
+    console.timeEnd('SpotPage')
+    return <div>Forecast not found.</div>
   }
 
+  console.time('RenderSpotDetails')
+  const spotDetails = (
+    <SpotDetails
+      mapCenter={[spot.location_long, spot.location_lat]}
+      webcamConfig={spot.webcam}
+      spotName={spot.name}
+    />
+  )
+  console.timeEnd('RenderSpotDetails')
+
+  console.time('RenderForecast')
+  const forecast = <Forecast days={forecastResponse.data.days} />
+  console.timeEnd('RenderForecast')
+
+  console.timeEnd('SpotPage')
   return (
     <div className="space-y-12">
-      <SpotDetails
-        mapCenter={[spot.location_long, spot.location_lat]}
-        webcamConfig={spot.webcam}
-        spotName={spot.name}
-      />
-      <Forecast days={forecastResponse.data.days} />
+      {spotDetails}
+      {forecast}
     </div>
   )
 }
