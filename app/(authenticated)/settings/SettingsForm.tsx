@@ -233,10 +233,10 @@ export function SettingsForms({
             defaultValue={state.settings?.units?.wind_speed || 'knots'}
             onValueChange={(value) => handleUnitChange('wind_speed', value)}
             options={[
-              { value: 'knots', label: 'knots' },
-              { value: 'mph', label: 'mph' },
-              { value: 'kph', label: 'kph' },
-              { value: 'mps', label: 'm/s' },
+              { value: 'knots', label: 'Knots' },
+              { value: 'mph', label: 'Mph' },
+              { value: 'kph', label: 'Kph' },
+              { value: 'mps', label: 'M/s' },
             ]}
           />
         </div>
