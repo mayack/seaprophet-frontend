@@ -8,6 +8,7 @@ import { Label } from '@/components/ui/label'
 import { Separator } from '@/components/ui/separator'
 import { Asterisk, X } from 'lucide-react'
 import { toast } from 'sonner'
+import { useUser } from '@/contexts/UserContext'
 import type { UserSettings } from '@/api/sargo/interfaces/user'
 import {
   updateUsername,
@@ -17,13 +18,13 @@ import {
 
 interface SettingsFormsProps {
   username: string
+  email: string
   settings: UserSettings
 }
 
 const MESSAGES = {
   username: 'Username updated successfully!',
   password: 'Password changed successfully!',
-  settings: 'Settings updated successfully!',
 } as const
 
 function Dots() {
@@ -87,24 +88,32 @@ function CollapsibleField({
 
 export function SettingsForms({
   username: initialUsername,
+  email: initialEmail,
   settings: initialSettings,
 }: SettingsFormsProps) {
+  const { setUserData } = useUser()
   const [activeFormId, setActiveFormId] = useState<string | null>(null)
   const [state, optimisticState] = useOptimistic({
     username: initialUsername,
+    email: initialEmail,
     settings: initialSettings,
   })
-  const [isPending, startTransition] = useTransition()
+  const [, startTransition] = useTransition()
 
   const handleUsernameSubmit = async (formData: FormData) => {
     startTransition(async () => {
       const newUsername = formData.get('username') as string
-      setActiveFormId(null) // Close form first
+      setActiveFormId(null)
 
       try {
         const result = await updateUsername(formData)
         if (result.success) {
           optimisticState((prev) => ({ ...prev, username: newUsername }))
+          setUserData({
+            username: newUsername,
+            email: state.email,
+            settings: state.settings,
+          })
           toast.success(MESSAGES.username)
         }
       } catch (error) {
@@ -154,7 +163,13 @@ export function SettingsForms({
 
       try {
         const result = await updateUnits(formData)
-        if (!result.success) {
+        if (result.success && result.units) {
+          setUserData({
+            username: state.username,
+            email: state.email,
+            settings: { units: result.units },
+          })
+        } else {
           toast.error('Failed to update settings')
         }
       } catch (error) {
@@ -221,7 +236,6 @@ export function SettingsForms({
         </CollapsibleField>
       </div>
 
-      {/* Units Section */}
       <div className="space-y-4">
         <Separator />
         <div className="flex items-center">

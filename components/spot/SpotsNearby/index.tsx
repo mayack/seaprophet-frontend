@@ -1,4 +1,5 @@
 'use client'
+
 import { useEffect, useState } from 'react'
 import { MapPin, SearchX } from 'lucide-react'
 import { calculateDistance, formatDistance } from '@/utils/location'
@@ -7,136 +8,68 @@ import { EmptyState } from './EmptyState'
 import { SpotCard } from '../SpotCard'
 import { getAllSpots } from '@/utils/spots'
 import { SpotsByCountry } from '@/api/sargo/interfaces/spot'
-import { CONFIG } from '@/constants/config'
+import { useUser } from '@/contexts/UserContext'
 
 interface SpotsNearbyProps {
   spotsByCountry: SpotsByCountry
   maxDistance?: number
 }
 
-interface LocationState {
-  latitude: number | null
-  longitude: number | null
-  error: string | null
-  loading: boolean
-}
-
-interface CachedLocation {
-  latitude: number
-  longitude: number
-  timestamp: number
-}
-
 export function SpotsNearby({
   spotsByCountry,
   maxDistance = 50,
 }: SpotsNearbyProps) {
+  const { userData, setUserData } = useUser()
   const [mounted, setMounted] = useState(false)
-  const [location, setLocation] = useState<LocationState>({
-    latitude: null,
-    longitude: null,
-    error: null,
-    loading: true,
-  })
+  const [locationError, setLocationError] = useState<string | null>(null)
+  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     setMounted(true)
 
-    const getCachedLocation = () => {
-      try {
-        const cached = sessionStorage.getItem(CONFIG.geolocation.token)
-        if (cached) {
-          const data = JSON.parse(cached) as CachedLocation
-          if (Date.now() - data.timestamp < CONFIG.geolocation.maxAge) {
-            return { latitude: data.latitude, longitude: data.longitude }
-          }
-        }
-      } catch (error) {
-        console.error('Error reading from sessionStorage:', error)
-      }
-      return null
-    }
-
-    const cacheLocation = (position: GeolocationPosition) => {
-      try {
-        const locationData: CachedLocation = {
-          latitude: position.coords.latitude,
-          longitude: position.coords.longitude,
-          timestamp: Date.now(),
-        }
-        sessionStorage.setItem(
-          CONFIG.geolocation.token,
-          JSON.stringify(locationData)
-        )
-        return {
-          latitude: locationData.latitude,
-          longitude: locationData.longitude,
-        }
-      } catch (error) {
-        console.error('Error writing to sessionStorage:', error)
-        return null
-      }
-    }
-
-    // Try to get cached location first
-    const cachedLocation = getCachedLocation()
-    if (cachedLocation) {
-      setLocation({
-        ...cachedLocation,
-        error: null,
-        loading: false,
-      })
+    if (!navigator.geolocation) {
+      setLocationError('Geolocation is not supported by this browser.')
+      setLoading(false)
       return
     }
 
-    // If no valid cache, request new location
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          const locationData = cacheLocation(position)
-          if (locationData) {
-            setLocation({
-              ...locationData,
-              error: null,
-              loading: false,
-            })
-          }
-        },
-        (error) => {
-          setLocation({
-            latitude: null,
-            longitude: null,
-            error: error.message,
-            loading: false,
-          })
-        },
-        {
-          enableHighAccuracy: true,
-          timeout: 5000,
-          maximumAge: 0,
-        }
-      )
-    } else {
-      setLocation({
-        latitude: null,
-        longitude: null,
-        error: 'Geolocation is not supported by this browser.',
-        loading: false,
-      })
+    // Use existing location from UserContext if available and defined
+    if (userData.latitude !== undefined && userData.longitude !== undefined) {
+      setLoading(false)
+      return
     }
-  }, [])
 
-  if (!mounted || location.loading) return <SpotsNearbySkeleton />
+    // Fetch new location
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const { latitude, longitude } = position.coords
+        setUserData({ ...userData, latitude, longitude })
+        setLocationError(null)
+        setLoading(false)
+      },
+      (error) => {
+        setLocationError(error.message)
+        setLoading(false)
+      },
+      {
+        enableHighAccuracy: true,
+        timeout: 5000,
+        maximumAge: 0,
+      }
+    )
+  }, [userData, setUserData])
+
+  if (!mounted || loading) return <SpotsNearbySkeleton />
 
   const allSpots = getAllSpots(spotsByCountry)
   const nearbySpots =
-    location.latitude && location.longitude
+    userData.latitude !== undefined && userData.longitude !== undefined
       ? allSpots
           .map((spot) => ({
             ...spot,
             distance: calculateDistance(
-              location.latitude!,
-              location.longitude!,
+              userData.latitude!, // Non-null assertion safe after check
+              userData.longitude!, // Non-null assertion safe after check
               spot.location.lat,
               spot.location.long
             ),
@@ -148,13 +81,14 @@ export function SpotsNearby({
   return (
     <div>
       <h2 className="mb-6 text-2xl font-bold">Surf spots nearby</h2>
-      {location.error ? (
+      {locationError ? (
         <EmptyState
           icon={MapPin}
           title="Location access required"
-          description={`Please enable location services: ${location.error}.`}
+          description={`Please enable location services: ${locationError}.`}
         />
-      ) : !location.latitude || !location.longitude ? (
+      ) : userData.latitude === undefined ||
+        userData.longitude === undefined ? (
         <EmptyState
           icon={MapPin}
           title="Enable location services"

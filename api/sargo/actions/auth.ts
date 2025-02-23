@@ -3,10 +3,10 @@
 import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { sargoClient } from '../client'
+import { polvoClient } from '@/api/polvo/client'
 import { AppError, ErrorCode, HTTP_STATUS } from '@/utils/error'
 import { CONFIG } from '@/constants/config'
-import type { UserAuthResponse } from '../interfaces/user'
-import { polvoClient } from '@/api/polvo/client'
+import type { User, UserAuthResponse } from '../interfaces/user'
 
 export async function signIn(formData: FormData): Promise<never> {
   const identifier = formData.get('identifier')
@@ -27,7 +27,6 @@ export async function signIn(formData: FormData): Promise<never> {
 
   try {
     const sargoResponse = await sargoClient.login(identifier, password)
-
     if (!sargoResponse?.jwt || !sargoResponse.user?.username) {
       throw new AppError(
         'Invalid response from server',
@@ -36,31 +35,27 @@ export async function signIn(formData: FormData): Promise<never> {
       )
     }
 
-    // Fetch Polvo token after successful Sargo login
     const polvoToken = await polvoClient.getAuthToken()
-
     const cookieStore = await cookies()
-
-    // Store Sargo token
-    const sargoCookieData = {
-      jwt: sargoResponse.jwt,
-      user: {
-        username: sargoResponse.user.username,
-        email: sargoResponse.user.email,
-        settings: sargoResponse.user.settings || CONFIG.units.default,
-      },
+    const optionsCookieData = {
+      username: sargoResponse.user.username,
+      email: sargoResponse.user.email,
+      settings: sargoResponse.user.settings || CONFIG.units.default,
     }
     cookieStore.set(
       CONFIG.api.tokens.sargo.key,
-      JSON.stringify(sargoCookieData),
+      sargoResponse.jwt,
       CONFIG.api.tokens.sargo.options
     )
-
-    // Store Polvo token
+    cookieStore.set(
+      CONFIG.api.tokens.sargoOptions.key,
+      JSON.stringify(optionsCookieData),
+      CONFIG.api.tokens.sargoOptions.options
+    )
     cookieStore.set(
       CONFIG.api.tokens.polvo.key,
       polvoToken,
-      CONFIG.api.tokens.polvo.options // e.g., maxAge: 24 hours
+      CONFIG.api.tokens.polvo.options
     )
 
     redirect('/')
@@ -79,7 +74,8 @@ export async function signIn(formData: FormData): Promise<never> {
 export async function signOut(): Promise<never> {
   const cookieStore = await cookies()
   cookieStore.delete(CONFIG.api.tokens.sargo.key)
-  cookieStore.delete(CONFIG.api.tokens.polvo.key) // Already present
+  cookieStore.delete(CONFIG.api.tokens.sargoOptions.key)
+  cookieStore.delete(CONFIG.api.tokens.polvo.key)
   redirect('/auth/signin')
 }
 
@@ -105,7 +101,6 @@ export async function signUp(formData: FormData): Promise<never> {
 
   try {
     const response = await sargoClient.register(username, email, password)
-
     if (!response?.jwt || !response.user?.username) {
       throw new AppError(
         'Invalid response from server',
@@ -115,18 +110,20 @@ export async function signUp(formData: FormData): Promise<never> {
     }
 
     const cookieStore = await cookies()
-    const cookieData = {
-      jwt: response.jwt,
-      user: {
-        username: response.user.username,
-        email: response.user.email,
-        settings: response.user.settings || CONFIG.units.default,
-      },
+    const optionsCookieData = {
+      username: response.user.username,
+      email: response.user.email,
+      settings: response.user.settings || CONFIG.units.default,
     }
     cookieStore.set(
       CONFIG.api.tokens.sargo.key,
-      JSON.stringify(cookieData),
+      response.jwt,
       CONFIG.api.tokens.sargo.options
+    )
+    cookieStore.set(
+      CONFIG.api.tokens.sargoOptions.key,
+      JSON.stringify(optionsCookieData),
+      CONFIG.api.tokens.sargoOptions.options
     )
 
     redirect('/')
@@ -141,65 +138,67 @@ export async function signUp(formData: FormData): Promise<never> {
 }
 
 export async function isAuthenticated(): Promise<boolean> {
-  try {
-    const cookieStore = await cookies()
-    const userCookie = cookieStore.get(CONFIG.api.tokens.sargo.key)?.value
-    if (!userCookie) {
-      console.log('isAuthenticated: No cookie found')
-      return false
-    }
-
-    const parsedToken = JSON.parse(userCookie)
-    const hasJwt = !!parsedToken.jwt && typeof parsedToken.jwt === 'string'
-    console.log('isAuthenticated:', hasJwt ? 'JWT found' : 'No valid JWT')
-    return hasJwt
-  } catch (error) {
-    console.error('Failed to check user cookie for JWT:', {
-      message: error instanceof Error ? error.message : 'Unknown error',
-      stack: error instanceof Error ? error.stack : undefined,
-    })
-    return false
-  }
+  const cookieStore = await cookies()
+  const jwt = cookieStore.get(CONFIG.api.tokens.sargo.key)?.value
+  return !!jwt && typeof jwt === 'string'
 }
 
 async function isTokenExpired(token: string): Promise<boolean> {
   try {
     const payload = JSON.parse(atob(token.split('.')[1]))
-    const exp = payload.exp * 1000 // Convert to milliseconds
+    const exp = payload.exp * 1000
     return Date.now() >= exp
   } catch (error) {
     console.error('Token decode error:', error)
-    return true // Assume expired if decoding fails
+    return true
   }
 }
 
-export async function getCurrentUser(): Promise<UserAuthResponse | null> {
-  try {
-    const cookieStore = await cookies()
-    const sargoToken = cookieStore.get(CONFIG.api.tokens.sargo.key)?.value
-    if (!sargoToken) {
-      console.log('getCurrentUser: No cookie found')
-      return null
-    }
-
-    const parsedToken = JSON.parse(sargoToken)
-    const jwt = parsedToken.jwt
-    if (!jwt || typeof jwt !== 'string') {
-      console.log('getCurrentUser: No valid JWT found')
-      return null
-    }
-
-    // Check expiration
-    if (await isTokenExpired(jwt)) {
-      console.log('getCurrentUser: Token expired')
-      cookieStore.delete(CONFIG.api.tokens.sargo.key) // Clear expired token
-      return null // Will trigger redirect to signin
-    }
-
-    console.log('getCurrentUser: JWT valid')
-    return parsedToken as UserAuthResponse
-  } catch (error) {
-    console.error('Failed to check user cookie:', error)
-    return null
+export async function getCurrentUser({
+  skipOptions = false,
+} = {}): Promise<UserAuthResponse> {
+  const cookieStore = await cookies()
+  const jwt = cookieStore.get(CONFIG.api.tokens.sargo.key)?.value
+  const optionsCookie = skipOptions
+    ? null
+    : cookieStore.get(CONFIG.api.tokens.sargoOptions.key)?.value
+  let userOptions: User = {
+    username: '',
+    email: '',
+    settings: { units: CONFIG.units.default },
   }
+  const fallbackResponse = { jwt: '', user: userOptions }
+
+  if (!jwt) {
+    console.log('getCurrentUser: No JWT found')
+    return fallbackResponse
+  }
+
+  if (await isTokenExpired(jwt)) {
+    console.log('getCurrentUser: JWT expired')
+    return fallbackResponse
+  }
+
+  if (optionsCookie) {
+    try {
+      userOptions = JSON.parse(optionsCookie)
+    } catch (error) {
+      console.error('Failed to parse options cookie:', error)
+    }
+  } else {
+    try {
+      const freshUser = await sargoClient.getCurrentUser()
+      if (freshUser) {
+        userOptions = {
+          username: freshUser.username,
+          email: freshUser.email,
+          settings: freshUser.settings || CONFIG.units.default,
+        }
+      }
+    } catch (error) {
+      console.error('Failed to fetch fresh user data:', error)
+    }
+  }
+
+  return { jwt, user: userOptions }
 }

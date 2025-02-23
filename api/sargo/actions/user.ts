@@ -5,7 +5,7 @@ import { revalidatePath } from 'next/cache'
 import { sargoClient } from '@/api/sargo/client'
 import { CONFIG } from '@/constants/config'
 import { AppError, ErrorCode, HTTP_STATUS } from '@/utils/error'
-import type { UserUnits } from '@/api/sargo/interfaces/user'
+import type { UserUnits } from '../interfaces/user'
 
 export async function updateUsername(formData: FormData) {
   const username = formData.get('username')
@@ -20,10 +20,9 @@ export async function updateUsername(formData: FormData) {
   try {
     await sargoClient.updateUserProfile({ username })
 
-    // Update the cookie with the new username
     const cookieStore = await cookies()
-    const sargoToken = cookieStore.get(CONFIG.api.tokens.sargo.key)?.value
-    if (!sargoToken) {
+    const jwt = cookieStore.get(CONFIG.api.tokens.sargo.key)?.value
+    if (!jwt) {
       throw new AppError(
         'Authentication token not found',
         ErrorCode.AUTH_INVALID_CREDENTIALS,
@@ -31,18 +30,21 @@ export async function updateUsername(formData: FormData) {
       )
     }
 
-    const parsedToken = JSON.parse(sargoToken)
+    const optionsCookie = cookieStore.get(
+      CONFIG.api.tokens.sargoOptions.key
+    )?.value
+    const parsedOptions = optionsCookie
+      ? JSON.parse(optionsCookie)
+      : { username: '', email: '', settings: CONFIG.units.default }
     const updatedCookieData = {
-      jwt: parsedToken.jwt,
-      user: {
-        ...parsedToken.user,
-        username,
-      },
+      username,
+      email: parsedOptions.email,
+      settings: parsedOptions.settings,
     }
     cookieStore.set(
-      CONFIG.api.tokens.sargo.key,
+      CONFIG.api.tokens.sargoOptions.key,
       JSON.stringify(updatedCookieData),
-      CONFIG.api.tokens.sargo.options
+      CONFIG.api.tokens.sargoOptions.options
     )
 
     revalidatePath('/settings')
@@ -99,66 +101,52 @@ export async function updatePassword(formData: FormData) {
 }
 
 export async function updateUnits(formData: FormData) {
+  const cookieStore = await cookies()
+  const jwt = cookieStore.get(CONFIG.api.tokens.sargo.key)?.value
+  if (!jwt) {
+    throw new AppError(
+      'Unauthorized',
+      ErrorCode.AUTH_UNAUTHORIZED,
+      HTTP_STATUS.UNAUTHORIZED
+    )
+  }
+
+  const units = {
+    wind_speed: formData.get('units.wind_speed') as string,
+    surf_height: formData.get('units.surf_height') as string,
+    swell_height: formData.get('units.swell_height') as string,
+    tide_height: formData.get('units.tide_height') as string,
+    temperature: formData.get('units.temperature') as string,
+  } as UserUnits
+
   try {
-    // Get current user data from cookie
-    const cookieStore = await cookies()
-    const sargoToken = cookieStore.get(CONFIG.api.tokens.sargo.key)?.value
-    if (!sargoToken) {
-      throw new AppError(
-        'Authentication token not found',
-        ErrorCode.AUTH_INVALID_CREDENTIALS,
-        HTTP_STATUS.UNAUTHORIZED
-      )
-    }
+    await sargoClient.updateUserProfile({ settings: { units } })
 
-    const parsedToken = JSON.parse(sargoToken)
-    const currentUsername = parsedToken.user.username
-
-    const units: UserUnits = {
-      wind_speed: formData.get('units.wind_speed') as UserUnits['wind_speed'],
-      surf_height: formData.get(
-        'units.surf_height'
-      ) as UserUnits['surf_height'],
-      swell_height: formData.get(
-        'units.swell_height'
-      ) as UserUnits['swell_height'],
-      tide_height: formData.get(
-        'units.tide_height'
-      ) as UserUnits['tide_height'],
-      temperature: formData.get(
-        'units.temperature'
-      ) as UserUnits['temperature'],
-    }
-
-    // Update user profile on the server
-    await sargoClient.updateUserProfile({
-      username: currentUsername,
-      settings: { units },
-    })
-
-    // Update the cookie with the new settings
+    const optionsCookie = cookieStore.get(
+      CONFIG.api.tokens.sargoOptions.key
+    )?.value
+    const parsedOptions = optionsCookie
+      ? JSON.parse(optionsCookie)
+      : { username: '', email: '', settings: CONFIG.units.default }
     const updatedCookieData = {
-      jwt: parsedToken.jwt,
-      user: {
-        ...parsedToken.user,
-        settings: { units },
-      },
+      username: parsedOptions.username,
+      email: parsedOptions.email,
+      settings: { units },
     }
     cookieStore.set(
-      CONFIG.api.tokens.sargo.key,
+      CONFIG.api.tokens.sargoOptions.key,
       JSON.stringify(updatedCookieData),
-      CONFIG.api.tokens.sargo.options
+      CONFIG.api.tokens.sargoOptions.options
     )
 
     revalidatePath('/settings')
-    return { success: true }
+    return { success: true, units }
   } catch (error) {
-    throw error instanceof AppError
-      ? error
-      : new AppError(
-          'Failed to update settings',
-          ErrorCode.UNKNOWN_ERROR,
-          HTTP_STATUS.INTERNAL_SERVER_ERROR
-        )
+    console.error('Update units error:', error)
+    throw new AppError(
+      error instanceof Error ? error.message : 'Failed to update units',
+      ErrorCode.SERVER_ERROR,
+      HTTP_STATUS.INTERNAL_SERVER_ERROR
+    )
   }
 }

@@ -4,13 +4,11 @@ import { Toaster } from 'sonner'
 import { SettingsForms } from './SettingsForm'
 
 export default async function SettingsPage() {
-  const userToken = await getCurrentUser()
+  const { user } = await getCurrentUser({ skipOptions: true })
 
-  if (!userToken) {
+  if (!user) {
     return <div>Please sign in to access settings</div>
   }
-
-  const { user } = userToken
 
   return (
     <div className="container max-w-2xl">
@@ -20,7 +18,11 @@ export default async function SettingsPage() {
           <CardTitle>Settings</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <SettingsForms username={user.username} settings={user.settings} />
+          <SettingsForms
+            username={user.username}
+            email={user.email}
+            settings={user.settings}
+          />
         </CardContent>
       </Card>
     </div>
