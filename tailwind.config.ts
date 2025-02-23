@@ -79,6 +79,16 @@ export default {
       height: {
         '60vh': '60vh',
       },
+      // Add custom animation
+      animation: {
+        'fade-in': 'fadeIn 0.5s ease-in', // Custom fade-in animation
+      },
+      keyframes: {
+        fadeIn: {
+          '0%': { opacity: '0' },
+          '100%': { opacity: '1' },
+        },
+      },
     },
   },
   plugins: [require('tailwindcss-animate')],
