@@ -12,6 +12,7 @@ export async function signIn(formData: FormData): Promise<never> {
   const identifier = formData.get('identifier')
   const password = formData.get('password')
 
+  // Validate input
   if (
     !identifier ||
     !password ||
@@ -26,6 +27,7 @@ export async function signIn(formData: FormData): Promise<never> {
   }
 
   try {
+    // Perform login
     const sargoResponse = await sargoClient.login(identifier, password)
     if (!sargoResponse?.jwt || !sargoResponse.user?.username) {
       throw new AppError(
@@ -35,37 +37,68 @@ export async function signIn(formData: FormData): Promise<never> {
       )
     }
 
+    // Get polvo token
     const polvoToken = await polvoClient.getAuthToken()
     const cookieStore = await cookies()
+
+    // Prepare user options
     const optionsCookieData = {
       username: sargoResponse.user.username,
       email: sargoResponse.user.email,
       settings: sargoResponse.user.settings || CONFIG.units.default,
     }
-    cookieStore.set(
-      CONFIG.api.tokens.sargo.key,
-      sargoResponse.jwt,
-      CONFIG.api.tokens.sargo.options
-    )
-    cookieStore.set(
-      CONFIG.api.tokens.sargoOptions.key,
-      JSON.stringify(optionsCookieData),
-      CONFIG.api.tokens.sargoOptions.options
-    )
-    cookieStore.set(
-      CONFIG.api.tokens.polvo.key,
-      polvoToken,
-      CONFIG.api.tokens.polvo.options
-    )
 
+    // Set cookies synchronously with config-aligned options
+    cookieStore.set({
+      name: CONFIG.api.tokens.sargo.key,
+      value: sargoResponse.jwt,
+      path: CONFIG.api.tokens.sargo.options.path,
+      secure: CONFIG.api.tokens.sargo.options.secure,
+      httpOnly: CONFIG.api.tokens.sargo.options.httpOnly,
+      sameSite: CONFIG.api.tokens.sargo.options.sameSite,
+      maxAge: CONFIG.api.tokens.sargo.options.maxAge, // 30 days
+    })
+
+    cookieStore.set({
+      name: CONFIG.api.tokens.sargoOptions.key,
+      value: JSON.stringify(optionsCookieData),
+      path: CONFIG.api.tokens.sargoOptions.options.path,
+      secure: CONFIG.api.tokens.sargoOptions.options.secure,
+      httpOnly: CONFIG.api.tokens.sargoOptions.options.httpOnly,
+      sameSite: CONFIG.api.tokens.sargoOptions.options.sameSite,
+      maxAge: CONFIG.api.tokens.sargoOptions.options.maxAge, // 5 minutes
+    })
+
+    cookieStore.set({
+      name: CONFIG.api.tokens.polvo.key,
+      value: polvoToken,
+      path: CONFIG.api.tokens.polvo.options.path,
+      secure: CONFIG.api.tokens.polvo.options.secure,
+      httpOnly: CONFIG.api.tokens.polvo.options.httpOnly,
+      sameSite: CONFIG.api.tokens.polvo.options.sameSite,
+      maxAge: CONFIG.api.tokens.polvo.options.maxAge, // 24 hours
+    })
+
+    // Debug: Confirm cookies are set
+    console.log('SignIn - Cookies set:', {
+      sargo: cookieStore.get(CONFIG.api.tokens.sargo.key),
+      options: cookieStore.get(CONFIG.api.tokens.sargoOptions.key),
+      polvo: cookieStore.get(CONFIG.api.tokens.polvo.key),
+    })
+
+    // Redirect to home
     redirect('/')
   } catch (error) {
-    // Handle NEXT_REDIRECT as expected behavior, not an error
     if (error instanceof Error && error.message.includes('NEXT_REDIRECT')) {
-      throw error // Re-throw to let Next.js handle the redirect
+      throw error // Let Next.js handle the redirect
     }
-    // Log and throw only for actual errors
-    console.error('Sign in error:', error)
+
+    console.error('SignIn Error:', {
+      message: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack : null,
+      identifier,
+    })
+
     throw new AppError(
       error instanceof Error ? error.message : 'Authentication failed',
       ErrorCode.AUTH_INVALID_CREDENTIALS,
@@ -75,11 +108,35 @@ export async function signIn(formData: FormData): Promise<never> {
 }
 
 export async function signOut(): Promise<never> {
-  const cookieStore = await cookies()
-  cookieStore.delete(CONFIG.api.tokens.sargo.key)
-  cookieStore.delete(CONFIG.api.tokens.sargoOptions.key)
-  cookieStore.delete(CONFIG.api.tokens.polvo.key)
-  redirect('/auth/signin')
+  try {
+    const cookieStore = await cookies()
+
+    // Delete cookies synchronously
+    cookieStore.delete(CONFIG.api.tokens.sargo.key)
+    cookieStore.delete(CONFIG.api.tokens.sargoOptions.key)
+    cookieStore.delete(CONFIG.api.tokens.polvo.key)
+
+    // Debug: Confirm cookies are deleted
+    console.log('SignOut - Cookies after deletion:', {
+      sargo: cookieStore.get(CONFIG.api.tokens.sargo.key),
+      options: cookieStore.get(CONFIG.api.tokens.sargoOptions.key),
+      polvo: cookieStore.get(CONFIG.api.tokens.polvo.key),
+    })
+
+    // Redirect to sign-in page
+    redirect('/auth/signin')
+  } catch (error) {
+    if (error instanceof Error && error.message.includes('NEXT_REDIRECT')) {
+      throw error // Expected redirect behavior
+    }
+
+    console.error('SignOut Error:', {
+      message: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack : null,
+    })
+
+    throw new Error('Failed to sign out')
+  }
 }
 
 export async function signUp(formData: FormData): Promise<never> {
@@ -118,25 +175,33 @@ export async function signUp(formData: FormData): Promise<never> {
       email: response.user.email,
       settings: response.user.settings || CONFIG.units.default,
     }
-    cookieStore.set(
-      CONFIG.api.tokens.sargo.key,
-      response.jwt,
-      CONFIG.api.tokens.sargo.options
-    )
-    cookieStore.set(
-      CONFIG.api.tokens.sargoOptions.key,
-      JSON.stringify(optionsCookieData),
-      CONFIG.api.tokens.sargoOptions.options
-    )
+
+    cookieStore.set({
+      name: CONFIG.api.tokens.sargo.key,
+      value: response.jwt,
+      path: CONFIG.api.tokens.sargo.options.path,
+      secure: CONFIG.api.tokens.sargo.options.secure,
+      httpOnly: CONFIG.api.tokens.sargo.options.httpOnly,
+      sameSite: CONFIG.api.tokens.sargo.options.sameSite,
+      maxAge: CONFIG.api.tokens.sargo.options.maxAge, // 30 days
+    })
+
+    cookieStore.set({
+      name: CONFIG.api.tokens.sargoOptions.key,
+      value: JSON.stringify(optionsCookieData),
+      path: CONFIG.api.tokens.sargoOptions.options.path,
+      secure: CONFIG.api.tokens.sargoOptions.options.secure,
+      httpOnly: CONFIG.api.tokens.sargoOptions.options.httpOnly,
+      sameSite: CONFIG.api.tokens.sargoOptions.options.sameSite,
+      maxAge: CONFIG.api.tokens.sargoOptions.options.maxAge, // 5 minutes
+    })
 
     redirect('/')
   } catch (error) {
-    // Handle NEXT_REDIRECT as expected behavior, not an error
     if (error instanceof Error && error.message.includes('NEXT_REDIRECT')) {
-      throw error // Re-throw to let Next.js handle the redirect
+      throw error
     }
-    // Log and throw only for actual errors
-    console.error('Sign up error:', error)
+    console.error('SignUp Error:', error)
     throw new AppError(
       error instanceof Error ? error.message : 'Registration failed',
       ErrorCode.AUTH_INVALID_CREDENTIALS,
