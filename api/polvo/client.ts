@@ -1,6 +1,5 @@
 import { BaseApiClient } from '@/lib/baseApiClient'
 import { CONFIG } from '@/constants/config'
-import { cookies } from 'next/headers'
 import { AppError, ErrorCode, HTTP_STATUS } from '@/utils/error'
 import { ForecastParams, ForecastResponse } from './interfaces/forecast'
 
@@ -156,19 +155,6 @@ export class PolvoClient extends BaseApiClient {
         ErrorCode.API_REQUEST_FAILED,
         HTTP_STATUS.INTERNAL_SERVER_ERROR
       )
-    }
-  }
-
-  isTokenExpired(token: string): boolean {
-    try {
-      const payload = JSON.parse(atob(token.split('.')[1]))
-      const exp = payload.exp * 1000 // Convert seconds to milliseconds
-      const now = Date.now()
-      console.log('Token expiration check:', { exp, now, expired: now >= exp })
-      return now >= exp
-    } catch (error) {
-      console.error('Token decode error:', error)
-      return true // Assume expired if decoding fails
     }
   }
 }
