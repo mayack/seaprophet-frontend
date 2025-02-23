@@ -1,9 +1,11 @@
 'use client'
 
 import Link from 'next/link'
-import { useRouter } from 'next/navigation' // Add this for client-side redirect
-import { useTransition } from 'react' // Add this for managing async state
+import { useRouter } from 'next/navigation'
+import { useTransition } from 'react'
 import { useUser } from '@/contexts/UserContext'
+import { signOut } from '@/api/sargo/actions/auth'
+import { CONFIG } from '@/constants/config'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import {
   DropdownMenu,
@@ -13,29 +15,40 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { Settings, LogOut, ChevronDown } from 'lucide-react'
-import { signOut } from '@/api/sargo/actions/auth'
 
 export function UserMenu() {
-  const { userData } = useUser()
-  const router = useRouter() // For client-side navigation
-  const [isPending, startTransition] = useTransition() // For managing sign-out state
+  const router = useRouter()
+  const { userData, setUserData } = useUser()
+  const [isPending, startTransition] = useTransition()
 
-  const handleSignOut = () => {
+  const handleSignOut = async () => {
+    if (isPending) return
+
     startTransition(async () => {
       try {
+        // Clear user context
+        setUserData({
+          username: '',
+          email: '',
+          settings: { units: CONFIG.units.default },
+        })
+
         await signOut()
+
+        // Fallback redirect
+        router.push('/auth/signin')
+        router.refresh()
       } catch (error) {
-        if (error instanceof Error && error.message.includes('NEXT_REDIRECT')) {
-          // Handle the expected redirect client-side
-          router.push('/auth/signin')
-        } else {
-          console.error('Unexpected error signing out:', error)
-        }
+        console.error('Sign out error:', error)
+
+        // Force redirect on error
+        router.push('/auth/signin')
+        router.refresh()
       }
     })
   }
 
-  if (!userData) return null // Or a loading state
+  if (!userData?.username) return null
 
   return (
     <DropdownMenu>
@@ -51,7 +64,7 @@ export function UserMenu() {
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-56">
         <div className="flex items-center gap-3 px-2 py-1.5">
-          <Avatar className="h-8 w-8 cursor-pointer font-semibold">
+          <Avatar className="h-8 w-8">
             <AvatarFallback>
               {userData.username.charAt(0).toUpperCase()}
             </AvatarFallback>
@@ -68,15 +81,16 @@ export function UserMenu() {
             <span>Settings</span>
           </Link>
         </DropdownMenuItem>
-        <DropdownMenuItem>
-          <button
-            onClick={handleSignOut}
-            disabled={isPending} // Disable button during sign-out
-            className="flex w-full cursor-pointer items-center gap-2"
-          >
-            <LogOut size={16} />
-            <span>{isPending ? 'Logging Out...' : 'Log out'}</span>
-          </button>
+        <DropdownMenuItem
+          onSelect={(event) => {
+            event.preventDefault()
+            handleSignOut()
+          }}
+          disabled={isPending}
+          className="flex w-full cursor-pointer items-center gap-2"
+        >
+          <LogOut size={16} />
+          <span>Log out</span>
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
