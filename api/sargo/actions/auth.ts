@@ -56,7 +56,7 @@ export async function signIn(formData: FormData): Promise<never> {
       secure: CONFIG.api.tokens.sargo.options.secure,
       httpOnly: CONFIG.api.tokens.sargo.options.httpOnly,
       sameSite: CONFIG.api.tokens.sargo.options.sameSite,
-      maxAge: CONFIG.api.tokens.sargo.options.maxAge, // 30 days
+      maxAge: CONFIG.api.tokens.sargo.options.maxAge, // 7 days
     })
 
     cookieStore.set({
@@ -76,7 +76,7 @@ export async function signIn(formData: FormData): Promise<never> {
       secure: CONFIG.api.tokens.polvo.options.secure,
       httpOnly: CONFIG.api.tokens.polvo.options.httpOnly,
       sameSite: CONFIG.api.tokens.polvo.options.sameSite,
-      maxAge: CONFIG.api.tokens.polvo.options.maxAge, // 24 hours
+      maxAge: CONFIG.api.tokens.polvo.options.maxAge, // 7 hours
     })
 
     // Debug: Confirm cookies are set
@@ -183,7 +183,7 @@ export async function signUp(formData: FormData): Promise<never> {
       secure: CONFIG.api.tokens.sargo.options.secure,
       httpOnly: CONFIG.api.tokens.sargo.options.httpOnly,
       sameSite: CONFIG.api.tokens.sargo.options.sameSite,
-      maxAge: CONFIG.api.tokens.sargo.options.maxAge, // 30 days
+      maxAge: CONFIG.api.tokens.sargo.options.maxAge, // 7 days
     })
 
     cookieStore.set({
@@ -262,6 +262,7 @@ export async function getCurrentUser({
     try {
       const freshUser = await sargoClient.getCurrentUser()
       if (freshUser) {
+        console.log(freshUser.settings.units, 'getCurrentUser: Fresh user')
         userOptions = {
           username: freshUser.username,
           email: freshUser.email,

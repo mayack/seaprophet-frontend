@@ -38,7 +38,7 @@ export const CONFIG = {
           secure: process.env.NODE_ENV === 'production',
           sameSite: 'lax' as const,
           path: '/',
-          maxAge: 30 * 24 * 60 * 7, // 7 days
+          maxAge: 7 * 24 * 60 * 60, // 7 days in seconds (matching backend JWT expiration)
         },
       },
       sargoOptions: {
@@ -58,7 +58,7 @@ export const CONFIG = {
           secure: process.env.NODE_ENV === 'production',
           sameSite: 'lax' as const,
           path: '/',
-          maxAge: 30 * 24 * 60 * 7, // 7 days (Same as Sargo)
+          maxAge: 7 * 24 * 60 * 60, // 7 days in seconds (matching backend JWT expiration)
         },
       },
     },

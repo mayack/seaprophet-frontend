@@ -5,38 +5,37 @@ import { ForecastParams, ForecastActionResponse } from '../interfaces/forecast'
 import { CONFIG } from '@/constants/config'
 import { cookies } from 'next/headers'
 
-// async function isTokenExpired(token: string): Promise<boolean> {
-//   try {
-//     const payload = JSON.parse(atob(token.split('.')[1]))
-//     const exp = payload.exp * 1000
-//     return Date.now() >= exp
-//   } catch (error) {
-//     console.error('Token decode error:', error)
-//     return true
-//   }
-// }
+async function isTokenExpired(token: string): Promise<boolean> {
+  try {
+    const payload = JSON.parse(atob(token.split('.')[1]))
+    const exp = payload.exp * 1000
+    return Date.now() >= exp
+  } catch (error) {
+    console.error('Token decode error:', error)
+    return true
+  }
+}
 
 export async function getForecast(
   params: ForecastParams
 ): Promise<ForecastActionResponse> {
   const timestamp = new Date().toISOString()
   const cookieStore = await cookies()
-  const token = cookieStore.get(CONFIG.api.tokens.polvo.key)?.value as string
+  let token = cookieStore.get(CONFIG.api.tokens.polvo.key)?.value as string
 
-  // If token is missing or expired, fetch a new one but don’t store it
-  // if (!token || (await isTokenExpired(token))) {
-  //   console.log('getForecast: Polvo token expired or missing, fetching new one (not storing)');
-  //   try {
-  //     token = await polvoClient.getAuthToken();
-  //   } catch (error) {
-  //     console.error('getForecast: Failed to fetch Polvo token:', error);
-  //     return {
-  //       data: null,
-  //       error: error instanceof Error ? error.message : 'Failed to get Polvo token',
-  //       meta: { timestamp, source: 'polvo-auth', success: false },
-  //     };
-  //   }
-  // }
+  if (!token || (await isTokenExpired(token))) {
+    console.log('getForecast: Polvo token expired or missing, fetching new one (not storing)');
+    try {
+      token = await polvoClient.getAuthToken();
+    } catch (error) {
+      console.error('getForecast: Failed to fetch Polvo token:', error);
+      return {
+        data: null,
+        error: error instanceof Error ? error.message : 'Failed to get Polvo token',
+        meta: { timestamp, source: 'polvo-auth', success: false },
+      };
+    }
+  }
 
   let units = CONFIG.units.default
   try {
