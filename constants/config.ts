@@ -41,6 +41,16 @@ export const CONFIG = {
           maxAge: 30 * 24 * 60 * 60, // 30 days
         },
       },
+      sargoOptions: {
+        key: 'TOKEN_SARGO_OPTIONS',
+        options: {
+          httpOnly: true,
+          secure: process.env.NODE_ENV === 'production',
+          sameSite: 'lax' as const,
+          path: '/',
+          maxAge: 5 * 60, // 5 minutes
+        },
+      },
       polvo: {
         key: 'TOKEN_POLVO',
         options: {

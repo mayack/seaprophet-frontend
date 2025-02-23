@@ -1,12 +1,15 @@
 'use client'
 
-import { Astronomical, Tide } from '@/api/polvo/interfaces/forecast'
+import type { Astronomical, Tide } from '@/api/polvo/interfaces/forecast'
 import { useEffect, useRef, useState } from 'react'
 import { Skeleton } from '../ui/skeleton'
+import { formatValueWithUnit } from '@/lib/units'
+import { UserUnits } from '@/api/sargo/interfaces/user'
 
 interface TideChartProps {
   data: Tide[]
   astronomical?: Astronomical
+  unit: UserUnits['tide_height']
 }
 
 const PADDING = {
@@ -34,15 +37,11 @@ const minutesToTime = (minutes: number): string => {
   return `${hours.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}`
 }
 
-const formatValueDisplay = (value: { value: number; unit: string }) => {
-  return `${value.value.toFixed(2)}${value.unit}`
-}
-
-const getValue = (value: { value: number; unit: string }) => {
-  return value.value
-}
-
-export default function TideChart({ data, astronomical }: TideChartProps) {
+export default function TideChart({
+  data,
+  astronomical,
+  unit,
+}: TideChartProps) {
   const height = 90
   const svgRef = useRef<SVGSVGElement>(null)
   const [width, setWidth] = useState(800)
@@ -77,7 +76,6 @@ export default function TideChart({ data, astronomical }: TideChartProps) {
     return <Skeleton className="h-[90px] w-full" />
   }
 
-  // Process tide data
   const sortedData = [...data].sort(
     (a, b) => timeToMinutes(a.time) - timeToMinutes(b.time)
   )
@@ -101,8 +99,8 @@ export default function TideChart({ data, astronomical }: TideChartProps) {
     },
   ]
 
-  const minHeight = Math.min(...tideData.map((tide) => getValue(tide.height)))
-  const maxHeight = Math.max(...tideData.map((tide) => getValue(tide.height)))
+  const minHeight = Math.min(...tideData.map((tide) => tide.height))
+  const maxHeight = Math.max(...tideData.map((tide) => tide.height))
   const xScale = (width - PADDING.left - PADDING.right) / 1440
   const yScale =
     (height - PADDING.top - PADDING.bottom) / (maxHeight - minHeight)
@@ -115,7 +113,7 @@ export default function TideChart({ data, astronomical }: TideChartProps) {
     const totalMinutes = endMinutes - startMinutes
     const progress = (minute - startMinutes) / totalMinutes
     const t = (1 - Math.cos(progress * Math.PI)) / 2
-    return getValue(start.height) * (1 - t) + getValue(end.height) * t
+    return start.height * (1 - t) + end.height * t
   }
 
   const getTextPosition = (x: number) => {
@@ -130,7 +128,6 @@ export default function TideChart({ data, astronomical }: TideChartProps) {
     }
   }
 
-  // Generate curve points
   const curvePoints = Array.from({ length: 1441 }, (_, minute) => {
     const x = PADDING.left + minute * xScale
     let y = 0
@@ -184,7 +181,8 @@ export default function TideChart({ data, astronomical }: TideChartProps) {
     )
 
     const tideHeight = interpolate(segment.start, segment.end, minutes)
-    setCurrentTideValue(`${tideHeight.toFixed(2)}${segment.start.height.unit}`)
+    const roundedTideHeight = Number(tideHeight.toFixed(1))
+    setCurrentTideValue(`${formatValueWithUnit(roundedTideHeight, unit)}`)
   }
 
   return (
@@ -252,9 +250,7 @@ export default function TideChart({ data, astronomical }: TideChartProps) {
           .map((tide, index) => {
             const x = PADDING.left + timeToMinutes(tide.time) * xScale
             const y =
-              height -
-              PADDING.bottom -
-              (getValue(tide.height) - minHeight) * yScale
+              height - PADDING.bottom - (tide.height - minHeight) * yScale
             const textPos = getTextPosition(x)
 
             return (
@@ -275,7 +271,7 @@ export default function TideChart({ data, astronomical }: TideChartProps) {
                   textAnchor={textPos.anchor}
                   fontSize="10"
                 >
-                  {formatValueDisplay(tide.height)}
+                  {formatValueWithUnit(tide.height, unit)}
                 </text>
               </g>
             )

@@ -1,34 +1,18 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { cookies } from 'next/headers'
-import { CONFIG } from '@/constants/config'
+import { NextResponse } from 'next/server'
+import type { NextRequest } from 'next/server'
+import { getCurrentUser } from '@/api/sargo/actions/auth'
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
-  const cookieStore = await cookies()
-  const sargoToken = cookieStore.get(CONFIG.api.tokens.sargo.key)?.value
+  const userData = await getCurrentUser()
 
-  // Public routes (unauthenticated access allowed)
   const isPublicRoute = pathname.startsWith('/auth/')
+  const isAuthenticated = !!userData?.jwt
 
-  // Check authentication
-  let isAuthenticated = false
-  if (sargoToken) {
-    try {
-      const parsedToken = JSON.parse(sargoToken)
-      isAuthenticated = !!parsedToken.jwt && typeof parsedToken.jwt === 'string'
-    } catch (error) {
-      console.error('Failed to parse Sargo token:', error)
-    }
-  }
-
-  // Redirect logic
   if (!isAuthenticated && !isPublicRoute) {
-    // Protect all non-public routes
     return NextResponse.redirect(new URL('/auth/signin', request.url))
   }
-
   if (isAuthenticated && isPublicRoute) {
-    // Redirect authenticated users away from auth pages
     return NextResponse.redirect(new URL('/', request.url))
   }
 
@@ -36,5 +20,5 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: '/:path*', // Apply to all routes
+  matcher: ['/((?!_next/static|_next/image|api|favicon.ico).*)'],
 }

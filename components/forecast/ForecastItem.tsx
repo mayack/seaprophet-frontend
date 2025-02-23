@@ -4,12 +4,14 @@ import { AstronomicalBreakdown } from './AstronomicalBreakdown'
 import { GeneralBreakdown } from './GeneralBreakdown'
 import { ForecastHeader } from './ForecastHeader'
 import TideChart from './TideChart'
+import { UserUnits } from '@/api/sargo/interfaces/user'
 
 interface ForecastItemProps {
   day: ForecastDay
+  units: UserUnits
 }
 
-export function ForecastItem({ day }: ForecastItemProps) {
+export function ForecastItem({ day, units }: ForecastItemProps) {
   const date = new Date(day.date)
 
   return (
@@ -28,10 +30,14 @@ export function ForecastItem({ day }: ForecastItemProps) {
             </div>
           </h3>
 
-          <TideChart data={day.tides} astronomical={day.astronomical} />
+          <TideChart
+            data={day.tides}
+            astronomical={day.astronomical}
+            unit={units.tide_height}
+          />
           <div className="space-y-4">
             <AstronomicalBreakdown astronomical={day.astronomical} />
-            <GeneralBreakdown general={day.general} />
+            <GeneralBreakdown general={day.general} units={units} />
           </div>
         </aside>
         <div className="relative flex-1">
@@ -46,30 +52,36 @@ export function ForecastItem({ day }: ForecastItemProps) {
                 height={forecast.waveHeight}
                 period={forecast.wavePeriod}
                 direction={forecast.waveDirection}
+                unit={units.surf_height}
               />
               <SwellItem
                 height={forecast.swellHeight}
                 period={forecast.swellPeriod}
                 direction={forecast.swellDirection}
+                unit={units.swell_height}
               />
               <SwellItem
                 height={forecast.secondarySwellHeight}
                 period={forecast.secondarySwellPeriod}
                 direction={forecast.secondarySwellDirection}
+                unit={units.swell_height}
               />
               <SwellItem
                 height={forecast.windWaveHeight}
                 period={forecast.windWavePeriod}
                 direction={forecast.windWaveDirection}
+                unit={units.swell_height}
               />
               <WindItem
                 speed={forecast.windSpeed}
                 gust={forecast.gust}
                 direction={forecast.windDirection}
+                unit={units.wind_speed}
               />
               <TemperatureItem
                 airTemp={forecast.airTemperature}
                 weatherType={forecast.weatherType}
+                unit={units.temperature}
               />
             </div>
           ))}

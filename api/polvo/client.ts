@@ -84,22 +84,6 @@ export class PolvoClient extends BaseApiClient {
       )
     }
 
-    // Check token validity and refresh if expired
-    let validToken = token
-    if (!token || this.isTokenExpired(token)) {
-      console.log('Token invalid or expired, fetching new one')
-      validToken = await this.getAuthToken()
-      // Update cookie with new token
-      const cookieStore = await cookies()
-      cookieStore.set(
-        CONFIG.api.tokens.polvo.key,
-        validToken,
-        CONFIG.api.tokens.polvo.options // e.g., maxAge: 24 hours
-      )
-      console.log('New token stored in cookie:', validToken)
-    }
-
-    // Create query parameters
     const queryObject: Record<string, string> = Object.entries({
       windUnits: params.windUnits,
       swellUnits: params.swellUnits,
@@ -125,7 +109,7 @@ export class PolvoClient extends BaseApiClient {
 
     const headers: HeadersInit = {
       'Content-Type': 'application/json',
-      Authorization: `Bearer ${validToken}`,
+      Authorization: `Bearer ${token}`,
       Accept: 'application/json',
       'Cache-Control': 'public, max-age=900',
       'Accept-Encoding': 'gzip',
@@ -175,7 +159,7 @@ export class PolvoClient extends BaseApiClient {
     }
   }
 
-  private isTokenExpired(token: string): boolean {
+  isTokenExpired(token: string): boolean {
     try {
       const payload = JSON.parse(atob(token.split('.')[1]))
       const exp = payload.exp * 1000 // Convert seconds to milliseconds

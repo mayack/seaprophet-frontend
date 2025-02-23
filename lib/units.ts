@@ -1,13 +1,17 @@
-import { FormattedValue } from '@/api/polvo/interfaces/forecast'
-
-export function formatValueDisplay(value: FormattedValue): string {
-  return `${value.value}${value.unit}`
+export function formatUnit(unit: string): string {
+  const unitMap: Record<string, string> = {
+    celsius: '°C',
+    fahrenheit: '°F',
+    feet: 'ft',
+    meters: 'm',
+    knots: 'kts',
+    mph: 'mph',
+    kph: 'kph',
+    mps: 'm/s',
+  }
+  return unitMap[unit.toLowerCase()] || unit // Fallback to raw unit if not mapped
 }
 
-export function getValue(value: FormattedValue): number {
-  return value.value
-}
-
-export function getUnit(value: FormattedValue): string {
-  return value.unit
+export function formatValueWithUnit(value: number, unit: string): string {
+  return `${value}${formatUnit(unit)}`
 }

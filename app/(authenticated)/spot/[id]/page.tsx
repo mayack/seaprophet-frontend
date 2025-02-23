@@ -1,43 +1,32 @@
-export const revalidate = 900 // Cache for 15 minutes
-
+export const revalidate = 900
 import { getForecast } from '@/api/polvo/actions/forecast'
 import { getSpot } from '@/api/sargo/actions/spot'
-import { Forecast } from '@/components/forecast/Forecast'
 import { SpotDetails } from '@/components/spot/SpotsDetails'
+import { Forecast } from '@/components/forecast/Forecast'
 
 interface SpotPageProps {
-  params: Promise<{
-    id: string
-  }>
+  params: Promise<{ id: string }>
 }
 
 export default async function SpotPage({ params }: SpotPageProps) {
   const resolvedParams = await params
   const spotId = Number(resolvedParams.id)
 
-  // First get spot data
   const spotResponse = await getSpot(spotId)
   const spot = spotResponse?.data?.attributes
+  if (!spot) return <div>Spot not found.</div>
 
-  if (!spot) {
-    return <div>Spot not found.</div>
-  }
-
-  // Then fetch forecast with spot data
   const [forecastResponse] = await Promise.all([
     getForecast({
       lat: spot.location_lat,
       lon: spot.location_long,
-      orientationFrom: spot.beach_orientation_from ?? undefined,
-      orientationTo: spot.beach_orientation_to ?? undefined,
-      waveFactor: spot.wave_factor ?? undefined,
-      adjustmentFactor: spot.adjustment_factor ?? undefined,
+      orientationFrom: spot.beach_orientation_from,
+      orientationTo: spot.beach_orientation_to,
+      waveFactor: spot.wave_factor,
+      adjustmentFactor: spot.adjustment_factor,
     }),
   ])
-
-  if (!forecastResponse.data) {
-    return <div>forecast not found.</div>
-  }
+  if (!forecastResponse.data) return <div>Forecast not found.</div>
 
   return (
     <div className="space-y-12">

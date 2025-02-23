@@ -1,3 +1,9 @@
+export interface ForecastActionResponse {
+  data: ForecastResponse | null
+  error: string | null
+  meta: { timestamp: string; source: string; success: boolean }
+}
+
 export interface ForecastResponse {
   days: ForecastDay[]
   tidalDatum: string
@@ -29,23 +35,23 @@ export interface ForecastDay {
 }
 
 export interface HourlyForecast {
-  airTemperature: FormattedValue
-  waterTemperature: FormattedValue
-  windSpeed: FormattedValue
-  gust: FormattedValue
-  swellHeight: FormattedValue
-  secondarySwellHeight: FormattedValue
-  waveHeight: FormattedValue
-  windWaveHeight: FormattedValue
-  windDirection: FormattedValue
-  waveDirection: FormattedValue
-  swellDirection: FormattedValue
-  secondarySwellDirection: FormattedValue
-  windWaveDirection: FormattedValue
-  swellPeriod: FormattedValue
-  secondarySwellPeriod: FormattedValue
-  wavePeriod: FormattedValue
-  windWavePeriod: FormattedValue
+  airTemperature: number
+  waterTemperature: number
+  windSpeed: number
+  gust: number
+  swellHeight: number
+  secondarySwellHeight: number
+  waveHeight: number
+  windWaveHeight: number
+  windDirection: number
+  waveDirection: number
+  swellDirection: number
+  secondarySwellDirection: number
+  windWaveDirection: number
+  swellPeriod: number
+  secondarySwellPeriod: number
+  wavePeriod: number
+  windWavePeriod: number
   weatherType: WeatherType
   cloudCover?: string
   humidity?: string
@@ -56,7 +62,7 @@ export interface HourlyForecast {
 
 export interface Tide {
   time: string
-  height: FormattedValue
+  height: number
   type: 'high' | 'low' | 'prevExtreme' | 'nextExtreme'
 }
 
@@ -68,7 +74,7 @@ export interface Astronomical {
 }
 
 export interface General {
-  averageWaterTemperature: FormattedValue
+  averageWaterTemperature: number
 }
 
 export type WeatherType =

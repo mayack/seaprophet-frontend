@@ -31,14 +31,12 @@ export class SargoClient extends BaseApiClient {
     }
 
     try {
-      const parsedToken = JSON.parse(sargoToken)
-      const jwt = parsedToken.jwt
-      if (!jwt || typeof jwt !== 'string') {
+      if (!sargoToken || typeof sargoToken !== 'string') {
         console.warn('Invalid or missing JWT in sargo token')
         return headers
       }
-      console.log('Using JWT:', jwt) // Debug
-      return { ...headers, Authorization: `Bearer ${jwt}` }
+      console.log('Using JWT:', sargoToken) // Debug
+      return { ...headers, Authorization: `Bearer ${sargoToken}` }
     } catch (error) {
       console.error('Failed to parse sargo token:', error)
       return headers

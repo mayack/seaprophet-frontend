@@ -1,7 +1,7 @@
 'use client'
 
-import { useState, useEffect } from 'react'
 import Link from 'next/link'
+import { useUser } from '@/contexts/UserContext'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import {
   DropdownMenu,
@@ -11,21 +11,10 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { Settings, LogOut, ChevronDown } from 'lucide-react'
-import { User } from '@/api/sargo/interfaces/user'
-import { signOut, getCurrentUser } from '@/api/sargo/actions/auth'
+import { signOut } from '@/api/sargo/actions/auth'
 
 export function UserMenu() {
-  const [user, setUser] = useState<User | null>(null)
-
-  useEffect(() => {
-    async function fetchUser() {
-      const userToken = await getCurrentUser()
-      if (userToken) {
-        setUser(userToken.user)
-      }
-    }
-    fetchUser()
-  }, [])
+  const { userData } = useUser()
 
   const handleSignOut = async () => {
     try {
@@ -35,7 +24,7 @@ export function UserMenu() {
     }
   }
 
-  if (!user) return null // Or a loading state
+  if (!userData) return null // Or a loading state
 
   return (
     <DropdownMenu>
@@ -43,7 +32,7 @@ export function UserMenu() {
         <div className="flex items-center gap-1.5">
           <Avatar className="h-10 w-10 cursor-pointer text-lg font-semibold">
             <AvatarFallback>
-              {user.username.charAt(0).toUpperCase()}
+              {userData.username.charAt(0).toUpperCase()}
             </AvatarFallback>
           </Avatar>
           <ChevronDown size={12} strokeWidth={3} />
@@ -53,10 +42,10 @@ export function UserMenu() {
         <div className="flex items-center gap-3 px-2 py-1.5">
           <Avatar className="h-8 w-8 cursor-pointer font-semibold">
             <AvatarFallback>
-              {user.username.charAt(0).toUpperCase()}
+              {userData.username.charAt(0).toUpperCase()}
             </AvatarFallback>
           </Avatar>
-          <div className="text-sm font-semibold">{user.username}</div>
+          <div className="text-sm font-semibold">{userData.username}</div>
         </div>
         <DropdownMenuSeparator />
         <DropdownMenuItem asChild>
