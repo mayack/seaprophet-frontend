@@ -60,9 +60,12 @@ export async function signIn(formData: FormData): Promise<never> {
 
     redirect('/')
   } catch (error) {
+    // Handle NEXT_REDIRECT as expected behavior, not an error
+    if (error instanceof Error && error.message.includes('NEXT_REDIRECT')) {
+      throw error // Re-throw to let Next.js handle the redirect
+    }
+    // Log and throw only for actual errors
     console.error('Sign in error:', error)
-    if (error instanceof Error && error.message.includes('NEXT_REDIRECT'))
-      throw error
     throw new AppError(
       error instanceof Error ? error.message : 'Authentication failed',
       ErrorCode.AUTH_INVALID_CREDENTIALS,
@@ -128,6 +131,11 @@ export async function signUp(formData: FormData): Promise<never> {
 
     redirect('/')
   } catch (error) {
+    // Handle NEXT_REDIRECT as expected behavior, not an error
+    if (error instanceof Error && error.message.includes('NEXT_REDIRECT')) {
+      throw error // Re-throw to let Next.js handle the redirect
+    }
+    // Log and throw only for actual errors
     console.error('Sign up error:', error)
     throw new AppError(
       error instanceof Error ? error.message : 'Registration failed',
