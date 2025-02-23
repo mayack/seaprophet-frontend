@@ -10,18 +10,23 @@ import { CONFIG } from '@/constants/config'
 import type { User, UserAuthResponse } from '../interfaces/user'
 
 export async function signIn(formData: FormData) {
+  const identifier = formData.get('identifier')
+  const password = formData.get('password')
+
+  if (
+    !identifier ||
+    !password ||
+    typeof identifier !== 'string' ||
+    typeof password !== 'string'
+  ) {
+    throw new AppError(
+      'Invalid credentials',
+      ErrorCode.AUTH_INVALID_CREDENTIALS,
+      HTTP_STATUS.BAD_REQUEST
+    )
+  }
+
   try {
-    const identifier = formData.get('identifier')
-    const password = formData.get('password')
-
-    if (!identifier || !password || typeof identifier !== 'string' || typeof password !== 'string') {
-      throw new AppError(
-        'Invalid credentials',
-        ErrorCode.AUTH_INVALID_CREDENTIALS,
-        HTTP_STATUS.BAD_REQUEST
-      )
-    }
-
     // Perform login
     const sargoResponse = await sargoClient.login(identifier, password)
     if (!sargoResponse?.jwt || !sargoResponse.user?.username) {
@@ -40,7 +45,11 @@ export async function signIn(formData: FormData) {
     cookieStore.set({
       name: CONFIG.api.tokens.sargo.key,
       value: sargoResponse.jwt,
-      ...CONFIG.api.tokens.sargo.options,
+      path: CONFIG.api.tokens.sargo.options.path,
+      secure: CONFIG.api.tokens.sargo.options.secure,
+      httpOnly: CONFIG.api.tokens.sargo.options.httpOnly,
+      sameSite: CONFIG.api.tokens.sargo.options.sameSite,
+      maxAge: CONFIG.api.tokens.sargo.options.maxAge,
     })
 
     cookieStore.set({
@@ -50,32 +59,39 @@ export async function signIn(formData: FormData) {
         email: sargoResponse.user.email,
         settings: sargoResponse.user.settings || CONFIG.units.default,
       }),
-      ...CONFIG.api.tokens.sargoOptions.options,
+      path: CONFIG.api.tokens.sargoOptions.options.path,
+      secure: CONFIG.api.tokens.sargoOptions.options.secure,
+      httpOnly: CONFIG.api.tokens.sargoOptions.options.httpOnly,
+      sameSite: CONFIG.api.tokens.sargoOptions.options.sameSite,
+      maxAge: CONFIG.api.tokens.sargoOptions.options.maxAge,
     })
 
     cookieStore.set({
       name: CONFIG.api.tokens.polvo.key,
       value: polvoToken,
-      ...CONFIG.api.tokens.polvo.options,
+      path: CONFIG.api.tokens.polvo.options.path,
+      secure: CONFIG.api.tokens.polvo.options.secure,
+      httpOnly: CONFIG.api.tokens.polvo.options.httpOnly,
+      sameSite: CONFIG.api.tokens.polvo.options.sameSite,
+      maxAge: CONFIG.api.tokens.polvo.options.maxAge,
     })
 
-    return redirect('/')
+    redirect('/')
   } catch (error) {
-    console.error('SignIn Error:', error)
-
     if (error instanceof Error && error.message.includes('NEXT_REDIRECT')) {
-      throw error
+      throw error // Let Next.js handle the redirect
     }
 
+    console.error('SignIn Error:', error)
     throw new AppError(
-      'Authentication failed. Please check your credentials.',
+      'Authentication failed',
       ErrorCode.AUTH_INVALID_CREDENTIALS,
       HTTP_STATUS.UNAUTHORIZED
     )
   }
 }
 
-export async function signOut(): Promise<void> {
+export async function signOut() {
   const cookieStore = await cookies()
 
   try {
@@ -87,7 +103,6 @@ export async function signOut(): Promise<void> {
     ]
 
     for (const cookieName of cookiesToDelete) {
-      // First set to expire
       cookieStore.set({
         name: cookieName,
         value: '',
@@ -95,33 +110,24 @@ export async function signOut(): Promise<void> {
         expires: new Date(0),
         maxAge: 0,
       })
-
-      // Then delete
       cookieStore.delete(cookieName)
     }
 
     // Log remaining cookies for debugging
-    const remainingCookies = cookiesToDelete.map(name => ({
+    const remainingCookies = cookiesToDelete.map((name) => ({
       name,
       exists: !!cookieStore.get(name),
     }))
     console.log('SignOut - Cookies status:', remainingCookies)
 
-    // Force revalidation
     revalidatePath('/')
-
-    // Redirect to sign-in
     redirect('/auth/signin')
   } catch (error) {
-    console.error('SignOut Error:', {
-      message: error instanceof Error ? error.message : 'Unknown error',
-      stack: error instanceof Error ? error.stack : null,
-    })
-
     if (error instanceof Error && error.message.includes('NEXT_REDIRECT')) {
-      throw error
+      throw error // Let Next.js handle the redirect
     }
 
+    console.error('SignOut Error:', error)
     redirect('/auth/signin')
   }
 }
@@ -171,7 +177,6 @@ export async function getCurrentUser({
       }
     } catch (error) {
       console.error('Failed to fetch fresh user data:', error)
-      return fallbackResponse
     }
   }
 

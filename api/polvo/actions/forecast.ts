@@ -24,16 +24,19 @@ export async function getForecast(
   let token = cookieStore.get(CONFIG.api.tokens.polvo.key)?.value as string
 
   if (!token || (await isTokenExpired(token))) {
-    console.log('getForecast: Polvo token expired or missing, fetching new one (not storing)');
+    console.log(
+      'getForecast: Polvo token expired or missing, fetching new one (not storing)'
+    )
     try {
-      token = await polvoClient.getAuthToken();
+      token = await polvoClient.getAuthToken()
     } catch (error) {
-      console.error('getForecast: Failed to fetch Polvo token:', error);
+      console.error('getForecast: Failed to fetch Polvo token:', error)
       return {
         data: null,
-        error: error instanceof Error ? error.message : 'Failed to get Polvo token',
+        error:
+          error instanceof Error ? error.message : 'Failed to get Polvo token',
         meta: { timestamp, source: 'polvo-auth', success: false },
-      };
+      }
     }
   }
 

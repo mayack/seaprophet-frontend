@@ -14,7 +14,7 @@ const PUBLIC_PATHS = [
 
 // Helper to check if a path is public
 function isPublicPath(path: string): boolean {
-  return PUBLIC_PATHS.some(publicPath => path.startsWith(publicPath))
+  return PUBLIC_PATHS.some((publicPath) => path.startsWith(publicPath))
 }
 
 export async function middleware(request: NextRequest) {
@@ -71,7 +71,6 @@ export async function middleware(request: NextRequest) {
     response.headers.set('x-middleware-cache', 'no-cache')
 
     return response
-
   } catch (error) {
     console.error('Middleware Error:', {
       message: error instanceof Error ? error.message : 'Unknown error',
