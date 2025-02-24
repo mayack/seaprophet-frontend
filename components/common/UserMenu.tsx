@@ -24,11 +24,16 @@ export function UserMenu({ user }: UserMenuProps) {
   const handleSignOut = async (event: Event) => {
     event.preventDefault()
     try {
-      await signOut() // Server action handles cookie clearing and redirect
-      router.refresh() // Ensure client state updates
+      await signOut() // Server action redirects to /auth/signin
+      router.refresh() // Sync client state
     } catch (error) {
+      if (error instanceof Error && error.message.includes('NEXT_REDIRECT')) {
+        // Ignore NEXT_REDIRECT, it’s handled by Next.js
+        router.refresh()
+        return
+      }
       console.error('Sign out error:', error)
-      router.push('/auth/signin') // Fallback redirect on error
+      router.push('/auth/signin') // Fallback redirect
       router.refresh()
     }
   }
