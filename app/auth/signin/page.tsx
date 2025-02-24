@@ -1,40 +1,40 @@
-'use client';
+'use client'
 
-import { useRouter } from 'next/navigation';
-import { useTransition } from 'react';
-import { signIn } from '@/api/sargo/actions/auth';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import { Button } from '@/components/ui/button';
-import { Waves } from 'lucide-react';
-import { toast, Toaster } from 'sonner';
+import { useRouter } from 'next/navigation'
+import { useTransition } from 'react'
+import { signIn } from '@/api/sargo/actions/auth'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Input } from '@/components/ui/input'
+import { Button } from '@/components/ui/button'
+import { Waves } from 'lucide-react'
+import { toast, Toaster } from 'sonner'
 
 export default function SignIn() {
-  const router = useRouter();
-  const [isPending, startTransition] = useTransition();
+  const router = useRouter()
+  const [isPending, startTransition] = useTransition()
 
   const handleSubmit = async (formData: FormData) => {
     startTransition(async () => {
       try {
-        const result = await signIn(formData);
+        const result = await signIn(formData)
         if (result.success) {
-          toast.success('Signed in successfully!');
-          router.push('/');
-          router.refresh();
+          toast.success('Signed in successfully!')
+          router.push('/')
+          router.refresh()
         } else {
-          toast.error(result.error || 'Sign-in failed.');
-          console.error('Sign-in error:', result.error);
+          toast.error(result.error || 'Sign-in failed.')
+          console.error('Sign-in error:', result.error)
         }
       } catch (error) {
         const message =
           error instanceof Error && error.message.includes('fetch')
             ? 'Check your connection and try again.'
-            : 'Sign-in failed unexpectedly.';
-        toast.error(message);
-        console.error('Fetch error in signIn:', error);
+            : 'Sign-in failed unexpectedly.'
+        toast.error(message)
+        console.error('Fetch error in signIn:', error)
       }
-    });
-  };
+    })
+  }
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center gap-12">
@@ -75,5 +75,5 @@ export default function SignIn() {
         This app has been deployed only for testing purposes.
       </div>
     </div>
-  );
+  )
 }
