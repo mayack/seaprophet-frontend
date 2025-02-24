@@ -1,36 +1,44 @@
-// app/auth/signin/page.tsx
-'use client'
+'use client';
 
-import { useRouter } from 'next/navigation'
-import { useTransition } from 'react'
-import { signIn } from '@/api/sargo/actions/auth'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Input } from '@/components/ui/input'
-import { Button } from '@/components/ui/button'
-import { Waves } from 'lucide-react'
-import { toast, Toaster } from 'sonner'
+import { useRouter } from 'next/navigation';
+import { useTransition } from 'react';
+import { signIn } from '@/api/sargo/actions/auth';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
+import { Waves } from 'lucide-react';
+import { toast, Toaster } from 'sonner';
 
 export default function SignIn() {
-  const router = useRouter()
-  const [isPending, startTransition] = useTransition()
+  const router = useRouter();
+  const [isPending, startTransition] = useTransition();
 
   const handleSubmit = async (formData: FormData) => {
     startTransition(async () => {
-      const result = await signIn(formData)
-      if (result.success) {
-        toast.success('Signed in successfully!')
-        router.push('/')
-        router.refresh()
-      } else {
-        toast.error(result.error || 'Sign-in failed')
-        console.error('Sign-in error:', result.error)
+      try {
+        const result = await signIn(formData);
+        if (result.success) {
+          toast.success('Signed in successfully!');
+          router.push('/');
+          router.refresh();
+        } else {
+          toast.error(result.error || 'Sign-in failed.');
+          console.error('Sign-in error:', result.error);
+        }
+      } catch (error) {
+        const message =
+          error instanceof Error && error.message.includes('fetch')
+            ? 'Check your connection and try again.'
+            : 'Sign-in failed unexpectedly.';
+        toast.error(message);
+        console.error('Fetch error in signIn:', error);
       }
-    })
-  }
+    });
+  };
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center gap-12">
-      <Toaster /> {/* Added Toaster component */}
+      <Toaster />
       <Card className="w-full max-w-md">
         <CardHeader>
           <CardTitle className="flex justify-center">
@@ -43,7 +51,7 @@ export default function SignIn() {
               <Input
                 type="text"
                 name="identifier"
-                placeholder="Email address"
+                placeholder="Email or username"
                 required
                 disabled={isPending}
               />
@@ -58,7 +66,7 @@ export default function SignIn() {
               />
             </div>
             <Button type="submit" className="w-full" disabled={isPending}>
-              {isPending ? 'Signing In...' : 'Sign In'}
+              {isPending ? 'Signing in...' : 'Sign in'}
             </Button>
           </form>
         </CardContent>
@@ -67,5 +75,5 @@ export default function SignIn() {
         This app has been deployed only for testing purposes.
       </div>
     </div>
-  )
+  );
 }
