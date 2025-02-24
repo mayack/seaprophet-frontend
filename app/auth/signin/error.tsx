@@ -10,10 +10,12 @@ export default function Error({
   reset: () => void
 }) {
   return (
-    <div className="flex h-screen w-screen flex-col items-center justify-center">
-      <div className="container space-y-4 py-12 text-center">
-        <h1 className="text-lg font-semibold">Something went wrong!</h1>
-        <p className="text-sm text-destructive">{error.message}</p>
+    <div className="flex h-screen w-screen flex-col items-center justify-center py-12">
+      <div className="wrapper">
+        <div className="space-y-4 text-center">
+          <h1 className="font-style-h1">Something went wrong!</h1>
+          <p className="text-destructive">{error.message}</p>
+        </div>
         <Button onClick={() => reset()}>Try again</Button>
       </div>
     </div>

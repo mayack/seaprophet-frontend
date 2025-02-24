@@ -15,77 +15,81 @@ export function ForecastItem({ day, units }: ForecastItemProps) {
   const date = new Date(day.date)
 
   return (
-    <div className="relative space-y-12 pt-2">
-      <div className="flex gap-12 xl:gap-16">
-        <aside className="flex w-60 flex-col gap-8 pt-2 xl:w-72">
-          <h3>
-            <div className="text-3xl font-semibold">
-              {date.toLocaleDateString('en-US', { weekday: 'long' })}
-            </div>
-            <div className="text-muted-foreground">
+    <div className="flex flex-col gap-x-10 gap-y-4 lg:flex-row xl:gap-x-12">
+      <aside className="w-full lg:w-72">
+        <div className="gap-y-4 lg:gap-y-8">
+          <h2 className="font-style-h2 flex flex-col justify-center">
+            {date.toLocaleDateString('en-US', { weekday: 'long' })}
+            <div className="font-style-comment">
               {date.toLocaleDateString('en-US', {
                 month: 'long',
                 day: 'numeric',
               })}
             </div>
-          </h3>
-
+          </h2>
           <TideChart
             data={day.tides}
             astronomical={day.astronomical}
             unit={units.tide_height}
           />
-          <div className="space-y-4">
-            <AstronomicalBreakdown astronomical={day.astronomical} />
-            <GeneralBreakdown general={day.general} units={units} />
-          </div>
-        </aside>
-        <div className="relative flex-1">
-          <ForecastHeader />
-          {Object.entries(day.forecast).map(([hour, forecast]) => (
-            <div
-              key={hour}
-              className="grid grid-cols-32 items-center border-t py-2.5"
-            >
-              <div className="col-span-3 text-xs">{hour}</div>
-              <WaveItem
-                height={forecast.waveHeight}
-                period={forecast.wavePeriod}
-                direction={forecast.waveDirection}
-                unit={units.surf_height}
-              />
-              <SwellItem
-                height={forecast.swellHeight}
-                period={forecast.swellPeriod}
-                direction={forecast.swellDirection}
-                unit={units.swell_height}
-              />
-              <SwellItem
-                height={forecast.secondarySwellHeight}
-                period={forecast.secondarySwellPeriod}
-                direction={forecast.secondarySwellDirection}
-                unit={units.swell_height}
-              />
-              <SwellItem
-                height={forecast.windWaveHeight}
-                period={forecast.windWavePeriod}
-                direction={forecast.windWaveDirection}
-                unit={units.swell_height}
-              />
-              <WindItem
-                speed={forecast.windSpeed}
-                gust={forecast.gust}
-                direction={forecast.windDirection}
-                unit={units.wind_speed}
-              />
-              <TemperatureItem
-                airTemp={forecast.airTemperature}
-                weatherType={forecast.weatherType}
-                unit={units.temperature}
-              />
-            </div>
-          ))}
+          <AstronomicalBreakdown
+            astronomical={day.astronomical}
+            general={day.general}
+            units={units}
+          />
         </div>
+      </aside>
+      <div className="relative flex-1">
+        <ForecastHeader />
+        {Object.entries(day.forecast).map(([hour, forecast]) => (
+          <div
+            key={hour}
+            className="flex items-center justify-between border-t py-2.5"
+          >
+            <div className="w-9 text-xs">{hour}</div>
+            <WaveItem
+              className="w-26 xl:w-32"
+              height={forecast.waveHeight}
+              period={forecast.wavePeriod}
+              direction={forecast.waveDirection}
+              unit={units.surf_height}
+            />
+            <SwellItem
+              className="hidden w-20 sm:flex xl:w-24"
+              height={forecast.swellHeight}
+              period={forecast.swellPeriod}
+              direction={forecast.swellDirection}
+              unit={units.swell_height}
+            />
+            <SwellItem
+              className="hidden w-20 sm:flex xl:w-24"
+              height={forecast.secondarySwellHeight}
+              period={forecast.secondarySwellPeriod}
+              direction={forecast.secondarySwellDirection}
+              unit={units.swell_height}
+            />
+            <SwellItem
+              className="hidden w-20 md:flex xl:w-24"
+              height={forecast.windWaveHeight}
+              period={forecast.windWavePeriod}
+              direction={forecast.windWaveDirection}
+              unit={units.swell_height}
+            />
+            <WindItem
+              className="w-24"
+              speed={forecast.windSpeed}
+              gust={forecast.gust}
+              direction={forecast.windDirection}
+              unit={units.wind_speed}
+            />
+            <TemperatureItem
+              className="w-16"
+              airTemp={forecast.airTemperature}
+              weatherType={forecast.weatherType}
+              unit={units.temperature}
+            />
+          </div>
+        ))}
       </div>
     </div>
   )

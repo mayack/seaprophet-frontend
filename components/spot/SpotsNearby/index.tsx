@@ -80,7 +80,7 @@ export function SpotsNearby({
 
   return (
     <div>
-      <h2 className="mb-6 text-2xl font-bold">Surf spots nearby</h2>
+      <h2 className="font-style-h2 mb-6">Surf spots nearby</h2>
       {locationError ? (
         <EmptyState
           icon={MapPin}
@@ -101,7 +101,7 @@ export function SpotsNearby({
           description={`No surf spots found within ${maxDistance}km of your location.`}
         />
       ) : (
-        <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
+        <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3 md:gap-4 lg:grid-cols-4">
           {nearbySpots.map((spot) => (
             <li key={spot.id} className="col-span-1">
               <SpotCard

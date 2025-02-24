@@ -13,9 +13,11 @@ export default async function AuthenticatedLayout({
 
   return (
     <UserProvider initialUserData={user}>
-      <div className="flex min-h-screen flex-col bg-background">
+      <div className="flex min-h-full flex-col bg-background">
         <Header user={user} />
-        <main className="flex-1 py-12">{children}</main>
+        <main className="flex flex-1 flex-col justify-center py-4 sm:py-6 xl:py-12">
+          {children}
+        </main>
       </div>
     </UserProvider>
   )

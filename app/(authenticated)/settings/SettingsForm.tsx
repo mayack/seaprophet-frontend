@@ -59,7 +59,7 @@ function CollapsibleField({
   return (
     <div className="space-y-4">
       <div className="flex items-center">
-        <Label htmlFor={formId} className="w-40">
+        <Label htmlFor={formId} className="w-28">
           {label}
         </Label>
         <div className="flex-1">{value}</div>
@@ -181,7 +181,7 @@ export function SettingsForms({
   }
 
   return (
-    <>
+    <div className="space-y-4">
       <div className="space-y-4">
         <Separator />
 
@@ -247,7 +247,7 @@ export function SettingsForms({
             defaultValue={state.settings?.units?.wind_speed || 'knots'}
             onValueChange={(value) => handleUnitChange('wind_speed', value)}
             options={[
-              { value: 'knots', label: 'Knots' },
+              { value: 'knots', label: 'Kts' },
               { value: 'mph', label: 'Mph' },
               { value: 'kph', label: 'Kph' },
               { value: 'mps', label: 'M/s' },
@@ -323,6 +323,6 @@ export function SettingsForms({
           />
         </div>
       </div>
-    </>
+    </div>
   )
 }

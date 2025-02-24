@@ -29,8 +29,8 @@ const directions = [
 
 const sizes = {
   small: 'w-3 h-3',
-  medium: 'w-4 h-4',
-  large: 'w-5 h-5',
+  medium: 'w-3 h-3 lg:w-4 lg:h-4',
+  large: 'w-4 h-4 xl:w-5 xl:h-5',
 } as const
 
 export function IconDirection({

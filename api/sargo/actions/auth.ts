@@ -20,7 +20,7 @@ export async function signIn(
     typeof password !== 'string'
   ) {
     console.error('Invalid form data:', { identifier, password })
-    return { success: false, error: 'Invalid credentials' }
+    return { success: false, error: 'Invalid credentials.' }
   }
 
   const cookieStore = await cookies()
@@ -36,7 +36,7 @@ export async function signIn(
 
     if (!sargoResponse?.jwt || !sargoResponse.user?.username) {
       console.error('Invalid login response:', sargoResponse)
-      return { success: false, error: 'Invalid credentials' }
+      return { success: false, error: 'Invalid credentials.' }
     }
 
     cookieStore.set({
@@ -69,7 +69,7 @@ export async function signIn(
     const message =
       error instanceof Error
         ? error.message
-        : 'Authentication failed—please try again'
+        : 'Authentication failed—please try again.'
     return { success: false, error: message }
   }
 }

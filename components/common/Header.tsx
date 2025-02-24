@@ -9,13 +9,15 @@ interface HeaderProps {
 export function Header({ user }: HeaderProps) {
   return (
     <header className="bg-background">
-      <div className="container flex h-16 items-center justify-between">
-        <div className="flex items-center gap-8">
-          <Link href="/" className="text-xl font-bold">
-            Sea Prophet
-          </Link>
+      <div className="wrapper">
+        <div className="flex h-16 items-center justify-between">
+          <div className="flex items-center gap-8">
+            <Link href="/" className="text-xl font-bold">
+              Sea Prophet
+            </Link>
+          </div>
+          <UserMenu user={user} />
         </div>
-        <UserMenu user={user} />
       </div>
     </header>
   )

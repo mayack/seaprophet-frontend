@@ -11,14 +11,14 @@ async function SpotsContent() {
 
   if (response.error) {
     return (
-      <div className="container space-y-12">
+      <div className="wrapper">
         <p className="text-red-500">Error loading spots: {response.error}</p>
       </div>
     )
   }
 
   return (
-    <div className="container space-y-12">
+    <div className="wrapper">
       <SpotsNearby spotsByCountry={spotsByCountry} maxDistance={50} />
       <Suspense fallback={<SpotsBrowseSkeleton />}>
         <SpotsBrowse spotsByCountry={spotsByCountry} />
@@ -32,7 +32,7 @@ export default async function Page() {
     return (
       <Suspense
         fallback={
-          <div className="container space-y-12">
+          <div className="wrapper">
             <SpotsBrowseSkeleton />
           </div>
         }
@@ -43,7 +43,7 @@ export default async function Page() {
   } catch (error) {
     console.error('Page error:', error)
     return (
-      <div className="container space-y-12">
+      <div className="wrapper">
         <p className="text-red-500">
           Error:{' '}
           {error instanceof Error ? error.message : 'Failed to load spots'}

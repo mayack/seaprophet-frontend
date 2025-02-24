@@ -11,20 +11,18 @@ export default async function SettingsPage() {
   }
 
   return (
-    <div className="container max-w-2xl">
-      <Toaster />
-      <Card>
-        <CardHeader>
-          <CardTitle>Settings</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
+    <>
+      <div className="wrapper mx-auto max-w-lg">
+        <div>
+          <h1 className="font-style-h2 mb-6">Settings</h1>
           <SettingsForms
             username={user.username}
             email={user.email}
             settings={user.settings}
           />
-        </CardContent>
-      </Card>
-    </div>
+        </div>
+      </div>
+      <Toaster />
+    </>
   )
 }

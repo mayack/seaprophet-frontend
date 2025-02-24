@@ -8,21 +8,7 @@ export default {
     './app/**/*.{js,ts,jsx,tsx,mdx}',
   ],
   theme: {
-    container: {
-      center: true,
-      padding: '2rem',
-      screens: {
-        sm: '100%',
-        md: '100%',
-        lg: '100%',
-        xl: '100%',
-        '2xl': '1536px',
-      },
-    },
     extend: {
-      aspectRatio: {
-        '3/1': '3 / 1',
-      },
       colors: {
         background: 'hsl(var(--background))',
         foreground: 'hsl(var(--foreground))',
@@ -73,12 +59,6 @@ export default {
       fontSize: {
         '2xs': '0.625rem', // 10px
       },
-      gridTemplateColumns: {
-        '32': 'repeat(32, minmax(0, 1fr))',
-      },
-      height: {
-        '60vh': '60vh',
-      },
       // Add custom animation
       animation: {
         'fade-in': 'fadeIn 0.5s ease-in', // Custom fade-in animation
@@ -88,6 +68,12 @@ export default {
           '0%': { opacity: '0' },
           '100%': { opacity: '1' },
         },
+      },
+      screens: {
+        xs: '480px',
+      },
+      width: {
+        '26': '6.5rem', // 104px at 16px root font size
       },
     },
   },

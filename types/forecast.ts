@@ -11,6 +11,7 @@ export interface WaveItemProps {
   period: number
   direction: number
   unit: string
+  className: string
 }
 
 export interface WindItemProps {
@@ -18,10 +19,12 @@ export interface WindItemProps {
   gust: number
   direction: number
   unit: string
+  className: string
 }
 
 export interface TemperatureItemProps {
   airTemp: number
   weatherType: WeatherType
   unit: string
+  className: string
 }

@@ -74,7 +74,42 @@
     @apply border-border outline-ring/50;
   }
 
+  html,
+  body {
+    @apply h-full min-h-full;
+  }
+
   body {
     @apply bg-background text-foreground;
+  }
+}
+
+@layer components {
+  .font-style-h1 {
+    @apply text-3xl font-bold sm:text-5xl;
+  }
+
+  .font-style-h2 {
+    @apply text-2xl font-bold sm:text-3xl;
+  }
+
+  .font-style-h3 {
+    @apply text-xl font-bold;
+  }
+
+  .font-style-h4 {
+    @apply text-lg font-semibold;
+  }
+
+  .font-style-h5 {
+    @apply text-base font-medium;
+  }
+
+  .font-style-comment {
+    @apply text-sm font-normal text-muted-foreground sm:text-base;
+  }
+
+  .wrapper {
+    @apply mx-auto w-full max-w-[1536px] space-y-8 px-4 sm:space-y-10 xl:space-y-12 xl:px-6 2xl:px-8;
   }
 }

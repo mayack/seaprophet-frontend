@@ -11,9 +11,9 @@ interface GeneralBreakdownProps {
 
 export function GeneralBreakdown({ general, units }: GeneralBreakdownProps) {
   return (
-    <div className="space-y-1">
+    <div className="flex flex-col flex-wrap sm:flex-row lg:flex-col">
       <InfoBreakdownLine
-        icon={<Droplet className="h-4 w-4" />}
+        icon={<Droplet className="h-3 w-3 sm:h-4 sm:w-4" />}
         label="Water temperature"
         value={formatValueWithUnit(
           general.averageWaterTemperature,

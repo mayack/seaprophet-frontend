@@ -36,15 +36,13 @@ export function Forecast({ days, user }: ForecastProps) {
   }, [days.length])
 
   return (
-    <div className="container relative">
-      <div className="space-y-12 pt-2">
-        {days.slice(0, visibleDays).map((day) => (
-          <div className="animate-fade-in" key={day.date}>
-            <ForecastItem day={day} units={user.settings.units} />
-          </div>
-        ))}
-        {visibleDays < days.length && <div ref={loadMoreRef} className="h-5" />}
-      </div>
+    <div className="wrapper relative">
+      {days.slice(0, visibleDays).map((day) => (
+        <div className="animate-fade-in" key={day.date}>
+          <ForecastItem day={day} units={user.settings.units} />
+        </div>
+      ))}
+      {visibleDays < days.length && <div ref={loadMoreRef} className="h-5" />}
     </div>
   )
 }

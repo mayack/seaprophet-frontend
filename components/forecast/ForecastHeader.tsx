@@ -1,13 +1,13 @@
 export function ForecastHeader() {
   return (
-    <div className="sticky top-0 z-20 grid flex-1 grid-cols-32 bg-background py-2 text-xs font-semibold">
-      <div className="col-span-3">Time</div>
-      <div className="col-span-6">Surf</div>
-      <div className="col-span-5">Primary swell</div>
-      <div className="col-span-5">Secondary swell</div>
-      <div className="col-span-5">Wind wave</div>
-      <div className="col-span-5">Wind</div>
-      <div className="col-span-3">Weather</div>
+    <div className="sticky top-0 z-20 flex items-center justify-between bg-background py-2 text-2xs font-semibold xl:text-xs">
+      <div className="w-9">Time</div>
+      <div className="w-26 xl:w-32">Surf</div>
+      <div className="hidden w-20 sm:block xl:w-24">Primary</div>
+      <div className="hidden w-20 sm:block xl:w-24">Secondary</div>
+      <div className="hidden w-20 md:block xl:w-24">Wind wave</div>
+      <div className="w-24 text-center">Wind</div>
+      <div className="w-16">Weather</div>
     </div>
   )
 }

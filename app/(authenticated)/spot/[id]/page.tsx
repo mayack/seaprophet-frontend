@@ -31,7 +31,7 @@ export default async function SpotPage({ params }: SpotPageProps) {
   if (!forecastResponse.data) return <div>Forecast not found.</div>
 
   return (
-    <div className="space-y-12">
+    <div className="space-y-8 sm:space-y-10 xl:space-y-12">
       <SpotDetails
         mapCenter={[spot.location_long, spot.location_lat]}
         webcamConfig={spot.webcam}

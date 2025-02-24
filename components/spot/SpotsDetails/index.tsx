@@ -18,28 +18,36 @@ export function SpotDetails({
   return (
     <div>
       <Tabs defaultValue={webcamConfig ? 'webcam' : 'map'} className="w-full">
-        <div className="container mb-6 flex items-end">
-          <h1 className="flex-1 text-4xl font-bold">{spotName}</h1>
-          <TabsList>
-            {webcamConfig && (
-              <TabsTrigger value="webcam" className="flex items-center gap-2">
-                <Webcam className="h-4 w-4" />
-                Webcam
+        <div className="wrapper">
+          <div className="mb-6 flex items-end">
+            <h1 className="font-style-h1 flex-1">{spotName}</h1>
+            <TabsList>
+              {webcamConfig && (
+                <TabsTrigger value="webcam" className="flex items-center gap-2">
+                  <Webcam className="h-4 w-4" />
+                  <div className="hidden sm:block">Webcam</div>
+                </TabsTrigger>
+              )}
+              <TabsTrigger value="map" className="flex items-center gap-2">
+                <MapPin className="h-4 w-4" />
+                <div className="hidden sm:block">Map</div>
               </TabsTrigger>
-            )}
-            <TabsTrigger value="map" className="flex items-center gap-2">
-              <MapPin className="h-4 w-4" />
-              Map
-            </TabsTrigger>
-          </TabsList>
+            </TabsList>
+          </div>
         </div>
         {webcamConfig && (
-          <TabsContent value="webcam">
+          <TabsContent
+            value="webcam"
+            className="aspect-video md:aspect-auto md:h-[60vh]"
+          >
             <WebcamViewer config={webcamConfig} />
           </TabsContent>
         )}
-        <TabsContent value="map">
-          <Map center={mapCenter} zoom={12} width="100%" height="60vh" />
+        <TabsContent
+          value="map"
+          className="aspect-video md:aspect-auto md:h-[60vh]"
+        >
+          <Map center={mapCenter} zoom={12} width="100%" height="100%" />
         </TabsContent>
       </Tabs>
     </div>

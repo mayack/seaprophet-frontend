@@ -5,11 +5,13 @@ import { useEffect, useRef, useState } from 'react'
 import { Skeleton } from '../ui/skeleton'
 import { formatValueWithUnit } from '@/lib/units'
 import { UserUnits } from '@/api/sargo/interfaces/user'
+import { cn } from '@/lib/utils'
 
 interface TideChartProps {
   data: Tide[]
   astronomical?: Astronomical
   unit: UserUnits['tide_height']
+  className?: string
 }
 
 const PADDING = {
@@ -41,10 +43,11 @@ export default function TideChart({
   data,
   astronomical,
   unit,
+  className,
 }: TideChartProps) {
-  const height = 90
+  const height = 96
   const svgRef = useRef<SVGSVGElement>(null)
-  const [width, setWidth] = useState(800)
+  const [width, setWidth] = useState(240)
   const [isClient, setIsClient] = useState(false)
   const [mousePosition, setMousePosition] = useState<number | null>(null)
   const [currentTideValue, setCurrentTideValue] = useState<string | null>(null)
@@ -73,7 +76,7 @@ export default function TideChart({
   }, [isClient])
 
   if (!isClient) {
-    return <Skeleton className="h-[90px] w-full" />
+    return <Skeleton className="h-24 w-full" />
   }
 
   const sortedData = [...data].sort(
@@ -186,7 +189,7 @@ export default function TideChart({
   }
 
   return (
-    <div className="relative w-full">
+    <div className={cn(className, 'relative w-full lg:w-72')}>
       <svg
         ref={svgRef}
         width="100%"
