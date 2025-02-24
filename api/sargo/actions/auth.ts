@@ -4,11 +4,12 @@ import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { revalidatePath } from 'next/cache'
 import { sargoClient } from '../client'
-import { AppError, ErrorCode, HTTP_STATUS } from '@/utils/error'
 import { CONFIG } from '@/constants/config'
 import type { User } from '../interfaces/user'
 
-export async function signIn(formData: FormData) {
+export async function signIn(
+  formData: FormData
+): Promise<{ success: boolean; error?: string }> {
   const identifier = formData.get('identifier')
   const password = formData.get('password')
 
@@ -18,26 +19,26 @@ export async function signIn(formData: FormData) {
     typeof identifier !== 'string' ||
     typeof password !== 'string'
   ) {
-    throw new AppError(
-      'Invalid credentials',
-      ErrorCode.AUTH_INVALID_CREDENTIALS,
-      HTTP_STATUS.BAD_REQUEST
-    )
+    console.error('Invalid form data:', { identifier, password })
+    return { success: false, error: 'Invalid credentials' }
   }
 
+  const cookieStore = await cookies()
+
   try {
-    const sargoResponse = await sargoClient.login(identifier, password)
+    const sargoResponse = await sargoClient
+      .login(identifier, password)
+      .catch((error) => {
+        // Catch and handle login errors here
+        console.error('Sargo login error:', error)
+        throw error // Re-throw to handle in outer catch
+      })
+
     if (!sargoResponse?.jwt || !sargoResponse.user?.username) {
-      throw new AppError(
-        'Invalid credentials',
-        ErrorCode.AUTH_INVALID_CREDENTIALS,
-        HTTP_STATUS.UNAUTHORIZED
-      )
+      console.error('Invalid login response:', sargoResponse)
+      return { success: false, error: 'Invalid credentials' }
     }
 
-    const cookieStore = await cookies()
-
-    // Set sargo JWT cookie
     cookieStore.set({
       name: CONFIG.api.tokens.sargo.key,
       value: sargoResponse.jwt,
@@ -48,13 +49,12 @@ export async function signIn(formData: FormData) {
       maxAge: CONFIG.api.tokens.sargo.options.maxAge,
     })
 
-    // Set user settings cookie
     cookieStore.set({
       name: CONFIG.api.tokens.sargoOptions.key,
       value: JSON.stringify({
         username: sargoResponse.user.username,
         email: sargoResponse.user.email,
-        settings: sargoResponse.user.settings,
+        settings: sargoResponse.user.settings || CONFIG.units.default,
       }),
       path: CONFIG.api.tokens.sargoOptions.options.path,
       secure: CONFIG.api.tokens.sargoOptions.options.secure,
@@ -63,17 +63,14 @@ export async function signIn(formData: FormData) {
       maxAge: CONFIG.api.tokens.sargoOptions.options.maxAge,
     })
 
-    redirect('/')
+    return { success: true }
   } catch (error) {
-    if (error instanceof Error && error.message.includes('NEXT_REDIRECT')) {
-      throw error
-    }
     console.error('SignIn Error:', error)
-    throw new AppError(
-      'Authentication failed',
-      ErrorCode.AUTH_INVALID_CREDENTIALS,
-      HTTP_STATUS.UNAUTHORIZED
-    )
+    const message =
+      error instanceof Error
+        ? error.message
+        : 'Authentication failed—please try again'
+    return { success: false, error: message }
   }
 }
 
