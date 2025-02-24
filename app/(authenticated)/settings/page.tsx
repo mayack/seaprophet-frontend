@@ -4,7 +4,7 @@ import { Toaster } from 'sonner'
 import { SettingsForms } from './SettingsForm'
 
 export default async function SettingsPage() {
-  const { user } = await getCurrentUser({ skipOptions: true })
+  const user = await getCurrentUser()
 
   if (!user) {
     return <div>Please sign in to access settings</div>

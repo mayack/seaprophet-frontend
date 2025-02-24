@@ -1,99 +1,169 @@
-import { NextResponse } from 'next/server'
-import type { NextRequest } from 'next/server'
-import { CONFIG } from '@/constants/config'
+import { NextResponse, NextRequest } from 'next/server'
+import { jwtDecode } from 'jwt-decode'
+import { CONFIG } from './constants/config'
+import { polvoClient } from './api/polvo/client' // Adjust import
+import { sargoClient } from './api/sargo/client'
 
-// Define public paths that don't require authentication
-const PUBLIC_PATHS = [
-  '/auth/signin',
-  '/auth/signup',
-  '/auth/reset-password',
-  '/_next',
-  '/api',
-  '/favicon.ico',
-]
+interface JwtPayload {
+  exp?: number
+  [key: string]: any
+}
 
-// Helper to check if a path is public
-function isPublicPath(path: string): boolean {
-  return PUBLIC_PATHS.some((publicPath) => path.startsWith(publicPath))
+async function clearTokensAndRedirect(request: NextRequest) {
+  const response = NextResponse.redirect(new URL('/auth/signin', request.url))
+
+  const tokensToDelete = [
+    CONFIG.api.tokens.sargo.key,
+    CONFIG.api.tokens.polvo.key,
+    CONFIG.api.tokens.sargoOptions.key,
+  ]
+
+  for (const tokenName of tokensToDelete) {
+    response.cookies.set({
+      name: tokenName,
+      value: '',
+      path: '/',
+      expires: new Date(0),
+      maxAge: 0,
+    })
+    response.cookies.delete(tokenName)
+  }
+
+  return response
 }
 
 export async function middleware(request: NextRequest) {
-  const { pathname, search } = request.nextUrl
-  const method = request.method
-  const fullPath = `${pathname}${search}`
+  const { pathname } = request.nextUrl
+  const cookieStore = request.cookies
+  const sargoToken = cookieStore.get(CONFIG.api.tokens.sargo.key)?.value
+  const polvoToken = cookieStore.get(CONFIG.api.tokens.polvo.key)?.value
+  const sargoOptions = cookieStore.get(
+    CONFIG.api.tokens.sargoOptions.key
+  )?.value
 
-  // Debug logging
-  console.log('Middleware:', {
-    pathname,
-    method,
-    search,
-    fullPath,
-  })
-
-  try {
-    // Skip middleware for specific routes
-    if (isPublicPath(pathname)) {
-      console.log('Middleware: Skipping public path:', pathname)
-      return NextResponse.next()
-    }
-
-    // Skip middleware for POST requests to auth endpoints
-    if (method === 'POST' && pathname.startsWith('/auth/')) {
-      console.log('Middleware: Skipping POST to auth endpoint:', pathname)
-      return NextResponse.next()
-    }
-
-    // Check authentication
-    const cookieStore = request.cookies
-    const sargoToken = cookieStore.get(CONFIG.api.tokens.sargo.key)?.value
-    const isAuthenticated = !!sargoToken
-
-    console.log('Middleware - Auth Check:', {
-      isAuthenticated,
-      hasToken: !!sargoToken,
-    })
-
-    // Handle authentication rules
-    if (!isAuthenticated) {
-      console.log('Middleware: Redirecting unauthenticated user to signin')
-      const signInUrl = new URL('/auth/signin', request.url)
-
-      // Optionally store the original URL to redirect back after login
-      if (pathname !== '/') {
-        signInUrl.searchParams.set('from', fullPath)
-      }
-
-      return NextResponse.redirect(signInUrl)
-    }
-
-    // Optional: Add headers for authenticated requests
-    const response = NextResponse.next()
-    response.headers.set('x-middleware-cache', 'no-cache')
-
-    return response
-  } catch (error) {
-    console.error('Middleware Error:', {
-      message: error instanceof Error ? error.message : 'Unknown error',
-      stack: error instanceof Error ? error.stack : undefined,
-      path: pathname,
-    })
-
-    // On error, redirect to signin for safety
-    return NextResponse.redirect(new URL('/auth/signin', request.url))
+  if (pathname === '/auth/signin') {
+    return NextResponse.next()
   }
+
+  if (sargoToken) {
+    try {
+      const sargoDecoded: JwtPayload = jwtDecode<JwtPayload>(sargoToken)
+      const currentTime = Math.floor(Date.now() / 1000)
+      if (sargoDecoded.exp === undefined || sargoDecoded.exp < currentTime) {
+        console.log('Sargo token expired, redirecting...')
+        return clearTokensAndRedirect(request)
+      }
+    } catch (error) {
+      console.error('Sargo token decode error:', error)
+      return clearTokensAndRedirect(request)
+    }
+  } else {
+    console.log('No sargo token, redirecting...')
+    return clearTokensAndRedirect(request)
+  }
+
+  // Refresh sargoOptions if missing
+  let userData = sargoOptions ? JSON.parse(sargoOptions) : null
+  if (!sargoOptions && sargoToken) {
+    console.log('No sargoOptions cookie, fetching user data...')
+    try {
+      const freshUser = await sargoClient.getCurrentUser()
+      if (freshUser) {
+        userData = {
+          username: freshUser.username,
+          email: freshUser.email,
+          settings: freshUser.settings,
+        }
+        const response = NextResponse.next()
+        response.cookies.set({
+          name: CONFIG.api.tokens.sargoOptions.key,
+          value: JSON.stringify(userData),
+          path: CONFIG.api.tokens.sargoOptions.options.path,
+          secure: CONFIG.api.tokens.sargoOptions.options.secure,
+          httpOnly: CONFIG.api.tokens.sargoOptions.options.httpOnly,
+          sameSite: CONFIG.api.tokens.sargoOptions.options.sameSite,
+          maxAge: CONFIG.api.tokens.sargoOptions.options.maxAge,
+        })
+        console.log('Sargo options cookie set:', userData)
+        // Continue to polvo check
+      } else {
+        console.warn(
+          'Failed to fetch fresh user data, proceeding without sargoOptions'
+        )
+      }
+    } catch (error) {
+      console.error('Failed to fetch user data for sargoOptions:', error)
+      // Proceed without sargoOptions if fetch fails
+    }
+  }
+
+  if (polvoToken) {
+    try {
+      const polvoDecoded: JwtPayload = jwtDecode<JwtPayload>(polvoToken)
+      const currentTime = Math.floor(Date.now() / 1000)
+      if (polvoDecoded.exp === undefined || polvoDecoded.exp < currentTime) {
+        console.log('Fetching new polvo token...')
+        const newPolvoToken = await polvoClient.getAuthToken()
+        const response = NextResponse.next()
+        response.cookies.set({
+          name: CONFIG.api.tokens.polvo.key,
+          value: newPolvoToken,
+          path: CONFIG.api.tokens.polvo.options.path,
+          secure: CONFIG.api.tokens.polvo.options.secure,
+          httpOnly: CONFIG.api.tokens.polvo.options.httpOnly,
+          sameSite: CONFIG.api.tokens.polvo.options.sameSite,
+          maxAge: CONFIG.api.tokens.polvo.options.maxAge,
+        })
+        return response
+      }
+    } catch (error) {
+      console.error('Polvo token decode error:', error)
+      console.log('Fetching new polvo token due to decode failure...')
+      try {
+        const newPolvoToken = await polvoClient.getAuthToken()
+        const response = NextResponse.next()
+        response.cookies.set({
+          name: CONFIG.api.tokens.polvo.key,
+          value: newPolvoToken,
+          path: CONFIG.api.tokens.polvo.options.path,
+          secure: CONFIG.api.tokens.polvo.options.secure,
+          httpOnly: CONFIG.api.tokens.polvo.options.httpOnly,
+          sameSite: CONFIG.api.tokens.polvo.options.sameSite,
+          maxAge: 900, // 15 minutes
+        })
+        return response
+      } catch (fetchError) {
+        console.error(
+          'Polvo token fetch error after decode failure:',
+          fetchError
+        )
+        return NextResponse.next()
+      }
+    }
+  } else {
+    console.log('No polvo token, fetching...')
+    try {
+      const newPolvoToken = await polvoClient.getAuthToken()
+      const response = NextResponse.next()
+      response.cookies.set({
+        name: CONFIG.api.tokens.polvo.key,
+        value: newPolvoToken,
+        path: CONFIG.api.tokens.polvo.options.path,
+        secure: CONFIG.api.tokens.polvo.options.secure,
+        httpOnly: CONFIG.api.tokens.polvo.options.httpOnly,
+        sameSite: CONFIG.api.tokens.polvo.options.sameSite,
+        maxAge: CONFIG.api.tokens.polvo.options.maxAge,
+      })
+      return response
+    } catch (error) {
+      console.error('Polvo token fetch error:', error)
+      return NextResponse.next()
+    }
+  }
+
+  return NextResponse.next()
 }
 
-// Configure which routes the middleware should run on
 export const config = {
-  matcher: [
-    /*
-     * Match all request paths except:
-     * 1. _next/static (static files)
-     * 2. _next/image (image optimization files)
-     * 3. favicon.ico (favicon file)
-     * 4. public folder files
-     * 5. public API routes (/api/public)
-     */
-    '/((?!_next/static|_next/image|favicon.ico|public/|api/public/).*)',
-  ],
+  matcher: ['/((?!_next|_vercel|.*\\..*).*)'],
 }

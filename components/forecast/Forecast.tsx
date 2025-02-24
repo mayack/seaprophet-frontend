@@ -1,15 +1,15 @@
 'use client'
 import { useState, useRef, useEffect } from 'react'
-import { useUser } from '@/contexts/UserContext'
 import { ForecastDay } from '@/api/polvo/interfaces/forecast'
 import { ForecastItem } from './ForecastItem'
+import { User } from '@/api/sargo/interfaces/user'
 
 interface ForecastProps {
   days: ForecastDay[]
+  user: User
 }
 
-export function Forecast({ days }: ForecastProps) {
-  const { userData } = useUser()
+export function Forecast({ days, user }: ForecastProps) {
   const [visibleDays, setVisibleDays] = useState(2)
   const loadMoreRef = useRef<HTMLDivElement>(null)
 
@@ -40,7 +40,7 @@ export function Forecast({ days }: ForecastProps) {
       <div className="space-y-12 pt-2">
         {days.slice(0, visibleDays).map((day) => (
           <div className="animate-fade-in" key={day.date}>
-            <ForecastItem day={day} units={userData.settings.units} />
+            <ForecastItem day={day} units={user.settings.units} />
           </div>
         ))}
         {visibleDays < days.length && <div ref={loadMoreRef} className="h-5" />}

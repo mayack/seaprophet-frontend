@@ -9,12 +9,12 @@ export default async function AuthenticatedLayout({
 }: {
   children: React.ReactNode
 }) {
-  const userData = await getCurrentUser()
+  const user = await getCurrentUser()
 
   return (
-    <UserProvider initialUserData={userData.user}>
+    <UserProvider initialUserData={user}>
       <div className="flex min-h-screen flex-col bg-background">
-        <Header />
+        <Header user={user} />
         <main className="flex-1 py-12">{children}</main>
       </div>
     </UserProvider>

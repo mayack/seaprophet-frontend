@@ -54,7 +54,7 @@ export class PolvoClient extends BaseApiClient {
       }
 
       const data = (await response.json()) as PolvoAuthResponse
-      console.log('Auth token response data:', data)
+      // console.log('Auth token response data:', data)
       return data.data.token
     } catch (error) {
       console.error('Auth token error:', {

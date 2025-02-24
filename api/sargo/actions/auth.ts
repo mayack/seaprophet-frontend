@@ -4,10 +4,9 @@ import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { revalidatePath } from 'next/cache'
 import { sargoClient } from '../client'
-import { polvoClient } from '@/api/polvo/client'
 import { AppError, ErrorCode, HTTP_STATUS } from '@/utils/error'
 import { CONFIG } from '@/constants/config'
-import type { User, UserAuthResponse } from '../interfaces/user'
+import type { User } from '../interfaces/user'
 
 export async function signIn(formData: FormData) {
   const identifier = formData.get('identifier')
@@ -27,7 +26,6 @@ export async function signIn(formData: FormData) {
   }
 
   try {
-    // Perform login
     const sargoResponse = await sargoClient.login(identifier, password)
     if (!sargoResponse?.jwt || !sargoResponse.user?.username) {
       throw new AppError(
@@ -37,11 +35,9 @@ export async function signIn(formData: FormData) {
       )
     }
 
-    // Get polvo token
-    const polvoToken = await polvoClient.getAuthToken()
     const cookieStore = await cookies()
 
-    // Set cookies
+    // Set sargo JWT cookie
     cookieStore.set({
       name: CONFIG.api.tokens.sargo.key,
       value: sargoResponse.jwt,
@@ -52,12 +48,13 @@ export async function signIn(formData: FormData) {
       maxAge: CONFIG.api.tokens.sargo.options.maxAge,
     })
 
+    // Set user settings cookie
     cookieStore.set({
       name: CONFIG.api.tokens.sargoOptions.key,
       value: JSON.stringify({
         username: sargoResponse.user.username,
         email: sargoResponse.user.email,
-        settings: sargoResponse.user.settings || CONFIG.units.default,
+        settings: sargoResponse.user.settings,
       }),
       path: CONFIG.api.tokens.sargoOptions.options.path,
       secure: CONFIG.api.tokens.sargoOptions.options.secure,
@@ -66,22 +63,11 @@ export async function signIn(formData: FormData) {
       maxAge: CONFIG.api.tokens.sargoOptions.options.maxAge,
     })
 
-    cookieStore.set({
-      name: CONFIG.api.tokens.polvo.key,
-      value: polvoToken,
-      path: CONFIG.api.tokens.polvo.options.path,
-      secure: CONFIG.api.tokens.polvo.options.secure,
-      httpOnly: CONFIG.api.tokens.polvo.options.httpOnly,
-      sameSite: CONFIG.api.tokens.polvo.options.sameSite,
-      maxAge: CONFIG.api.tokens.polvo.options.maxAge,
-    })
-
     redirect('/')
   } catch (error) {
     if (error instanceof Error && error.message.includes('NEXT_REDIRECT')) {
-      throw error // Let Next.js handle the redirect
+      throw error
     }
-
     console.error('SignIn Error:', error)
     throw new AppError(
       'Authentication failed',
@@ -95,11 +81,11 @@ export async function signOut() {
   const cookieStore = await cookies()
 
   try {
-    // Delete all cookies in a specific order
+    // Delete all relevant cookies
     const cookiesToDelete = [
       CONFIG.api.tokens.polvo.key,
-      CONFIG.api.tokens.sargoOptions.key,
       CONFIG.api.tokens.sargo.key,
+      CONFIG.api.tokens.sargoOptions.key,
     ]
 
     for (const cookieName of cookiesToDelete) {
@@ -113,7 +99,7 @@ export async function signOut() {
       cookieStore.delete(cookieName)
     }
 
-    // Log remaining cookies for debugging
+    // Log remaining cookies for debugging (optional)
     const remainingCookies = cookiesToDelete.map((name) => ({
       name,
       exists: !!cookieStore.get(name),
@@ -132,53 +118,54 @@ export async function signOut() {
   }
 }
 
-export async function isAuthenticated(): Promise<boolean> {
+export async function getCurrentUser(): Promise<User> {
   const cookieStore = await cookies()
   const jwt = cookieStore.get(CONFIG.api.tokens.sargo.key)?.value
-  return !!jwt && typeof jwt === 'string'
-}
+  const optionsCookie = cookieStore.get(
+    CONFIG.api.tokens.sargoOptions.key
+  )?.value
 
-export async function getCurrentUser({
-  skipOptions = false,
-} = {}): Promise<UserAuthResponse> {
-  const cookieStore = await cookies()
-  const jwt = cookieStore.get(CONFIG.api.tokens.sargo.key)?.value
-  const optionsCookie = skipOptions
-    ? null
-    : cookieStore.get(CONFIG.api.tokens.sargoOptions.key)?.value
-
-  let userOptions: User = {
+  // Default user object if no data is available
+  const defaultUser: User = {
     username: '',
     email: '',
     settings: { units: CONFIG.units.default },
   }
 
-  const fallbackResponse = { jwt: '', user: userOptions }
-
   if (!jwt) {
-    return fallbackResponse
+    console.log('No JWT found, returning default user')
+    return defaultUser
   }
 
   if (optionsCookie) {
     try {
-      userOptions = JSON.parse(optionsCookie)
-    } catch (error) {
-      console.error('Failed to parse options cookie:', error)
-    }
-  } else {
-    try {
-      const freshUser = await sargoClient.getCurrentUser()
-      if (freshUser) {
-        userOptions = {
-          username: freshUser.username,
-          email: freshUser.email,
-          settings: freshUser.settings || CONFIG.units.default,
-        }
+      const userOptions = JSON.parse(optionsCookie) as User
+      console.log('User options extracted from cookie:', userOptions)
+      return {
+        username: userOptions.username || '',
+        email: userOptions.email || '',
+        settings: userOptions.settings || { units: CONFIG.units.default },
       }
     } catch (error) {
-      console.error('Failed to fetch fresh user data:', error)
+      console.error('Failed to parse sargoOptions cookie:', error)
     }
   }
 
-  return { jwt, user: userOptions }
+  // Fetch fresh user data if no valid cookie
+  try {
+    const freshUser = await sargoClient.getCurrentUser()
+    if (freshUser) {
+      console.log('Fresh user data fetched:', freshUser)
+      return {
+        username: freshUser.username || '',
+        email: freshUser.email || '',
+        settings: freshUser.settings || { units: CONFIG.units.default },
+      }
+    }
+    console.log('Fresh user data was null, returning default')
+    return defaultUser
+  } catch (error) {
+    console.error('Failed to fetch fresh user data:', error)
+    return defaultUser
+  }
 }
