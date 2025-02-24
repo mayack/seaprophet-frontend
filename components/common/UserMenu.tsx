@@ -73,7 +73,7 @@ export function UserMenu({ user }: UserMenuProps) {
           className="flex w-full cursor-pointer items-center gap-2"
         >
           <LogOut size={16} />
-          <span>Log out</span>
+          <span>Sign out</span>
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
