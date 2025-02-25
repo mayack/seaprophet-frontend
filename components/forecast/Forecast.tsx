@@ -24,13 +24,17 @@ export function Forecast({ days, user }: ForecastProps) {
       { threshold: 1 }
     )
 
-    if (loadMoreRef.current) {
-      observer.observe(loadMoreRef.current)
+    // Store the current value of the ref in a variable
+    const currentLoadMoreRef = loadMoreRef.current
+
+    if (currentLoadMoreRef) {
+      observer.observe(currentLoadMoreRef)
     }
 
     return () => {
-      if (loadMoreRef.current) {
-        observer.unobserve(loadMoreRef.current)
+      // Use the stored variable in the cleanup function
+      if (currentLoadMoreRef) {
+        observer.unobserve(currentLoadMoreRef)
       }
     }
   }, [days.length])

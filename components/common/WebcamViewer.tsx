@@ -15,8 +15,78 @@ interface WebcamViewerProps {
   config: WebcamConfig
 }
 
-export function WebcamViewer({ config }: WebcamViewerProps) {
+// Custom hook for AFK timer management
+function useAfkTimer(onAfk: () => void) {
+  const timerRef = useRef<NodeJS.Timeout | null>(null)
+
+  const resetTimer = useCallback(() => {
+    if (timerRef.current) clearTimeout(timerRef.current)
+    timerRef.current = setTimeout(onAfk, AFK_TIMEOUT)
+  }, [onAfk])
+
+  const clearTimer = useCallback(() => {
+    if (timerRef.current) {
+      clearTimeout(timerRef.current)
+      timerRef.current = null
+    }
+  }, [])
+
+  useEffect(() => {
+    return clearTimer
+  }, [clearTimer])
+
+  return { resetTimer, clearTimer }
+}
+
+// Custom hook for fullscreen management
+function useFullscreen(videoRef: React.RefObject<HTMLVideoElement | null>) {
   const [isFullscreen, setIsFullscreen] = useState(false)
+
+  const toggleFullscreen = useCallback(async () => {
+    const video = videoRef.current
+    if (!video) return
+
+    const doc = document as Document & {
+      webkitFullscreenElement?: Element
+      webkitExitFullscreen?: () => void
+    }
+
+    const videoEl = video as HTMLVideoElement & {
+      webkitEnterFullscreen?: () => void
+    }
+
+    try {
+      if (doc.fullscreenElement || doc.webkitFullscreenElement) {
+        // Exit fullscreen
+        const exitFn =
+          doc.exitFullscreen?.bind(doc) || doc.webkitExitFullscreen?.bind(doc)
+        exitFn?.()
+        setIsFullscreen(false)
+      } else {
+        // Enter fullscreen
+        if (video.paused) {
+          try {
+            await video.play()
+          } catch (err) {
+            // Silently handle play error
+          }
+        }
+
+        const enterFn =
+          videoEl.requestFullscreen?.bind(videoEl) ||
+          videoEl.webkitEnterFullscreen?.bind(videoEl)
+        enterFn?.()
+        setIsFullscreen(true)
+      }
+    } catch (err) {
+      // Silently handle fullscreen error
+    }
+  }, [videoRef])
+
+  return { isFullscreen, toggleFullscreen }
+}
+
+export function WebcamViewer({ config }: WebcamViewerProps) {
   const [isLoading, setIsLoading] = useState(true)
   const [hasError, setHasError] = useState<string | null>(null)
   const [isAfk, setIsAfk] = useState(false)
@@ -24,29 +94,20 @@ export function WebcamViewer({ config }: WebcamViewerProps) {
   const videoRef = useRef<HTMLVideoElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
   const hlsRef = useRef<Hls | null>(null)
-  const afkTimerRef = useRef<NodeJS.Timeout | null>(null)
 
-  const toggleFullscreen = useCallback(() => {
-    const container = containerRef.current
-    if (!container) return
-    try {
-      if (document.fullscreenElement) {
-        document.exitFullscreen()
-        setIsFullscreen(false)
-      } else {
-        container.requestFullscreen()
-        setIsFullscreen(true)
-      }
-    } catch (err) {
-      console.error('Fullscreen error:', err)
-    }
+  // Prepare callbacks for AFK hook
+  const handleAfk = useCallback(() => {
+    setIsAfk(true)
+    destroyStream()
   }, [])
 
+  // Use our custom hooks
+  const { resetTimer, clearTimer } = useAfkTimer(handleAfk)
+  const { isFullscreen, toggleFullscreen } = useFullscreen(videoRef)
+
+  // Handle stream destruction
   const destroyStream = useCallback(() => {
-    if (afkTimerRef.current) {
-      clearTimeout(afkTimerRef.current)
-      afkTimerRef.current = null
-    }
+    clearTimer()
 
     if (hlsRef.current) {
       hlsRef.current.destroy()
@@ -58,8 +119,9 @@ export function WebcamViewer({ config }: WebcamViewerProps) {
       video.removeAttribute('src')
       video.load()
     }
-  }, [])
+  }, [clearTimer])
 
+  // Initialize the stream
   const initStream = useCallback(() => {
     if (!config.url || isAfk) return
 
@@ -70,6 +132,7 @@ export function WebcamViewer({ config }: WebcamViewerProps) {
     const video = videoRef.current
     if (!video) return
 
+    // Get provider and prepare URLs
     const provider =
       webcamProviders[config.provider as keyof typeof webcamProviders] ||
       webcamProviders.generic
@@ -78,16 +141,47 @@ export function WebcamViewer({ config }: WebcamViewerProps) {
       ? `/api/proxy?url=${encodeURIComponent(config.url)}&provider=${config.provider}`
       : config.url
 
+    // Function to handle playback errors
+    const handlePlaybackError = (message: string) => {
+      setHasError(message)
+      setIsLoading(false)
+    }
+
+    // Function to handle successful playback start
+    const handlePlaybackStart = async () => {
+      if (isAfk) {
+        destroyStream()
+        return
+      }
+
+      try {
+        await video.play()
+        if (!isAfk) {
+          setIsLoading(false)
+          resetTimer()
+        } else {
+          destroyStream()
+        }
+      } catch (err: any) {
+        handlePlaybackError(
+          `Playback failed: ${err?.message || 'unknown error'}`
+        )
+      }
+    }
+
+    // Setup HLS.js if supported
     if (Hls.isSupported()) {
       const hls = new Hls({
         xhrSetup: (xhr, url) => {
+          if (url.startsWith('/api/proxy')) return
+
           const finalUrl = provider.transformUrl
             ? provider.transformUrl(baseUrl)(url)
             : url
           const proxyUrl = provider.requiresProxy
             ? `/api/proxy?url=${encodeURIComponent(finalUrl)}&provider=${config.provider}`
             : finalUrl
-          if (!url.startsWith('/api/proxy')) xhr.open('GET', proxyUrl, true)
+          xhr.open('GET', proxyUrl, true)
         },
         autoStartLoad: true,
         lowLatencyMode: true,
@@ -97,27 +191,8 @@ export function WebcamViewer({ config }: WebcamViewerProps) {
       hls.loadSource(streamUrl)
       hls.attachMedia(video)
 
-      hls.on(Hls.Events.MANIFEST_PARSED, () => {
-        if (isAfk) {
-          destroyStream()
-          return
-        }
-
-        video
-          .play()
-          .then(() => {
-            if (!isAfk) {
-              setIsLoading(false)
-              startAfkTimer()
-            } else {
-              destroyStream()
-            }
-          })
-          .catch((err) => {
-            setHasError(`Playback failed: ${err.message}`)
-            setIsLoading(false)
-          })
-      })
+      // Handle HLS events
+      hls.on(Hls.Events.MANIFEST_PARSED, handlePlaybackStart)
 
       hls.on(Hls.Events.ERROR, (_, data) => {
         if (isAfk) {
@@ -126,65 +201,53 @@ export function WebcamViewer({ config }: WebcamViewerProps) {
         }
 
         if (data.fatal) {
-          setHasError(`Stream error: ${data.type} - ${data.details}`)
-          setIsLoading(false)
+          const errorMessage = `Stream error: ${data.type} - ${data.details}`
 
           if (data.type === Hls.ErrorTypes.MEDIA_ERROR) {
             hls.recoverMediaError()
+            handlePlaybackError(errorMessage)
           } else if (data.type === Hls.ErrorTypes.NETWORK_ERROR) {
+            handlePlaybackError(errorMessage)
             setTimeout(() => hls.startLoad(), 2000)
           } else {
-            destroyStream()
+            handlePlaybackError(errorMessage)
             setTimeout(initStream, 2000)
           }
         }
       })
-    } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+    }
+    // Use native HLS support for Safari
+    else if (video.canPlayType('application/vnd.apple.mpegurl')) {
       video.src = streamUrl
       video.load()
-      video
-        .play()
-        .then(() => {
-          if (!isAfk) {
-            setIsLoading(false)
-            startAfkTimer()
-          } else {
-            destroyStream()
-          }
-        })
-        .catch((err) => {
-          setHasError(`Native playback failed: ${err.message}`)
-          setIsLoading(false)
-        })
+      handlePlaybackStart()
     }
-  }, [config.url, config.provider, destroyStream, isAfk])
+    // No HLS support available
+    else {
+      handlePlaybackError('HLS playback not supported in this browser')
+    }
+  }, [config.url, config.provider, destroyStream, isAfk, resetTimer])
 
-  const startAfkTimer = useCallback(() => {
-    if (afkTimerRef.current) {
-      clearTimeout(afkTimerRef.current)
-    }
-    if (!isAfk) {
-      afkTimerRef.current = setTimeout(() => {
-        setIsAfk(true)
-        destroyStream()
-      }, AFK_TIMEOUT)
-    }
-  }, [isAfk, destroyStream])
-
-  const handleMouseMove = useCallback(() => {
-    if (!isAfk) {
-      startAfkTimer()
-    }
-  }, [isAfk, startAfkTimer])
-
+  // Handle keeping watching after AFK
   const handleKeepWatching = useCallback(() => {
     setIsAfk(false)
     initStream()
   }, [initStream])
 
+  // Handle mouse movement
+  const handleMouseMove = useCallback(() => {
+    if (!isAfk) {
+      resetTimer()
+    }
+  }, [isAfk, resetTimer])
+
+  // Initialize stream and set up event listeners
   useEffect(() => {
     const video = videoRef.current
     if (!video) return
+
+    const abortController = new AbortController()
+    const signal = abortController.signal
 
     const handlePlay = () => {
       if (isAfk) {
@@ -192,59 +255,40 @@ export function WebcamViewer({ config }: WebcamViewerProps) {
         return
       }
       setIsLoading(false)
-      startAfkTimer()
+      resetTimer()
     }
 
     const handleError = () => {
       if (isAfk) return
-      setIsLoading(false)
       setHasError('Video error occurred')
+      setIsLoading(false)
     }
 
-    video.addEventListener('playing', handlePlay)
-    video.addEventListener('error', handleError)
-
-    if (!isAfk) {
-      initStream()
-      startAfkTimer()
-    }
+    video.addEventListener('playing', handlePlay, { signal })
+    video.addEventListener('error', handleError, { signal })
 
     const container = containerRef.current
     if (container) {
-      container.addEventListener('mousemove', handleMouseMove)
+      container.addEventListener('mousemove', handleMouseMove, { signal })
     }
 
+    // Initialize stream if not AFK
+    if (!isAfk) {
+      initStream()
+      resetTimer()
+    }
+
+    // Clean up
     return () => {
-      video.removeEventListener('playing', handlePlay)
-      video.removeEventListener('error', handleError)
-      if (container) {
-        container.removeEventListener('mousemove', handleMouseMove)
-      }
+      abortController.abort()
       destroyStream()
     }
-  }, [initStream, handleMouseMove, startAfkTimer, destroyStream, isAfk])
+  }, [initStream, handleMouseMove, destroyStream, isAfk, resetTimer])
 
-  return (
-    <div ref={containerRef} className="relative h-full w-full bg-foreground">
-      <video ref={videoRef} className="h-full w-full" playsInline muted />
-      {isLoading && !isAfk && (
-        <div className="absolute inset-0 flex items-center justify-center">
-          <Spinner size="lg" className="text-background" />
-        </div>
-      )}
-      {hasError && !isAfk && (
-        <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 text-background">
-          <div>{hasError || 'Failed to load webcam stream'}</div>
-          <Button
-            onClick={initStream}
-            variant="white"
-            className="flex items-center gap-2"
-          >
-            <RefreshCw className="h-4 w-4" /> Retry
-          </Button>
-        </div>
-      )}
-      {isAfk && (
+  // Render video UI components
+  const renderOverlay = () => {
+    if (isAfk) {
+      return (
         <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 bg-black/50 text-white">
           <div className="font-medium">Are you still there?</div>
           <Button
@@ -255,7 +299,41 @@ export function WebcamViewer({ config }: WebcamViewerProps) {
             <Play className="h-4 w-4" /> Keep watching
           </Button>
         </div>
-      )}
+      )
+    }
+
+    if (isLoading) {
+      return (
+        <div className="absolute inset-0 flex items-center justify-center">
+          <Spinner size="lg" className="text-background" />
+        </div>
+      )
+    }
+
+    if (hasError) {
+      return (
+        <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 text-background">
+          <div>{hasError || 'Failed to load webcam stream'}</div>
+          <Button
+            onClick={initStream}
+            variant="white"
+            className="flex items-center gap-2"
+          >
+            <RefreshCw className="h-4 w-4" /> Retry
+          </Button>
+        </div>
+      )
+    }
+
+    return null
+  }
+
+  return (
+    <div ref={containerRef} className="relative h-full w-full bg-foreground">
+      <video ref={videoRef} className="h-full w-full" playsInline muted />
+
+      {renderOverlay()}
+
       <Button
         onClick={toggleFullscreen}
         size="icon"

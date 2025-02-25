@@ -1,7 +1,6 @@
 import { SwellItem, TemperatureItem, WaveItem, WindItem } from './CellItems'
 import type { ForecastDay } from '@/api/polvo/interfaces/forecast'
 import { AstronomicalBreakdown } from './AstronomicalBreakdown'
-import { GeneralBreakdown } from './GeneralBreakdown'
 import { ForecastHeader } from './ForecastHeader'
 import TideChart from './TideChart'
 import { UserUnits } from '@/api/sargo/interfaces/user'
