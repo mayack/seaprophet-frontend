@@ -33,13 +33,13 @@ export function SpotsNearby({
       return
     }
 
-    // Use existing location from UserContext if available and defined
+    // If location is already in userData, use it and skip fetching
     if (userData.latitude !== undefined && userData.longitude !== undefined) {
       setLoading(false)
       return
     }
 
-    // Fetch new location
+    // Fetch new location only if not cached
     navigator.geolocation.getCurrentPosition(
       (position) => {
         const { latitude, longitude } = position.coords
@@ -57,7 +57,7 @@ export function SpotsNearby({
         maximumAge: 0,
       }
     )
-  }, [userData, setUserData])
+  }, [userData, setUserData]) // Keep dependency array as is for now
 
   if (!mounted || loading) return <SpotsNearbySkeleton />
 
@@ -68,8 +68,8 @@ export function SpotsNearby({
           .map((spot) => ({
             ...spot,
             distance: calculateDistance(
-              userData.latitude!, // Non-null assertion safe after check
-              userData.longitude!, // Non-null assertion safe after check
+              userData.latitude!,
+              userData.longitude!,
               spot.location.lat,
               spot.location.long
             ),

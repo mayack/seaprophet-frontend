@@ -34,7 +34,8 @@ export const webcamProviders: Record<string, WebcamProviderConfig> = {
     },
     transformUrl: (baseUrl: string) => (url: string) => {
       if (url.includes('live.m3u8')) {
-        const queryParam = url.split('live.m3u8')[1] || '?a=uoecq35eh8vaqcmtdbc8r6gqe4'
+        const queryParam =
+          url.split('live.m3u8')[1] || '?a=uoecq35eh8vaqcmtdbc8r6gqe4'
         return `https://hd-auth.skylinewebcams.com/live.m3u8${queryParam}`
       } else if (url.includes('.ts')) {
         const segmentPath = url.split('/').pop() || ''
