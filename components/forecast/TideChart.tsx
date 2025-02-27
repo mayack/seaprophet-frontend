@@ -1,7 +1,7 @@
 'use client'
 
 import type { Astronomical, Tide } from '@/api/polvo/interfaces/forecast'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, useMemo } from 'react'
 import { Skeleton } from '../ui/skeleton'
 import { formatValueWithUnit } from '@/lib/units'
 import { UserUnits } from '@/api/sargo/interfaces/user'
@@ -34,8 +34,12 @@ const normalizeTime = (time: string): number => {
 }
 
 const minutesToTime = (minutes: number): string => {
-  const hours = Math.floor(minutes / 60) % 24
-  const mins = minutes % 60
+  let normalizedMinutes = minutes
+  if (normalizedMinutes < 0) normalizedMinutes += 1440
+  if (normalizedMinutes >= 1440) normalizedMinutes -= 1440
+
+  const hours = Math.floor(normalizedMinutes / 60)
+  const mins = normalizedMinutes % 60
   return `${hours.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}`
 }
 
@@ -51,6 +55,90 @@ export default function TideChart({
   const [isClient, setIsClient] = useState(false)
   const [mousePosition, setMousePosition] = useState<number | null>(null)
   const [currentTideValue, setCurrentTideValue] = useState<string | null>(null)
+
+  // Memoize data processing and calculations
+  const { tideData, minHeight, maxHeight, xScale, yScale } = useMemo(() => {
+    const sortedData = [...data].sort(
+      (a, b) => timeToMinutes(a.time) - timeToMinutes(b.time)
+    )
+
+    const prevExtreme = sortedData.find((tide) => tide.type === 'prevExtreme')
+    const nextExtreme = sortedData.find((tide) => tide.type === 'nextExtreme')
+    const regularTides = sortedData.filter(
+      (tide) => tide.type === 'high' || tide.type === 'low'
+    )
+
+    const allTides = [...regularTides, prevExtreme, nextExtreme].filter(
+      Boolean
+    ) as Tide[]
+    const minHeight = Math.min(...allTides.map((tide) => tide.height))
+    const maxHeight = Math.max(...allTides.map((tide) => tide.height))
+
+    const createSyntheticExtreme = (tide: Tide, isNext: boolean) => {
+      const referenceMinutes = timeToMinutes(tide.time)
+      let newMinutes = isNext ? referenceMinutes + 360 : referenceMinutes - 360
+
+      if (newMinutes < 0) newMinutes += 1440
+      if (newMinutes >= 1440) newMinutes -= 1440
+
+      return {
+        ...tide,
+        time: minutesToTime(newMinutes),
+        type: isNext ? ('nextExtreme' as const) : ('prevExtreme' as const),
+        height: tide.type === 'high' ? minHeight : maxHeight,
+      }
+    }
+
+    const processedTideData = [
+      prevExtreme ||
+        (regularTides[0] && createSyntheticExtreme(regularTides[0], false)),
+      ...regularTides,
+      nextExtreme ||
+        (regularTides[regularTides.length - 1] &&
+          createSyntheticExtreme(regularTides[regularTides.length - 1], true)),
+    ].filter(Boolean) as Tide[]
+
+    const xScale = (width - PADDING.left - PADDING.right) / 1440
+    const yScale =
+      (height - PADDING.top - PADDING.bottom) / (maxHeight - minHeight)
+
+    return {
+      tideData: processedTideData,
+      minHeight,
+      maxHeight,
+      xScale,
+      yScale,
+    }
+  }, [data, width, height])
+
+  // Memoize curve points calculation
+  const curvePoints = useMemo(() => {
+    return Array.from({ length: 1441 }, (_, minute) => {
+      const x = PADDING.left + minute * xScale
+      let y = 0
+
+      for (let i = 0; i < tideData.length - 1; i++) {
+        const start = tideData[i]
+        const end = tideData[i + 1]
+        let startMinutes = timeToMinutes(start.time)
+        let endMinutes = timeToMinutes(end.time)
+        if (start.type === 'prevExtreme') startMinutes -= 1440
+        if (end.type === 'nextExtreme') endMinutes += 1440
+        if (minute >= startMinutes && minute <= endMinutes) {
+          const totalMinutes = endMinutes - startMinutes
+          const progress = (minute - startMinutes) / totalMinutes
+          const t = (1 - Math.cos(progress * Math.PI)) / 2
+          y = start.height * (1 - t) + end.height * t
+          break
+        }
+      }
+
+      const yPos = height - PADDING.bottom - (y - minHeight) * yScale
+      return `${x},${yPos}`
+    })
+  }, [tideData, xScale, yScale, minHeight, height])
+
+  const pathData = useMemo(() => `M ${curvePoints.join(' L ')}`, [curvePoints])
 
   useEffect(() => {
     setIsClient(true)
@@ -79,46 +167,6 @@ export default function TideChart({
     return <Skeleton className="h-24 w-full" />
   }
 
-  const sortedData = [...data].sort(
-    (a, b) => timeToMinutes(a.time) - timeToMinutes(b.time)
-  )
-  const prevExtreme = sortedData.find((tide) => tide.type === 'prevExtreme')
-  const nextExtreme = sortedData.find((tide) => tide.type === 'nextExtreme')
-  const regularTides = sortedData.filter(
-    (tide) => tide.type === 'high' || tide.type === 'low'
-  )
-
-  const tideData = [
-    prevExtreme || {
-      ...regularTides[0],
-      time: '-00:01',
-      type: 'prevExtreme' as const,
-    },
-    ...regularTides,
-    nextExtreme || {
-      ...regularTides[regularTides.length - 1],
-      time: '24:01',
-      type: 'nextExtreme' as const,
-    },
-  ]
-
-  const minHeight = Math.min(...tideData.map((tide) => tide.height))
-  const maxHeight = Math.max(...tideData.map((tide) => tide.height))
-  const xScale = (width - PADDING.left - PADDING.right) / 1440
-  const yScale =
-    (height - PADDING.top - PADDING.bottom) / (maxHeight - minHeight)
-
-  const interpolate = (start: Tide, end: Tide, minute: number): number => {
-    let startMinutes = timeToMinutes(start.time)
-    let endMinutes = timeToMinutes(end.time)
-    if (start.type === 'prevExtreme') startMinutes -= 1440
-    if (end.type === 'nextExtreme') endMinutes += 1440
-    const totalMinutes = endMinutes - startMinutes
-    const progress = (minute - startMinutes) / totalMinutes
-    const t = (1 - Math.cos(progress * Math.PI)) / 2
-    return start.height * (1 - t) + end.height * t
-  }
-
   const getTextPosition = (x: number) => {
     const MARGIN = 30
     const leftEdge = PADDING.left + MARGIN
@@ -130,29 +178,6 @@ export default function TideChart({
       anchor: isNearLeftEdge ? 'start' : isNearRightEdge ? 'end' : 'middle',
     }
   }
-
-  const curvePoints = Array.from({ length: 1441 }, (_, minute) => {
-    const x = PADDING.left + minute * xScale
-    let y = 0
-
-    for (let i = 0; i < tideData.length - 1; i++) {
-      const start = tideData[i]
-      const end = tideData[i + 1]
-      let startMinutes = timeToMinutes(start.time)
-      let endMinutes = timeToMinutes(end.time)
-      if (start.type === 'prevExtreme') startMinutes -= 1440
-      if (end.type === 'nextExtreme') endMinutes += 1440
-      if (minute >= startMinutes && minute <= endMinutes) {
-        y = interpolate(start, end, minute)
-        break
-      }
-    }
-
-    const yPos = height - PADDING.bottom - (y - minHeight) * yScale
-    return `${x},${yPos}`
-  })
-
-  const pathData = `M ${curvePoints.join(' L ')}`
 
   const handleMouseMove = (event: React.MouseEvent<SVGSVGElement>) => {
     const rect = svgRef.current?.getBoundingClientRect()
@@ -169,23 +194,25 @@ export default function TideChart({
 
     setMousePosition(minutes)
 
-    const segment = tideData.reduce(
-      (acc, curr, i) => {
-        if (i === tideData.length - 1) return acc
-        let startMinutes = timeToMinutes(curr.time)
-        let endMinutes = timeToMinutes(tideData[i + 1].time)
-        if (curr.type === 'prevExtreme') startMinutes -= 1440
-        if (tideData[i + 1].type === 'nextExtreme') endMinutes += 1440
-        return minutes >= startMinutes && minutes <= endMinutes
-          ? { start: curr, end: tideData[i + 1] }
-          : acc
-      },
-      { start: tideData[0], end: tideData[1] }
-    )
+    let y = 0
+    for (let i = 0; i < tideData.length - 1; i++) {
+      const start = tideData[i]
+      const end = tideData[i + 1]
+      let startMinutes = timeToMinutes(start.time)
+      let endMinutes = timeToMinutes(end.time)
+      if (start.type === 'prevExtreme') startMinutes -= 1440
+      if (end.type === 'nextExtreme') endMinutes += 1440
+      if (minutes >= startMinutes && minutes <= endMinutes) {
+        const totalMinutes = endMinutes - startMinutes
+        const progress = (minutes - startMinutes) / totalMinutes
+        const t = (1 - Math.cos(progress * Math.PI)) / 2
+        y = start.height * (1 - t) + end.height * t
+        break
+      }
+    }
 
-    const tideHeight = interpolate(segment.start, segment.end, minutes)
-    const roundedTideHeight = Number(tideHeight.toFixed(1))
-    setCurrentTideValue(`${formatValueWithUnit(roundedTideHeight, unit)}`)
+    const roundedTideHeight = Number(y.toFixed(1))
+    setCurrentTideValue(formatValueWithUnit(roundedTideHeight, unit))
   }
 
   return (
