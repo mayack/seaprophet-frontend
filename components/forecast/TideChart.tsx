@@ -91,11 +91,11 @@ export default function TideChart({
 
     const processedTideData = [
       prevExtreme ||
-      (regularTides[0] && createSyntheticExtreme(regularTides[0], false)),
+        (regularTides[0] && createSyntheticExtreme(regularTides[0], false)),
       ...regularTides,
       nextExtreme ||
-      (regularTides[regularTides.length - 1] &&
-        createSyntheticExtreme(regularTides[regularTides.length - 1], true)),
+        (regularTides[regularTides.length - 1] &&
+          createSyntheticExtreme(regularTides[regularTides.length - 1], true)),
     ].filter(Boolean) as Tide[]
 
     const xScale = (width - PADDING.left - PADDING.right) / 1440
