@@ -59,7 +59,7 @@ export function IconDirection({
         >
           <div className="relative inline-flex items-center justify-center">
             <Icon
-              className={`${sizes[size]} text-foreground`}
+              className={`${sizes[size]}`}
               style={{ transform: `rotate(${adjustedDegrees}deg)` }}
             />
           </div>

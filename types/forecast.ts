@@ -19,6 +19,7 @@ export interface WindItemProps {
   gust: number
   direction: number
   unit: string
+  windRating: number
   className: string
 }
 

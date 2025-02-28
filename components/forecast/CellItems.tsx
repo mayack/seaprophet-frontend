@@ -59,7 +59,15 @@ export function WindItem({
   direction,
   unit,
   className,
+  windRating,
 }: WindItemProps) {
+  const ratingBackgrounds = {
+    0: 'bg-orange-100 text-orange-900',
+    1: 'bg-yellow-100 text-yellow-900',
+    2: 'bg-lime-100 text-lime-900',
+    3: 'bg-green-100 text-green-900',
+  }
+
   return (
     <div className={cn(className, 'flex items-center gap-2')}>
       <div className="flex items-center gap-1">
@@ -69,7 +77,13 @@ export function WindItem({
           <div className="text-2xs leading-none">{formatUnit(unit)}</div>
         </div>
       </div>
-      <div className="flex h-6 w-6 items-center justify-center rounded-full bg-muted xl:h-7 xl:w-7">
+      <div
+        className={cn(
+          'flex h-6 w-6 items-center justify-center rounded-full xl:h-7 xl:w-7',
+          ratingBackgrounds[windRating as keyof typeof ratingBackgrounds] ||
+            'bg-muted'
+        )}
+      >
         <IconDirection degrees={direction} isWind={true} size="large" />
       </div>
     </div>

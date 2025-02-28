@@ -78,6 +78,7 @@ export function ForecastItem({ day, units }: ForecastItemProps) {
               gust={forecast.gust}
               direction={forecast.windDirection}
               unit={units.wind_speed}
+              windRating={forecast.windRating}
             />
             <TemperatureItem
               className="w-16"

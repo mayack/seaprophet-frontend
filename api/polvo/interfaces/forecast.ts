@@ -53,11 +53,12 @@ export interface HourlyForecast {
   wavePeriod: number
   windWavePeriod: number
   weatherType: WeatherType
-  cloudCover?: string
-  humidity?: string
-  precipitation?: string
-  pressure?: string
-  visibility?: string
+  cloudCover: string
+  humidity: string
+  precipitation: string
+  pressure: string
+  visibility: string
+  windRating: number
 }
 
 export interface Tide {
