@@ -18,11 +18,13 @@ async function SpotsContent() {
   }
 
   return (
-    <div className="wrapper">
+    <div className="wrapper-spacing">
       <UserLocationSpots spotsByCountry={spotsByCountry} maxDistance={30} />
-      <Suspense fallback={<SpotsBrowseSkeleton />}>
-        <SpotsBrowse spotsByCountry={spotsByCountry} />
-      </Suspense>
+      <div className="wrapper">
+        <Suspense fallback={<SpotsBrowseSkeleton />}>
+          <SpotsBrowse spotsByCountry={spotsByCountry} />
+        </Suspense>
+      </div>
     </div>
   )
 }

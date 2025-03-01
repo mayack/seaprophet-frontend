@@ -6,8 +6,6 @@ import { SpotsByCountry, NearbySpot } from '@/api/sargo/interfaces/spot'
 import { useUser } from '@/contexts/UserContext'
 import { getNearbySpots } from '@/utils/userLocation'
 import { SpotsNearby } from '.'
-import { EmptyState } from './EmptyState'
-import { SpotsNearbySkeleton } from './Skeleton'
 
 interface UserLocationSpotsProps {
   spotsByCountry: SpotsByCountry
@@ -16,7 +14,7 @@ interface UserLocationSpotsProps {
 
 export function UserLocationSpots({
   spotsByCountry,
-  maxDistance = 50,
+  maxDistance = 30, // Changed to 30km to match your message
 }: UserLocationSpotsProps) {
   const { userData, setUserData } = useUser()
   const [mounted, setMounted] = useState(false)
@@ -60,7 +58,20 @@ export function UserLocationSpots({
         setLoading(false)
       },
       (error) => {
-        setLocationError(error.message)
+        console.error('Geolocation error:', error)
+        let errorMessage = 'Unknown error'
+        switch (error.code) {
+          case error.PERMISSION_DENIED:
+            errorMessage = 'User denied the request for geolocation.'
+            break
+          case error.POSITION_UNAVAILABLE:
+            errorMessage = 'Location information is unavailable.'
+            break
+          case error.TIMEOUT:
+            errorMessage = 'The request to get user location timed out.'
+            break
+        }
+        setLocationError(errorMessage)
         setLoading(false)
       },
       {
@@ -71,14 +82,18 @@ export function UserLocationSpots({
     )
   }, [spotsByCountry, maxDistance, userData, setUserData])
 
-  if (!mounted || loading) return <SpotsNearbySkeleton />
-
   if (locationError) {
     return (
-      <EmptyState
-        icon={MapPin}
-        title="Location access required"
-        description={`Please enable location services: ${locationError}.`}
+      <SpotsNearby
+        spots={[]}
+        maxDistance={maxDistance}
+        title="Spots near you"
+        loading={false}
+        error={{
+          icon: MapPin,
+          title: 'Location access required',
+          description: `Please enable location services: ${locationError}`,
+        }}
       />
     )
   }
@@ -88,6 +103,7 @@ export function UserLocationSpots({
       spots={spots}
       maxDistance={maxDistance}
       title="Spots near you"
+      loading={!mounted || loading}
     />
   )
 }

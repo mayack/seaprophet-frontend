@@ -125,3 +125,13 @@ export interface NearbySpot {
   }
   webcam?: WebcamConfig | null
 }
+
+export interface SpotActionResponse<T> {
+  data: T | null
+  error: string | null
+  meta: {
+    timestamp: string
+    source: string
+    success: boolean
+  }
+}

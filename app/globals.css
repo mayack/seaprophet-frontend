@@ -110,6 +110,10 @@
   }
 
   .wrapper {
-    @apply mx-auto w-full max-w-[1536px] space-y-8 px-4 sm:space-y-10 xl:space-y-12 xl:px-6 2xl:px-8;
+    @apply mx-auto w-full max-w-[1536px] px-4 xl:px-6 2xl:px-8;
+  }
+
+  .wrapper-spacing {
+    @apply space-y-8 sm:space-y-10 xl:space-y-12;
   }
 }

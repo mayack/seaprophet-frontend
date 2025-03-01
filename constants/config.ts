@@ -1,5 +1,5 @@
 export const CONFIG = {
-  version: '0.1.7',
+  version: '0.1.8',
   api: {
     urls: {
       sargo: process.env.NEXT_PUBLIC_SARGO_API_URL,

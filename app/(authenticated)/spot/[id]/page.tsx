@@ -8,8 +8,6 @@ import { SpotsNearby } from '@/components/spot/SpotsNearby'
 import { getCurrentUser } from '@/api/sargo/actions/auth'
 import { calculateDistance } from '@/utils/location'
 import { NearbySpot } from '@/api/sargo/interfaces/spot'
-import { SpotsNearbySkeleton } from '@/components/spot/SpotsNearby/Skeleton'
-import { Suspense } from 'react'
 
 interface SpotPageProps {
   params: Promise<{ id: string }>
@@ -60,21 +58,19 @@ export default async function SpotPage({ params }: SpotPageProps) {
       : []
 
   return (
-    <div className="space-y-8 sm:space-y-10 xl:space-y-12">
+    <div className="wrapper-spacing">
       <SpotDetails
         mapCenter={[spot.location_long, spot.location_lat]}
         webcamConfig={spot.webcam}
         spotName={spot.name}
       />
-      <div className="wrapper">
-        <Suspense fallback={<SpotsNearbySkeleton />}>
-          <SpotsNearby
-            spots={nearbySpots}
-            maxDistance={30}
-            title={`Spots near ${spot.name}`}
-          />
-        </Suspense>
-      </div>
+      {/* <div className="wrapper"> */}
+      <SpotsNearby
+        spots={nearbySpots}
+        maxDistance={30}
+        title={`Spots near ${spot.name}`}
+      />
+      {/* </div> */}
       <Forecast days={forecastResponse.data.days} user={user} />
     </div>
   )

@@ -36,12 +36,12 @@ export function SpotsBrowse({ spotsByCountry }: SpotsBrowseProps) {
                             ([municipalityName, municipalitySpots]) => (
                               <div
                                 key={municipalityName}
-                                className="grid grid-cols-1 gap-4 border-t border-border pt-4 lg:grid-cols-4"
+                                className="grid grid-cols-1 gap-3 border-t border-border pt-4 lg:grid-cols-4"
                               >
                                 <h5 className="font-style-h5 col-span-1 pt-0 lg:pt-4">
                                   {municipalityName}
                                 </h5>
-                                <ul className="col-span-3 grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3 md:gap-4 lg:grid-cols-3">
+                                <ul className="col-span-3 grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-3">
                                   {municipalitySpots.map((spot) => (
                                     <li key={spot.id} className="col-span-1">
                                       <SpotCard

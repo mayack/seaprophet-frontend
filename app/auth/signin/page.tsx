@@ -37,45 +37,47 @@ export default function SignIn() {
   }
 
   return (
-    <div className="wrapper flex h-full flex-col items-center justify-center">
-      <div className="w-full max-w-sm space-y-8">
-        <Toaster />
-        <Card className="">
-          <CardHeader>
-            <CardTitle className="flex justify-center">
-              <Waves className="h-10 w-10" />
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <form action={handleSubmit} className="space-y-4">
-              <div className="space-y-2">
-                <Input
-                  type="text"
-                  name="identifier"
-                  placeholder="Email or username"
-                  required
-                  disabled={isPending}
-                />
-              </div>
-              <div className="space-y-2">
-                <Input
-                  type="password"
-                  name="password"
-                  placeholder="Password"
-                  required
-                  disabled={isPending}
-                />
-              </div>
-              <Button type="submit" className="w-full" disabled={isPending}>
-                {isPending ? 'Signing in...' : 'Sign in'}
-              </Button>
-            </form>
-          </CardContent>
-        </Card>
-        <div className="text-center text-xs text-muted-foreground">
-          This app has been deployed only for testing purposes.
+    <>
+      <div className="wrapper flex h-full flex-col items-center justify-center">
+        <div className="w-full max-w-sm space-y-8">
+          <Card className="">
+            <CardHeader>
+              <CardTitle className="flex justify-center">
+                <Waves className="h-10 w-10" />
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <form action={handleSubmit} className="space-y-4">
+                <div className="space-y-2">
+                  <Input
+                    type="text"
+                    name="identifier"
+                    placeholder="Email or username"
+                    required
+                    disabled={isPending}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Input
+                    type="password"
+                    name="password"
+                    placeholder="Password"
+                    required
+                    disabled={isPending}
+                  />
+                </div>
+                <Button type="submit" className="w-full" disabled={isPending}>
+                  {isPending ? 'Signing in...' : 'Sign in'}
+                </Button>
+              </form>
+            </CardContent>
+          </Card>
+          <div className="text-center text-xs text-muted-foreground">
+            This app has been deployed only for testing purposes.
+          </div>
         </div>
       </div>
-    </div>
+      <Toaster />
+    </>
   )
 }

@@ -40,7 +40,7 @@ export function Forecast({ days, user }: ForecastProps) {
   }, [days.length])
 
   return (
-    <div className="wrapper relative">
+    <div className="wrapper wrapper-spacing relative">
       {days.slice(0, visibleDays).map((day) => (
         <div className="animate-fade-in" key={day.date}>
           <ForecastItem day={day} units={user.settings.units} />

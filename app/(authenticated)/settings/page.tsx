@@ -11,15 +11,13 @@ export default async function SettingsPage() {
 
   return (
     <>
-      <div className="wrapper mx-auto max-w-lg">
-        <div>
-          <h1 className="font-style-h2 mb-6">Settings</h1>
-          <SettingsForms
-            username={user.username}
-            email={user.email}
-            settings={user.settings}
-          />
-        </div>
+      <div className="wrapper max-w-lg">
+        <h1 className="font-style-h2 mb-6">Settings</h1>
+        <SettingsForms
+          username={user.username}
+          email={user.email}
+          settings={user.settings}
+        />
       </div>
       <Toaster />
     </>
