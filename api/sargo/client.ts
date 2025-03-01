@@ -191,7 +191,7 @@ export class SargoClient extends BaseApiClient {
       isPublic
     )
 
-    return this.fetch(
+    const response = await this.fetch<{ data: Spot[] }>(
       `${CONFIG.api.endpoints.sargo.spots.byCountry}?${queryParams}`,
       {
         init: {
@@ -202,6 +202,64 @@ export class SargoClient extends BaseApiClient {
         },
       }
     )
+
+    return {
+      data: response.data,
+    }
+  }
+
+  async getNearbySpots(
+    lat: number,
+    lon: number,
+    radiusKm: number = 30,
+    isPublic = true
+  ): Promise<{ data: Spot[] }> {
+    const KM_PER_LAT_DEGREE = 111
+
+    const deltaLat = radiusKm / KM_PER_LAT_DEGREE
+    const latRad = lat * (Math.PI / 180)
+    const kmPerLonDegree = KM_PER_LAT_DEGREE * Math.cos(latRad)
+    const deltaLon = radiusKm / kmPerLonDegree
+
+    const minLat = lat - deltaLat
+    const maxLat = lat + deltaLat
+    const minLon = lon - deltaLon
+    const maxLon = lon + deltaLon
+
+    const queryParams = new URLSearchParams({
+      'filters[location_lat][$gte]': minLat.toString(),
+      'filters[location_lat][$lte]': maxLat.toString(),
+      'filters[location_long][$gte]': minLon.toString(),
+      'filters[location_long][$lte]': maxLon.toString(),
+      'filters[$not][location_lat]': lat.toString(),
+      'filters[$not][location_long]': lon.toString(),
+      'fields[0]': 'name',
+      'fields[1]': 'location_lat',
+      'fields[2]': 'location_long',
+      'populate[municipality]': 'true',
+      'populate[webcam]': 'true',
+      'pagination[page]': '1',
+      'pagination[pageSize]': '10',
+    }).toString()
+
+    const headers = await this.getHeaders(
+      `${CONFIG.api.endpoints.sargo.spots.list}?${queryParams}`,
+      isPublic
+    )
+
+    const response = await this.fetch<{ data: Spot[] }>(
+      `${CONFIG.api.endpoints.sargo.spots.list}?${queryParams}`,
+      {
+        init: {
+          headers,
+          next: { revalidate: 3600 },
+        },
+      }
+    )
+
+    return {
+      data: response.data,
+    }
   }
 }
 

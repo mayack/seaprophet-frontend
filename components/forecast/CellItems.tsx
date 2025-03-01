@@ -62,9 +62,9 @@ export function WindItem({
   windRating,
 }: WindItemProps) {
   const ratingBackgrounds = {
-    0: 'bg-orange-100 text-orange-900',
-    1: 'bg-yellow-100 text-yellow-900',
-    2: 'bg-lime-100 text-lime-900',
+    0: 'bg-red-100 text-red-900',
+    1: 'bg-orange-100 text-orange-900',
+    2: 'bg-yellow-100 text-yellow-900',
     3: 'bg-green-100 text-green-900',
   }
 

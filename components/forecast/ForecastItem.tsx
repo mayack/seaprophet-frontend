@@ -4,6 +4,7 @@ import { AstronomicalBreakdown } from './AstronomicalBreakdown'
 import { ForecastHeader } from './ForecastHeader'
 import TideChart from './TideChart'
 import { UserUnits } from '@/api/sargo/interfaces/user'
+import { getDateLabel } from '@/utils/getDataLabel'
 
 interface ForecastItemProps {
   day: ForecastDay
@@ -17,7 +18,7 @@ export function ForecastItem({ day, units }: ForecastItemProps) {
     <div className="flex flex-col gap-x-10 gap-y-4 lg:flex-row xl:gap-x-12">
       <aside className="flex w-full flex-col gap-y-4 lg:w-72 lg:gap-y-8">
         <h2 className="font-style-h2 flex flex-col justify-center">
-          {date.toLocaleDateString('en-US', { weekday: 'long' })}
+          {getDateLabel(date)}
           <div className="font-style-comment">
             {date.toLocaleDateString('en-US', {
               month: 'long',

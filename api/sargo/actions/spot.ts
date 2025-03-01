@@ -1,8 +1,10 @@
 'use server'
 
-import { sargoClient } from '../client'
-import type { Spot, SpotsByCountry } from '../interfaces/spot'
+import { calculateDistance } from '@/utils/location'
+import { sargoClient } from '../client' // Adjust path to your SargoClient
+import type { NearbySpot, Spot, SpotsByCountry } from '../interfaces/spot' // Adjust path to your interfaces
 
+// Define the SpotActionResponse interface (move to a separate file if not already defined)
 interface SpotActionResponse<T> {
   data: T | null
   error: string | null
@@ -13,6 +15,7 @@ interface SpotActionResponse<T> {
   }
 }
 
+// Helper function to organize spots by country (from your sample)
 function organizeSpotsByCountry(spots: Spot[]): SpotsByCountry {
   return spots.reduce((acc: SpotsByCountry, spot: Spot) => {
     const municipality = spot.attributes.municipality?.data?.attributes
@@ -49,6 +52,7 @@ function organizeSpotsByCountry(spots: Spot[]): SpotsByCountry {
   }, {})
 }
 
+// Get a single spot by ID
 export async function getSpot(id: number): Promise<SpotActionResponse<Spot>> {
   const timestamp = new Date().toISOString()
 
@@ -78,6 +82,7 @@ export async function getSpot(id: number): Promise<SpotActionResponse<Spot>> {
   }
 }
 
+// Get spots organized by country
 export async function getSpotsByCountry(): Promise<
   SpotActionResponse<SpotsByCountry>
 > {
@@ -97,9 +102,60 @@ export async function getSpotsByCountry(): Promise<
       },
     }
   } catch (error) {
+    console.error('getSpotsByCountry error:', error)
     return {
       data: {},
       error: error instanceof Error ? error.message : 'Failed to load spots',
+      meta: {
+        timestamp,
+        source: 'error',
+        success: false,
+      },
+    }
+  }
+}
+
+export async function getNearbySpots(
+  lat: number,
+  lon: number,
+  radiusKm: number = 30
+): Promise<SpotActionResponse<NearbySpot[]>> {
+  const timestamp = new Date().toISOString()
+
+  try {
+    const response = await sargoClient.getNearbySpots(lat, lon, radiusKm, true)
+
+    const nearbySpots: NearbySpot[] = response.data.map((spot) => ({
+      id: spot.id,
+      name: spot.attributes.name,
+      location: {
+        lat: spot.attributes.location_lat,
+        long: spot.attributes.location_long,
+      },
+      distance: calculateDistance(
+        lat,
+        lon,
+        spot.attributes.location_lat,
+        spot.attributes.location_long
+      ),
+      webcam: spot.attributes.webcam || null,
+    }))
+
+    return {
+      data: nearbySpots,
+      error: null,
+      meta: {
+        timestamp,
+        source: 'nearby-spots',
+        success: true,
+      },
+    }
+  } catch (error) {
+    console.error('getNearbySpots error:', error)
+    return {
+      data: [],
+      error:
+        error instanceof Error ? error.message : 'Failed to load nearby spots',
       meta: {
         timestamp,
         source: 'error',

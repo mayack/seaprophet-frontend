@@ -114,3 +114,14 @@ interface Location {
   lat: number
   long: number
 }
+
+export interface NearbySpot {
+  id: number
+  name: string
+  distance: number
+  location: {
+    lat: number | null
+    long: number | null
+  }
+  webcam?: WebcamConfig | null
+}

@@ -1,9 +1,9 @@
 import { getSpotsByCountry } from '@/api/sargo/actions/spot'
-import { SpotsNearby } from '@/components/spot/SpotsNearby'
 import { SpotsBrowse } from '@/components/spot/SpotsBrowse'
 import { SpotsByCountry } from '@/api/sargo/interfaces/spot'
 import { Suspense } from 'react'
 import { SpotsBrowseSkeleton } from '@/components/spot/SpotsBrowse/Skeleton'
+import { UserLocationSpots } from '@/components/spot/SpotsNearby/UserLocationSpots'
 
 async function SpotsContent() {
   const response = await getSpotsByCountry()
@@ -19,7 +19,7 @@ async function SpotsContent() {
 
   return (
     <div className="wrapper">
-      <SpotsNearby spotsByCountry={spotsByCountry} maxDistance={50} />
+      <UserLocationSpots spotsByCountry={spotsByCountry} maxDistance={30} />
       <Suspense fallback={<SpotsBrowseSkeleton />}>
         <SpotsBrowse spotsByCountry={spotsByCountry} />
       </Suspense>

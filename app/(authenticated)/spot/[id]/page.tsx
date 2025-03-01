@@ -1,9 +1,15 @@
 export const revalidate = 900
+
 import { getForecast } from '@/api/polvo/actions/forecast'
-import { getSpot } from '@/api/sargo/actions/spot'
+import { getSpot, getNearbySpots } from '@/api/sargo/actions/spot'
 import { SpotDetails } from '@/components/spot/SpotsDetails'
 import { Forecast } from '@/components/forecast/Forecast'
+import { SpotsNearby } from '@/components/spot/SpotsNearby'
 import { getCurrentUser } from '@/api/sargo/actions/auth'
+import { calculateDistance } from '@/utils/location'
+import { NearbySpot } from '@/api/sargo/interfaces/spot'
+import { SpotsNearbySkeleton } from '@/components/spot/SpotsNearby/Skeleton'
+import { Suspense } from 'react'
 
 interface SpotPageProps {
   params: Promise<{ id: string }>
@@ -18,7 +24,7 @@ export default async function SpotPage({ params }: SpotPageProps) {
   const spot = spotResponse?.data?.attributes
   if (!spot) return <div>Spot not found.</div>
 
-  const [forecastResponse] = await Promise.all([
+  const [forecastResponse, nearbySpotsResponse] = await Promise.all([
     getForecast({
       lat: spot.location_lat,
       lon: spot.location_long,
@@ -27,8 +33,31 @@ export default async function SpotPage({ params }: SpotPageProps) {
       waveFactor: spot.wave_factor,
       adjustmentFactor: spot.adjustment_factor,
     }),
+    getNearbySpots(spot.location_lat, spot.location_long, 30),
   ])
+
   if (!forecastResponse.data) return <div>Forecast not found.</div>
+
+  const nearbySpots: NearbySpot[] =
+    nearbySpotsResponse.meta.success && nearbySpotsResponse.data
+      ? nearbySpotsResponse.data
+          .map((spotData) => ({
+            id: spotData.id,
+            name: spotData.name,
+            distance:
+              spotData.location.lat && spotData.location.long
+                ? calculateDistance(
+                    spot.location_lat,
+                    spot.location_long,
+                    spotData.location.lat,
+                    spotData.location.long
+                  )
+                : 0,
+            location: spotData.location,
+            webcam: spotData.webcam,
+          }))
+          .sort((a, b) => a.distance - b.distance)
+      : []
 
   return (
     <div className="space-y-8 sm:space-y-10 xl:space-y-12">
@@ -37,6 +66,15 @@ export default async function SpotPage({ params }: SpotPageProps) {
         webcamConfig={spot.webcam}
         spotName={spot.name}
       />
+      <div className="wrapper">
+        <Suspense fallback={<SpotsNearbySkeleton />}>
+          <SpotsNearby
+            spots={nearbySpots}
+            maxDistance={30}
+            title={`Spots near ${spot.name}`}
+          />
+        </Suspense>
+      </div>
       <Forecast days={forecastResponse.data.days} user={user} />
     </div>
   )
