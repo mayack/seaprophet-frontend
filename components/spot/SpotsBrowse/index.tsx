@@ -10,7 +10,7 @@ export function SpotsBrowse({
   spotsByCountry,
 }: SpotsBrowseProps): React.JSX.Element {
   return (
-    <div className="space-y-8 sm:space-y-10 xl:space-y-12">
+    <div className="wrapper-spacing">
       {Object.entries(spotsByCountry).map(([countryName, regions]) => (
         <div key={countryName}>
           <h2 className="font-style-h2 mb-4 sm:mb-6 md:mb-8">{countryName}</h2>
