@@ -5,6 +5,7 @@ import { Suspense } from 'react'
 import { SpotsBrowseSkeleton } from '@/components/spot/SpotsBrowse/Skeleton'
 import { UserLocationSpots } from '@/components/spot/SpotsNearby/UserLocationSpots'
 import React from 'react'
+import { SpotsNearbySkeleton } from '@/components/spot/SpotsNearby/Skeleton'
 
 async function SpotsContent(): Promise<React.JSX.Element> {
   const response = await getSpotsByCountry()
@@ -35,7 +36,8 @@ export default async function Page(): Promise<React.JSX.Element> {
     return (
       <Suspense
         fallback={
-          <div className="wrapper">
+          <div className="wrapper wrapper-spacing">
+            <SpotsNearbySkeleton />
             <SpotsBrowseSkeleton />
           </div>
         }
