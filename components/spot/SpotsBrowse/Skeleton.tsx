@@ -6,15 +6,15 @@ export function SpotsBrowseSkeleton(): React.JSX.Element {
     <div className="wrapper wrapper-spacing">
       {[...Array(2)].map((_, countryIndex) => (
         <div key={countryIndex}>
-          <Skeleton className="mb-4 h-8 w-60 sm:mb-6 sm:h-9 sm:w-72 md:mb-8" />
+          <Skeleton className="mb-4 h-8 w-52 sm:mb-6 sm:h-9 sm:w-60 md:mb-8" />
           <div className="space-y-10">
             {[...Array(2)].map((_, regionIndex) => (
               <div key={regionIndex}>
-                <Skeleton className="mb-4 h-7 w-56 md:mb-6" />
+                <Skeleton className="mb-4 h-7 w-40 md:mb-6" />
                 <div className="space-y-10">
                   {[...Array(2)].map((_, districtIndex) => (
                     <div key={districtIndex}>
-                      <Skeleton className="mb-2 h-7 w-44" />
+                      <Skeleton className="mb-2 h-7 w-40" />
                       <div className="space-y-4">
                         {[...Array(2)].map((_, municipalityIndex) => (
                           <div
