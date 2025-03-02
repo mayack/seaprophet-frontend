@@ -29,7 +29,7 @@ export async function middleware(request: NextRequest) {
   let response = NextResponse.next()
   if (!sargoOptions) {
     console.log('No sargoOptions, fetching...')
-    const userData = await fetchSargoOptions(sargoToken)
+    const userData = await fetchSargoOptions()
     if (userData) {
       response = await setCookie(
         response,

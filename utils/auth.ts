@@ -29,7 +29,7 @@ export async function refreshPolvoToken(): Promise<string | null> {
   }
 }
 
-export async function fetchSargoOptions(token: string) {
+export async function fetchSargoOptions() {
   try {
     const user = await sargoClient.getCurrentUser()
     if (!user) return null
