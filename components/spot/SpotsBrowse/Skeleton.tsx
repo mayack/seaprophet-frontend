@@ -3,7 +3,7 @@ import React from 'react'
 
 export function SpotsBrowseSkeleton(): React.JSX.Element {
   return (
-    <div className="wrapper-spacing">
+    <div className="wrapper wrapper-spacing">
       {[...Array(2)].map((_, countryIndex) => (
         <div key={countryIndex}>
           <Skeleton className="mb-4 h-8 w-60 sm:mb-6 sm:h-9 sm:w-72 md:mb-8" />

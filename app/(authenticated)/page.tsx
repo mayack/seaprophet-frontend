@@ -36,7 +36,7 @@ export default async function Page(): Promise<React.JSX.Element> {
     return (
       <Suspense
         fallback={
-          <div className="wrapper wrapper-spacing">
+          <div className="wrapper-spacing">
             <SpotsNearbySkeleton />
             <SpotsBrowseSkeleton />
           </div>
