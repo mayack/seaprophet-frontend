@@ -6,6 +6,7 @@ import { Skeleton } from '../ui/skeleton'
 import { formatValueWithUnit } from '@/lib/units'
 import { UserUnits } from '@/api/sargo/interfaces/user'
 import { cn } from '@/lib/utils'
+import React from 'react'
 
 interface TideChartProps {
   data: Tide[]
@@ -48,7 +49,7 @@ export default function TideChart({
   astronomical,
   unit,
   className,
-}: TideChartProps) {
+}: TideChartProps): React.JSX.Element {
   const height = 96
   const svgRef = useRef<SVGSVGElement>(null)
   const [width, setWidth] = useState(240)
@@ -74,7 +75,7 @@ export default function TideChart({
     const minHeight = Math.min(...allTides.map((tide) => tide.height))
     const maxHeight = Math.max(...allTides.map((tide) => tide.height))
 
-    const createSyntheticExtreme = (tide: Tide, isNext: boolean) => {
+    const createSyntheticExtreme = (tide: Tide, isNext: boolean): Tide => {
       const referenceMinutes = timeToMinutes(tide.time)
       let newMinutes = isNext ? referenceMinutes + 360 : referenceMinutes - 360
 
@@ -112,7 +113,7 @@ export default function TideChart({
   }, [data, width, height])
 
   // Memoize curve points calculation
-  const curvePoints = useMemo(() => {
+  const curvePoints = useMemo((): string[] => {
     return Array.from({ length: 1441 }, (_, minute) => {
       const x = PADDING.left + minute * xScale
       let y = 0
@@ -150,7 +151,7 @@ export default function TideChart({
     const element = svgRef.current
     if (!element) return
 
-    const updateWidth = () => {
+    const updateWidth = (): void => {
       const rect = element.getBoundingClientRect()
       if (rect.width > 0) {
         setWidth(rect.width)
@@ -160,14 +161,15 @@ export default function TideChart({
     updateWidth()
     const observer = new ResizeObserver(updateWidth)
     observer.observe(element)
-    return () => observer.disconnect()
+
+    return (): void => observer.disconnect()
   }, [isClient])
 
   if (!isClient) {
     return <Skeleton className="h-24 w-full" />
   }
 
-  const getTextPosition = (x: number) => {
+  const getTextPosition = (x: number): { x: number; anchor: string } => {
     const MARGIN = 30
     const leftEdge = PADDING.left + MARGIN
     const rightEdge = width - PADDING.right - MARGIN
@@ -179,7 +181,7 @@ export default function TideChart({
     }
   }
 
-  const handleMouseMove = (event: React.MouseEvent<SVGSVGElement>) => {
+  const handleMouseMove = (event: React.MouseEvent<SVGSVGElement>): void => {
     const rect = svgRef.current?.getBoundingClientRect()
     if (!rect) return
 

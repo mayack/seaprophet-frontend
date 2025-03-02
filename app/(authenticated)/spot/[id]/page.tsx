@@ -1,3 +1,4 @@
+// app/(authenticated)/spot/[id]/page.tsx
 export const revalidate = 900
 
 import { getForecast } from '@/api/polvo/actions/forecast'
@@ -8,15 +9,23 @@ import { SpotsNearby } from '@/components/spot/SpotsNearby'
 import { getCurrentUser } from '@/api/sargo/actions/auth'
 import { calculateDistance } from '@/utils/location'
 import { NearbySpot } from '@/api/sargo/interfaces/spot'
+import { redirect } from 'next/navigation'
+import React from 'react'
 
 interface SpotPageProps {
   params: Promise<{ id: string }>
 }
 
-export default async function SpotPage({ params }: SpotPageProps) {
+export default async function SpotPage({
+  params,
+}: SpotPageProps): Promise<React.JSX.Element> {
   const resolvedParams = await params
   const spotId = Number(resolvedParams.id)
   const user = await getCurrentUser()
+
+  if (!user) {
+    redirect('/auth/signin') // Redirect if no user
+  }
 
   const spotResponse = await getSpot(spotId)
   const spot = spotResponse?.data?.attributes

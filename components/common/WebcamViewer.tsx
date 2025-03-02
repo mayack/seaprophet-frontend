@@ -8,6 +8,7 @@ import { Spinner } from '../ui/spinner'
 import { WebcamConfig } from '@/api/sargo/interfaces/webcam'
 import { webcamProviders } from '@/constants/webcamProviders'
 import { CONFIG } from '@/constants/config'
+import React from 'react'
 
 const AFK_TIMEOUT = CONFIG.webcam.afk_timer
 
@@ -15,7 +16,7 @@ interface WebcamViewerProps {
   config: WebcamConfig
 }
 
-export function WebcamViewer({ config }: WebcamViewerProps) {
+export function WebcamViewer({ config }: WebcamViewerProps): React.JSX.Element {
   const [isFullscreen, setIsFullscreen] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
   const [hasError, setHasError] = useState<string | null>(null)
@@ -27,7 +28,7 @@ export function WebcamViewer({ config }: WebcamViewerProps) {
   const afkTimerRef = useRef<NodeJS.Timeout | null>(null)
 
   // Simple function to stop any timer
-  const clearAfkTimer = useCallback(() => {
+  const clearAfkTimer = useCallback((): void => {
     if (afkTimerRef.current) {
       clearTimeout(afkTimerRef.current)
       afkTimerRef.current = null
@@ -35,7 +36,7 @@ export function WebcamViewer({ config }: WebcamViewerProps) {
   }, [])
 
   // Start the AFK timer
-  const startAfkTimer = useCallback(() => {
+  const startAfkTimer = useCallback((): void => {
     clearAfkTimer()
 
     afkTimerRef.current = setTimeout(() => {
@@ -57,7 +58,7 @@ export function WebcamViewer({ config }: WebcamViewerProps) {
   }, [clearAfkTimer])
 
   // Stream destruction with proper cleanup
-  const destroyStream = useCallback(() => {
+  const destroyStream = useCallback((): void => {
     clearAfkTimer()
 
     if (hlsRef.current) {
@@ -73,7 +74,7 @@ export function WebcamViewer({ config }: WebcamViewerProps) {
   }, [clearAfkTimer])
 
   // Fullscreen toggle
-  const toggleFullscreen = useCallback(async () => {
+  const toggleFullscreen = useCallback(async (): Promise<void> => {
     const video = videoRef.current
     if (!video) return
 
@@ -115,7 +116,7 @@ export function WebcamViewer({ config }: WebcamViewerProps) {
   }, [])
 
   // Initialize the stream
-  const initStream = useCallback(() => {
+  const initStream = useCallback((): void => {
     if (!config.url || isAfk) return
 
     setIsLoading(true)
@@ -135,7 +136,10 @@ export function WebcamViewer({ config }: WebcamViewerProps) {
       : config.url
 
     // Function to handle playback errors
-    const handlePlaybackError = (message: string, shouldRetry = false) => {
+    const handlePlaybackError = (
+      message: string,
+      shouldRetry = false
+    ): void => {
       setHasError(message)
       setIsLoading(false)
 
@@ -149,7 +153,7 @@ export function WebcamViewer({ config }: WebcamViewerProps) {
     // Setup HLS.js if supported
     if (Hls.isSupported()) {
       const hls = new Hls({
-        xhrSetup: (xhr, url) => {
+        xhrSetup: (xhr: XMLHttpRequest, url: string): void => {
           if (url.startsWith('/api/proxy')) return
 
           const finalUrl = provider.transformUrl
@@ -183,9 +187,9 @@ export function WebcamViewer({ config }: WebcamViewerProps) {
           } else {
             destroyStream()
           }
-        } catch (err: any) {
+        } catch (err: unknown) {
           handlePlaybackError(
-            `Playback failed: ${err?.message || 'unknown error'}`
+            `Playback failed: ${err instanceof Error ? err.message : 'unknown error'}`
           )
         }
       })
@@ -218,7 +222,7 @@ export function WebcamViewer({ config }: WebcamViewerProps) {
       video.src = streamUrl
       video.load()
 
-      video.onloadedmetadata = async () => {
+      video.onloadedmetadata = async (): Promise<void> => {
         if (isAfk) {
           destroyStream()
           return
@@ -232,9 +236,9 @@ export function WebcamViewer({ config }: WebcamViewerProps) {
           } else {
             destroyStream()
           }
-        } catch (err: any) {
+        } catch (err: unknown) {
           handlePlaybackError(
-            `Native playback failed: ${err?.message || 'unknown error'}`
+            `Native playback failed: ${err instanceof Error ? err.message : 'unknown error'}`
           )
         }
       }
@@ -246,13 +250,13 @@ export function WebcamViewer({ config }: WebcamViewerProps) {
   }, [config.url, config.provider, destroyStream, isAfk, startAfkTimer])
 
   // Handle keeping watching after AFK
-  const handleKeepWatching = useCallback(() => {
+  const handleKeepWatching = useCallback((): void => {
     setIsAfk(false)
     initStream()
   }, [initStream])
 
   // Handle mouse movement
-  const handleMouseMove = useCallback(() => {
+  const handleMouseMove = useCallback((): void => {
     if (!isAfk) {
       startAfkTimer()
     }
@@ -266,7 +270,7 @@ export function WebcamViewer({ config }: WebcamViewerProps) {
     const abortController = new AbortController()
     const signal = abortController.signal
 
-    const handlePlay = () => {
+    const handlePlay = (): void => {
       if (isAfk) {
         destroyStream()
         return
@@ -275,7 +279,7 @@ export function WebcamViewer({ config }: WebcamViewerProps) {
       startAfkTimer()
     }
 
-    const handleError = () => {
+    const handleError = (): void => {
       if (isAfk) return
       setHasError('Video error occurred')
       setIsLoading(false)
@@ -296,19 +300,22 @@ export function WebcamViewer({ config }: WebcamViewerProps) {
     }
 
     // Clean up
-    return () => {
+    return (): void => {
       abortController.abort()
       destroyStream()
     }
   }, [initStream, handleMouseMove, destroyStream, isAfk, startAfkTimer])
 
   return (
-    <div ref={containerRef} className="relative h-full w-full bg-foreground">
-      <video ref={videoRef} className="h-full w-full" playsInline muted />
+    <div
+      ref={containerRef}
+      className="relative size-full bg-foreground dark:bg-muted"
+    >
+      <video ref={videoRef} className="size-full" playsInline muted />
 
       {isLoading && !isAfk && (
         <div className="absolute inset-0 flex items-center justify-center">
-          <Spinner size="lg" className="text-background" />
+          <Spinner size="lg" className="text-background dark:text-foreground" />
         </div>
       )}
 
@@ -320,7 +327,7 @@ export function WebcamViewer({ config }: WebcamViewerProps) {
             variant="white"
             className="flex items-center gap-2"
           >
-            <RefreshCw className="h-4 w-4" /> Retry
+            <RefreshCw className="size-4" /> Retry
           </Button>
         </div>
       )}
@@ -333,7 +340,7 @@ export function WebcamViewer({ config }: WebcamViewerProps) {
             variant="white"
             className="flex items-center gap-2"
           >
-            <Play className="h-4 w-4" /> Keep watching
+            <Play className="size-4" /> Keep watching
           </Button>
         </div>
       )}
@@ -346,9 +353,9 @@ export function WebcamViewer({ config }: WebcamViewerProps) {
         aria-label={isFullscreen ? 'Exit fullscreen' : 'Enter fullscreen'}
       >
         {isFullscreen ? (
-          <Shrink className="h-6 w-6" />
+          <Shrink className="size-6" />
         ) : (
-          <Expand className="h-6 w-6" />
+          <Expand className="size-6" />
         )}
       </Button>
     </div>

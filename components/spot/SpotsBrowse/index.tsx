@@ -1,11 +1,14 @@
 import { SpotsByCountry, SpotSummary } from '@/api/sargo/interfaces/spot'
 import { SpotCard } from '../SpotCard'
+import React from 'react'
 
 interface SpotsBrowseProps {
   spotsByCountry: SpotsByCountry
 }
 
-export function SpotsBrowse({ spotsByCountry }: SpotsBrowseProps) {
+export function SpotsBrowse({
+  spotsByCountry,
+}: SpotsBrowseProps): React.JSX.Element {
   return (
     <div className="space-y-8 sm:space-y-10 xl:space-y-12">
       {Object.entries(spotsByCountry).map(([countryName, regions]) => (

@@ -3,6 +3,7 @@ import { Map } from '@/components/common/Map'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { MapPin, Webcam } from 'lucide-react'
 import { WebcamConfig } from '@/api/sargo/interfaces/webcam'
+import React from 'react'
 
 interface SpotDetailsProps {
   mapCenter: [number, number]
@@ -14,7 +15,7 @@ export function SpotDetails({
   mapCenter,
   webcamConfig,
   spotName,
-}: SpotDetailsProps) {
+}: SpotDetailsProps): React.JSX.Element {
   return (
     <div>
       <Tabs defaultValue={webcamConfig ? 'webcam' : 'map'} className="w-full">
@@ -24,12 +25,12 @@ export function SpotDetails({
             <TabsList>
               {webcamConfig && (
                 <TabsTrigger value="webcam" className="flex items-center gap-2">
-                  <Webcam className="h-4 w-4" />
+                  <Webcam className="size-4" />
                   <div className="hidden sm:block">Webcam</div>
                 </TabsTrigger>
               )}
               <TabsTrigger value="map" className="flex items-center gap-2">
-                <MapPin className="h-4 w-4" />
+                <MapPin className="size-4" />
                 <div className="hidden sm:block">Map</div>
               </TabsTrigger>
             </TabsList>

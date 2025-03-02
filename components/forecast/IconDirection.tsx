@@ -7,6 +7,7 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip'
 import type { DirectionProps } from '@/types/forecast'
+import React from 'react'
 
 const directions = [
   'N',
@@ -37,7 +38,7 @@ export function IconDirection({
   degrees,
   isWind,
   size = 'medium',
-}: DirectionProps) {
+}: DirectionProps): React.JSX.Element {
   const { adjustedDegrees, cardinalDirection } = useMemo(() => {
     const intDegrees = Math.round(degrees) - 180
     const index = Math.round(degrees / 22.5) % 16
@@ -55,7 +56,7 @@ export function IconDirection({
       <Tooltip>
         <TooltipTrigger
           className="flex"
-          aria-label={`Direction: ${degrees}&deg; ${cardinalDirection}`}
+          aria-label={`Direction: ${degrees}° ${cardinalDirection}`}
         >
           <div className="relative inline-flex items-center justify-center">
             <Icon
@@ -66,7 +67,7 @@ export function IconDirection({
         </TooltipTrigger>
         <TooltipContent>
           <div className="text-xs font-semibold leading-none">
-            {degrees}&deg; {cardinalDirection}
+            {degrees}° {cardinalDirection}
           </div>
         </TooltipContent>
       </Tooltip>

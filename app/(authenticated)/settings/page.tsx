@@ -1,8 +1,10 @@
+// app/(authenticated)/settings/page.tsx
 import { getCurrentUser } from '@/api/sargo/actions/auth'
 import { Toaster } from 'sonner'
 import { SettingsForms } from './SettingsForm'
+import React from 'react'
 
-export default async function SettingsPage() {
+export default async function SettingsPage(): Promise<React.JSX.Element> {
   const user = await getCurrentUser()
 
   if (!user) {

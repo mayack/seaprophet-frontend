@@ -4,8 +4,9 @@ import { SpotsByCountry } from '@/api/sargo/interfaces/spot'
 import { Suspense } from 'react'
 import { SpotsBrowseSkeleton } from '@/components/spot/SpotsBrowse/Skeleton'
 import { UserLocationSpots } from '@/components/spot/SpotsNearby/UserLocationSpots'
+import React from 'react'
 
-async function SpotsContent() {
+async function SpotsContent(): Promise<React.JSX.Element> {
   const response = await getSpotsByCountry()
   const spotsByCountry: SpotsByCountry = response.data || {}
 
@@ -29,7 +30,7 @@ async function SpotsContent() {
   )
 }
 
-export default async function Page() {
+export default async function Page(): Promise<React.JSX.Element> {
   try {
     return (
       <Suspense
@@ -43,7 +44,8 @@ export default async function Page() {
       </Suspense>
     )
   } catch (error) {
-    console.error('Page error:', error)
+    // eslint-disable-next-line no-console
+    console.log('Page error:', error)
     return (
       <div className="wrapper">
         <p className="text-red-500">

@@ -51,22 +51,14 @@ export async function getSpotsByCountry(): Promise<
     return {
       data: organizedSpots,
       error: null,
-      meta: {
-        timestamp,
-        source: 'spots-by-country',
-        success: true,
-      },
+      meta: { timestamp, source: 'spots-by-country', success: true },
     }
   } catch (error) {
     console.error('getSpotsByCountry error:', error)
     return {
-      data: {},
+      data: null, // Changed from {}
       error: error instanceof Error ? error.message : 'Failed to load spots',
-      meta: {
-        timestamp,
-        source: 'error',
-        success: false,
-      },
+      meta: { timestamp, source: 'error', success: false },
     }
   }
 }

@@ -1,5 +1,4 @@
 'use client'
-
 import { useRouter } from 'next/navigation'
 import { useTransition } from 'react'
 import { signIn } from '@/api/sargo/actions/auth'
@@ -8,12 +7,13 @@ import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Waves } from 'lucide-react'
 import { toast, Toaster } from 'sonner'
+import React from 'react'
 
-export default function SignIn() {
+export default function SignIn(): React.JSX.Element {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
 
-  const handleSubmit = async (formData: FormData) => {
+  const handleSubmit = async (formData: FormData): Promise<void> => {
     startTransition(async () => {
       try {
         const result = await signIn(formData)
@@ -23,6 +23,7 @@ export default function SignIn() {
           router.refresh()
         } else {
           toast.error(result.error || 'Sign-in failed.')
+          // eslint-disable-next-line no-console
           console.error('Sign-in error:', result.error)
         }
       } catch (error) {
@@ -31,6 +32,7 @@ export default function SignIn() {
             ? 'Check your connection and try again.'
             : 'Sign-in failed unexpectedly.'
         toast.error(message)
+        // eslint-disable-next-line no-console
         console.error('Fetch error in signIn:', error)
       }
     })
@@ -40,10 +42,10 @@ export default function SignIn() {
     <>
       <div className="wrapper flex h-full flex-col items-center justify-center">
         <div className="w-full max-w-sm space-y-8">
-          <Card className="">
+          <Card>
             <CardHeader>
               <CardTitle className="flex justify-center">
-                <Waves className="h-10 w-10" />
+                <Waves className="size-10" />
               </CardTitle>
             </CardHeader>
             <CardContent>

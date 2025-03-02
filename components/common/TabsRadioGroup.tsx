@@ -14,8 +14,8 @@ export function TabsRadioGroup({
   options,
   className,
   onValueChange,
-}: TabsRadioGroupProps) {
-  const handleChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+}: TabsRadioGroupProps): React.JSX.Element {
+  const handleChange = (event: React.ChangeEvent<HTMLInputElement>): void => {
     onValueChange?.(event.target.value)
   }
 
@@ -29,16 +29,16 @@ export function TabsRadioGroup({
       style={{ gridTemplateColumns: `repeat(${options.length}, 1fr)` }}
     >
       {options.map((option) => (
-        <label key={option.value} className="relative h-full flex-1">
+        <label key={option.value} className="relative size-full flex-1">
           <input
             type="radio"
             name={name}
             value={option.value}
             defaultChecked={option.value === defaultValue}
             onChange={handleChange}
-            className="peer absolute h-0 w-0 opacity-0"
+            className="peer absolute size-0 opacity-0"
           />
-          <span className="flex h-full w-full cursor-pointer select-none items-center justify-center rounded-sm px-4 text-sm font-medium text-muted-foreground ring-offset-background transition-all hover:text-foreground peer-checked:bg-background peer-checked:text-foreground peer-checked:shadow-sm">
+          <span className="flex size-full cursor-pointer select-none items-center justify-center rounded-sm px-4 text-sm font-medium text-muted-foreground ring-offset-background transition-all hover:text-foreground peer-checked:bg-background peer-checked:text-foreground peer-checked:shadow-sm">
             {option.label}
           </span>
         </label>

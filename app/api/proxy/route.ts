@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { webcamProviders } from '@/constants/webcamProviders'
 
-export async function GET(request: NextRequest) {
+export async function GET(request: NextRequest): Promise<NextResponse> {
   const url = request.nextUrl.searchParams.get('url')
   const provider = request.nextUrl.searchParams.get('provider') || 'generic'
 
@@ -27,7 +27,8 @@ export async function GET(request: NextRequest) {
 
     if (!response.ok) {
       const text = await response.text()
-      console.error('Upstream response not OK:', response.status, text)
+      // eslint-disable-next-line no-console
+      console.log('Upstream response not OK:', response.status, text)
       throw new Error(`HTTP error! status: ${response.status}, body: ${text}`)
     }
 
@@ -38,6 +39,8 @@ export async function GET(request: NextRequest) {
       .clone()
       .text()
       .then((t) => t.slice(0, 100))
+
+    // eslint-disable-next-line no-console
     console.log('Proxying:', { url: decodedUrl, contentType, bodySample })
 
     // Stream the response correctly
@@ -50,7 +53,9 @@ export async function GET(request: NextRequest) {
       },
     })
   } catch (error) {
-    console.error('Proxy error:', error)
+    // eslint-disable-next-line no-console
+    console.log('Proxy error:', error)
+
     return NextResponse.json(
       {
         error: 'Failed to fetch stream',

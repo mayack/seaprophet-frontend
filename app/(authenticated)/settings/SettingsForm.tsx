@@ -1,3 +1,4 @@
+// app/(authenticated)/settings/SettingsForm.tsx
 'use client'
 
 import { useState, useOptimistic, useTransition } from 'react'
@@ -15,6 +16,7 @@ import {
   updatePassword,
   updateUnits,
 } from '@/api/sargo/actions/user'
+import React from 'react'
 
 interface SettingsFormsProps {
   username: string
@@ -27,11 +29,11 @@ const MESSAGES = {
   password: 'Password changed successfully!',
 } as const
 
-function Dots() {
+function Dots(): React.JSX.Element {
   return (
     <div className="flex">
       {Array.from({ length: 8 }).map((_, i) => (
-        <Asterisk key={i} className="h-3 w-3" />
+        <Asterisk key={i} className="size-3" />
       ))}
     </div>
   )
@@ -53,7 +55,7 @@ function CollapsibleField({
   activeFormId,
   onFormToggle,
   children,
-}: CollapsibleFieldProps) {
+}: CollapsibleFieldProps): React.JSX.Element {
   const isActive = activeFormId === formId
 
   return (
@@ -75,7 +77,7 @@ function CollapsibleField({
         {isActive && (
           <div className="flex h-9 flex-col justify-center">
             <button onClick={() => onFormToggle(null)}>
-              <X className="h-4 w-4" />
+              <X className="size-4" />
             </button>
           </div>
         )}
@@ -90,7 +92,7 @@ export function SettingsForms({
   username: initialUsername,
   email: initialEmail,
   settings: initialSettings,
-}: SettingsFormsProps) {
+}: SettingsFormsProps): React.JSX.Element {
   const { setUserData } = useUser()
   const [activeFormId, setActiveFormId] = useState<string | null>(null)
   const [state, optimisticState] = useOptimistic({
@@ -100,7 +102,7 @@ export function SettingsForms({
   })
   const [, startTransition] = useTransition()
 
-  const handleUsernameSubmit = async (formData: FormData) => {
+  const handleUsernameSubmit = async (formData: FormData): Promise<void> => {
     startTransition(async () => {
       const newUsername = formData.get('username') as string
       setActiveFormId(null)
@@ -124,7 +126,7 @@ export function SettingsForms({
     })
   }
 
-  const handlePasswordSubmit = async (formData: FormData) => {
+  const handlePasswordSubmit = async (formData: FormData): Promise<void> => {
     try {
       const result = await updatePassword(formData)
       if (result.success) {
@@ -141,7 +143,7 @@ export function SettingsForms({
   const handleUnitChange = async (
     unit: keyof UserSettings['units'],
     value: string
-  ) => {
+  ): Promise<void> => {
     startTransition(async () => {
       const newUnits = {
         ...state.settings.units,

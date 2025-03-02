@@ -1,4 +1,5 @@
 import { cn } from '@/lib/utils'
+import React from 'react'
 
 interface InfoBreakdownLineProps {
   icon: React.ReactNode
@@ -12,7 +13,7 @@ export function InfoBreakdownLine({
   label,
   value,
   className,
-}: InfoBreakdownLineProps) {
+}: InfoBreakdownLineProps): React.JSX.Element {
   return (
     <div className={cn(className, 'flex items-center gap-3')}>
       {icon}

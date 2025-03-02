@@ -13,15 +13,16 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { Settings, LogOut, ChevronDown } from 'lucide-react'
 import { User } from '@/api/sargo/interfaces/user'
+import React from 'react'
 
 interface UserMenuProps {
   user: User
 }
 
-export function UserMenu({ user }: UserMenuProps) {
+export function UserMenu({ user }: UserMenuProps): React.JSX.Element | null {
   const router = useRouter()
 
-  const handleSignOut = async (event: Event) => {
+  const handleSignOut = async (event: Event): Promise<void> => {
     event.preventDefault()
     try {
       await signOut() // Server action redirects to /auth/signin
@@ -32,6 +33,7 @@ export function UserMenu({ user }: UserMenuProps) {
         router.refresh()
         return
       }
+      // eslint-disable-next-line no-console
       console.error('Sign out error:', error)
       router.push('/auth/signin') // Fallback redirect
       router.refresh()
@@ -44,7 +46,7 @@ export function UserMenu({ user }: UserMenuProps) {
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <div className="flex cursor-pointer items-center gap-1.5">
-          <Avatar className="h-10 w-10 text-lg font-semibold">
+          <Avatar className="size-10 text-lg font-semibold">
             <AvatarFallback>
               {user.username.charAt(0).toUpperCase()}
             </AvatarFallback>
@@ -54,7 +56,7 @@ export function UserMenu({ user }: UserMenuProps) {
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-56">
         <div className="flex items-center gap-3 px-2 py-1.5">
-          <Avatar className="h-8 w-8">
+          <Avatar className="size-8">
             <AvatarFallback>
               {user.username.charAt(0).toUpperCase()}
             </AvatarFallback>

@@ -5,13 +5,17 @@ import { ForecastHeader } from './ForecastHeader'
 import TideChart from './TideChart'
 import { UserUnits } from '@/api/sargo/interfaces/user'
 import { getDateLabel } from '@/utils/getDataLabel'
+import React from 'react'
 
 interface ForecastItemProps {
   day: ForecastDay
   units: UserUnits
 }
 
-export function ForecastItem({ day, units }: ForecastItemProps) {
+export function ForecastItem({
+  day,
+  units,
+}: ForecastItemProps): React.JSX.Element {
   const date = new Date(day.date)
 
   return (

@@ -1,6 +1,7 @@
 import { Skeleton } from '@/components/ui/skeleton'
+import React from 'react'
 
-export function SpotsBrowseSkeleton() {
+export function SpotsBrowseSkeleton(): React.JSX.Element {
   return (
     <div className="space-y-16">
       {[...Array(2)].map((_, countryIndex) => (

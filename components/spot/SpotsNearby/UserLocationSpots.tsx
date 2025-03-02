@@ -6,6 +6,7 @@ import { SpotsByCountry, NearbySpot } from '@/api/sargo/interfaces/spot'
 import { useUser } from '@/contexts/UserContext'
 import { getNearbySpots } from '@/utils/userLocation'
 import { SpotsNearby } from '.'
+import React from 'react'
 
 interface UserLocationSpotsProps {
   spotsByCountry: SpotsByCountry
@@ -15,7 +16,7 @@ interface UserLocationSpotsProps {
 export function UserLocationSpots({
   spotsByCountry,
   maxDistance = 30, // Changed to 30km to match your message
-}: UserLocationSpotsProps) {
+}: UserLocationSpotsProps): React.JSX.Element {
   const { userData, setUserData } = useUser()
   const [mounted, setMounted] = useState(false)
   const [locationError, setLocationError] = useState<string | null>(null)
@@ -58,6 +59,7 @@ export function UserLocationSpots({
         setLoading(false)
       },
       (error) => {
+        // eslint-disable-next-line no-console
         console.error('Geolocation error:', error)
         let errorMessage = 'Unknown error'
         switch (error.code) {

@@ -1,58 +1,41 @@
 'use server'
 
+import { AppError, ErrorCode } from '@/utils/error'
 import { polvoClient } from '../client'
 import { ForecastParams, ForecastActionResponse } from '../interfaces/forecast'
 import { CONFIG } from '@/constants/config'
 import { cookies } from 'next/headers'
+import { refreshPolvoTokenAction } from './auth'
 
 export async function getForecast(
   params: ForecastParams
 ): Promise<ForecastActionResponse> {
   const timestamp = new Date().toISOString()
   const cookieStore = await cookies()
-  const token = cookieStore.get(CONFIG.api.tokens.polvo.key)?.value as string
+  let initialToken = cookieStore.get(CONFIG.api.tokens.polvo.key)?.value
 
-  // Removed token expiration check and fetch - middleware ensures token is valid
-  if (!token) {
-    console.error('getForecast: No Polvo token available')
-    return {
-      data: null,
-      error: 'No Polvo token available',
-      meta: { timestamp, source: 'polvo-auth', success: false },
+  let token: string
+  if (!initialToken) {
+    const result = await refreshPolvoTokenAction()
+    if (!result.success || !result.token) {
+      return {
+        data: null,
+        error:
+          result.error || 'Authentication failed. Please refresh the page.',
+        meta: { timestamp, source: 'polvo-auth', success: false },
+      }
     }
-  }
-
-  let units = CONFIG.units.default
-  try {
-    const optionsCookie = cookieStore.get(
-      CONFIG.api.tokens.sargoOptions.key
-    )?.value
-    if (optionsCookie) {
-      const parsed = JSON.parse(optionsCookie)
-      units = parsed.settings?.units || CONFIG.units.default
-    }
-  } catch (error) {
-    console.error(
-      'Failed to parse Sargo options cookie for user settings:',
-      error
-    )
-  }
-
-  const queryParams = {
-    ...params,
-    windUnits: params.windUnits || units.wind_speed,
-    surfUnits: params.surfUnits || units.surf_height,
-    swellUnits: params.swellUnits || units.swell_height,
-    tideUnits: params.tideUnits || units.tide_height,
-    tempUnits: params.tempUnits || units.temperature,
+    token = result.token // TypeScript narrows result.token to string here
+  } else {
+    token = initialToken // initialToken is string due to !undefined check
   }
 
   try {
     const forecast = await polvoClient.getForecast(
       params.lat,
       params.lon,
-      queryParams,
-      token
+      params,
+      token // token is guaranteed to be string
     )
     return {
       data: forecast,
@@ -60,6 +43,21 @@ export async function getForecast(
       meta: { timestamp, source: 'polvo', success: true },
     }
   } catch (error) {
+    if (
+      error instanceof AppError &&
+      error.code === ErrorCode.AUTH_UNAUTHORIZED
+    ) {
+      const result = await refreshPolvoTokenAction()
+      if (result.success && result.token) {
+        return getForecast(params) // Retry with new token
+      }
+      return {
+        data: null,
+        error: result.error || 'Authentication failed after retry.',
+        meta: { timestamp, source: 'polvo-auth-retry', success: false },
+      }
+    }
+
     console.error('Forecast error:', error)
     return {
       data: null,

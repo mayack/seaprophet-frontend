@@ -6,6 +6,7 @@ import 'mapbox-gl/dist/mapbox-gl.css'
 if (process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN) {
   mapboxgl.accessToken = process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN
 } else {
+  // eslint-disable-next-line no-console
   console.error('Mapbox access token is missing')
 }
 
@@ -28,7 +29,7 @@ export function Map({
   width = '100%',
   height = '400px',
   pinSize = { width: '42px', height: '42px' },
-}: MapProps) {
+}: MapProps): React.JSX.Element {
   const mapcontainer = useRef<HTMLDivElement>(null)
   const mapInstance = useRef<mapboxgl.Map | null>(null)
   const markerRef = useRef<mapboxgl.Marker | null>(null)
@@ -36,8 +37,10 @@ export function Map({
 
   useEffect(() => {
     if (mapInstance.current || !mapcontainer.current) return
+
     const [lng, lat] = center
     if (!isValidCoordinate(lng, lat)) {
+      // eslint-disable-next-line no-console
       console.error('Invalid coordinates:', center)
       return
     }
@@ -70,7 +73,7 @@ export function Map({
       .setLngLat(center)
       .addTo(mapInstance.current)
 
-    return () => {
+    return (): void => {
       if (markerRef.current) {
         markerRef.current.remove()
       }
@@ -81,6 +84,7 @@ export function Map({
 
   useEffect(() => {
     if (!mapLoaded || !mapInstance.current) return
+
     const [lng, lat] = center
     if (isValidCoordinate(lng, lat)) {
       mapInstance.current.setCenter(center)
@@ -89,6 +93,7 @@ export function Map({
         markerRef.current.setLngLat(center)
       }
     } else {
+      // eslint-disable-next-line no-console
       console.error('Invalid coordinates:', center)
     }
   }, [center, zoom, mapLoaded])

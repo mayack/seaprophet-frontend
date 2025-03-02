@@ -5,7 +5,7 @@ import { redirect } from 'next/navigation'
 import { revalidatePath } from 'next/cache'
 import { sargoClient } from '../client'
 import { CONFIG } from '@/constants/config'
-import type { User } from '../interfaces/user'
+import type { User, UserAuthResponse } from '../interfaces/user'
 
 export async function signIn(
   formData: FormData
@@ -20,35 +20,26 @@ export async function signIn(
     typeof password !== 'string'
   ) {
     console.error('Invalid form data:', { identifier, password })
-    return { success: false, error: 'Invalid credentials.' }
+    return { success: false, error: 'Invalid credentials' }
   }
 
   const cookieStore = await cookies()
 
   try {
-    const sargoResponse = await sargoClient
-      .login(identifier, password)
-      .catch((error) => {
-        // Catch and handle login errors here
-        console.error('Sargo login error:', error)
-        throw error // Re-throw to handle in outer catch
-      })
-
+    const sargoResponse: UserAuthResponse = await sargoClient.login(
+      identifier,
+      password
+    )
     if (!sargoResponse?.jwt || !sargoResponse.user?.username) {
       console.error('Invalid login response:', sargoResponse)
-      return { success: false, error: 'Invalid credentials.' }
+      return { success: false, error: 'Invalid credentials' }
     }
 
     cookieStore.set({
       name: CONFIG.api.tokens.sargo.key,
       value: sargoResponse.jwt,
-      path: CONFIG.api.tokens.sargo.options.path,
-      secure: CONFIG.api.tokens.sargo.options.secure,
-      httpOnly: CONFIG.api.tokens.sargo.options.httpOnly,
-      sameSite: CONFIG.api.tokens.sargo.options.sameSite,
-      maxAge: CONFIG.api.tokens.sargo.options.maxAge,
+      ...CONFIG.api.tokens.sargoOptions.options,
     })
-
     cookieStore.set({
       name: CONFIG.api.tokens.sargoOptions.key,
       value: JSON.stringify({
@@ -56,21 +47,19 @@ export async function signIn(
         email: sargoResponse.user.email,
         settings: sargoResponse.user.settings || CONFIG.units.default,
       }),
-      path: CONFIG.api.tokens.sargoOptions.options.path,
-      secure: CONFIG.api.tokens.sargoOptions.options.secure,
-      httpOnly: CONFIG.api.tokens.sargoOptions.options.httpOnly,
-      sameSite: CONFIG.api.tokens.sargoOptions.options.sameSite,
-      maxAge: CONFIG.api.tokens.sargoOptions.options.maxAge,
+      ...CONFIG.api.tokens.sargoOptions.options,
     })
 
     return { success: true }
   } catch (error) {
     console.error('SignIn Error:', error)
-    const message =
-      error instanceof Error
-        ? error.message
-        : 'Authentication failed—please try again.'
-    return { success: false, error: message }
+    return {
+      success: false,
+      error:
+        error instanceof Error
+          ? error.message
+          : 'Authentication failed. Please try again.',
+    }
   }
 }
 
@@ -115,29 +104,22 @@ export async function signOut() {
   }
 }
 
-export async function getCurrentUser(): Promise<User> {
+export async function getCurrentUser(): Promise<User | null> {
   const cookieStore = await cookies()
   const jwt = cookieStore.get(CONFIG.api.tokens.sargo.key)?.value
+
+  if (!jwt) {
+    console.log('No JWT found')
+    return null
+  }
+
   const optionsCookie = cookieStore.get(
     CONFIG.api.tokens.sargoOptions.key
   )?.value
-
-  // Default user object if no data is available
-  const defaultUser: User = {
-    username: '',
-    email: '',
-    settings: { units: CONFIG.units.default },
-  }
-
-  if (!jwt) {
-    console.log('No JWT found, returning default user')
-    return defaultUser
-  }
-
   if (optionsCookie) {
     try {
       const userOptions = JSON.parse(optionsCookie) as User
-      console.log('User options extracted from cookie:', userOptions)
+      console.log('User options from cookie:', userOptions)
       return {
         username: userOptions.username || '',
         email: userOptions.email || '',
@@ -148,21 +130,42 @@ export async function getCurrentUser(): Promise<User> {
     }
   }
 
-  // Fetch fresh user data if no valid cookie
   try {
     const freshUser = await sargoClient.getCurrentUser()
-    if (freshUser) {
-      console.log('Fresh user data fetched:', freshUser)
-      return {
-        username: freshUser.username || '',
-        email: freshUser.email || '',
-        settings: freshUser.settings || { units: CONFIG.units.default },
-      }
+    if (!freshUser) {
+      console.log('No fresh user data')
+      return null
     }
-    console.log('Fresh user data was null, returning default')
-    return defaultUser
+    console.log('Fresh user data:', freshUser)
+    return {
+      username: freshUser.username || '',
+      email: freshUser.email || '',
+      settings: freshUser.settings || { units: CONFIG.units.default },
+    }
   } catch (error) {
     console.error('Failed to fetch fresh user data:', error)
-    return defaultUser
+    return null
+  }
+}
+
+export async function fetchSargoOptionsAction(sargoToken: string) {
+  const cookieStore = await cookies()
+  try {
+    const user = await sargoClient.getCurrentUser()
+    if (!user) throw new Error('No user data returned')
+    const options = {
+      username: user.username,
+      email: user.email,
+      settings: user.settings,
+    }
+    cookieStore.set({
+      name: CONFIG.api.tokens.sargoOptions.key,
+      value: JSON.stringify(options),
+      ...CONFIG.api.tokens.sargoOptions.options,
+    })
+    return { success: true, options }
+  } catch (error) {
+    console.error('Sargo options fetch failed:', error)
+    return { success: false, error: 'Failed to fetch Sargo options' }
   }
 }

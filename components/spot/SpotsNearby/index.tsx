@@ -1,3 +1,4 @@
+/* eslint-disable tailwindcss/no-custom-classname */
 'use client'
 
 import { NearbySpot } from '@/api/sargo/interfaces/spot'
@@ -9,6 +10,7 @@ import { formatDistance } from '@/utils/location'
 import useEmblaCarousel from 'embla-carousel-react'
 import { Button } from '@/components/ui/button'
 import { useState, useEffect, useCallback } from 'react'
+import React from 'react'
 
 interface ErrorState {
   icon: LucideIcon
@@ -30,7 +32,7 @@ export function SpotsNearby({
   title,
   loading = false,
   error,
-}: SpotsNearbyProps) {
+}: SpotsNearbyProps): React.JSX.Element {
   const [visibleSlides, setVisibleSlides] = useState(1)
 
   const [emblaRef, emblaApi] = useEmblaCarousel({
@@ -48,7 +50,7 @@ export function SpotsNearby({
   const [canNext, setCanNext] = useState(false)
   const [selectedIndex, setSelectedIndex] = useState(0)
 
-  const updateVisibleSlides = useCallback(() => {
+  const updateVisibleSlides = useCallback((): void => {
     const width = window.innerWidth
     if (width >= 1024)
       setVisibleSlides(4) // lg: 4 slides
@@ -58,7 +60,7 @@ export function SpotsNearby({
     else setVisibleSlides(2) // base: 1 slide
   }, [])
 
-  const updateState = useCallback(() => {
+  const updateState = useCallback((): void => {
     if (!emblaApi) return
     const newIndex = emblaApi.selectedScrollSnap()
     const newCanPrev = emblaApi.canScrollPrev()
@@ -78,30 +80,30 @@ export function SpotsNearby({
     emblaApi.on('reInit', updateState)
     updateState()
 
-    return () => {
+    return (): void => {
       window.removeEventListener('resize', updateVisibleSlides)
       emblaApi.off('scroll', updateState)
       emblaApi.off('reInit', updateState)
     }
   }, [emblaApi, updateState, updateVisibleSlides])
 
-  const scrollPrev = () => {
+  const scrollPrev = useCallback((): void => {
     if (emblaApi && emblaApi.canScrollPrev()) {
       const prevIndex = Math.max(0, selectedIndex - 1)
       emblaApi.scrollTo(prevIndex)
       updateState()
     }
-  }
+  }, [emblaApi, selectedIndex, updateState])
 
-  const scrollNext = () => {
+  const scrollNext = useCallback((): void => {
     if (emblaApi && canNext) {
       const nextIndex = Math.min(spots.length - 1, selectedIndex + 1)
       emblaApi.scrollTo(nextIndex)
       updateState()
     }
-  }
+  }, [emblaApi, canNext, selectedIndex, spots.length, updateState])
 
-  const renderContent = () => {
+  const renderContent = useCallback((): React.JSX.Element => {
     if (loading) {
       return <SpotsNearbySkeleton />
     }
@@ -119,7 +121,7 @@ export function SpotsNearby({
                 disabled={!canPrev}
                 aria-label="Previous slide"
               >
-                <ChevronLeft className="h-4 w-4" />
+                <ChevronLeft className="size-4" />
               </Button>
               <Button
                 variant="outline"
@@ -128,7 +130,7 @@ export function SpotsNearby({
                 disabled={!canNext}
                 aria-label="Next slide"
               >
-                <ChevronRight className="h-4 w-4" />
+                <ChevronRight className="size-4" />
               </Button>
             </div>
           )}
@@ -148,7 +150,7 @@ export function SpotsNearby({
         ) : (
           <div className="w-screen">
             <div
-              className="embla relative mx-auto w-full max-w-[1536px] overflow-hidden px-4 pb-1 xl:px-6 2xl:px-8"
+              className="embla relative mx-auto w-full max-w-screen-2xl overflow-hidden px-4 pb-1 xl:px-6 2xl:px-8"
               ref={emblaRef}
             >
               <div className="embla__container flex gap-3">
@@ -174,7 +176,18 @@ export function SpotsNearby({
         )}
       </>
     )
-  }
+  }, [
+    loading,
+    title,
+    spots,
+    error,
+    maxDistance,
+    canPrev,
+    canNext,
+    scrollPrev,
+    scrollNext,
+    emblaRef,
+  ])
 
   return <div>{renderContent()}</div>
 }

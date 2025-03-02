@@ -1,23 +1,24 @@
 import { cn } from '@/lib/utils'
 import { Loader2 } from 'lucide-react'
+import React from 'react'
 
 interface SpinnerProps extends React.HTMLAttributes<HTMLDivElement> {
-  size?: 'sm' | 'default' | 'lg'
+  size?: 'sm' | 'md' | 'lg'
 }
 
 const sizeClasses = {
-  sm: 'h-4 w-4',
-  default: 'h-6 w-6',
-  lg: 'h-8 w-8',
+  sm: 'size-4',
+  md: 'size-6',
+  lg: 'size-8',
 }
 
 export function Spinner({
   className,
-  size = 'default',
+  size = 'md',
   ...props
-}: SpinnerProps) {
+}: SpinnerProps): React.JSX.Element {
   return (
-    <div className={cn('animate-spin', className)} {...props}>
+    <div className={cn('animate-spin text-foreground', className)} {...props}>
       <Loader2 className={sizeClasses[size]} />
     </div>
   )

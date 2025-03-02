@@ -1,6 +1,7 @@
 import { WebcamConfig } from '@/api/sargo/interfaces/webcam'
 import { Webcam } from 'lucide-react'
 import Link from 'next/link'
+import React from 'react'
 
 interface SpotCardProps {
   id: number
@@ -9,7 +10,12 @@ interface SpotCardProps {
   webcam?: WebcamConfig | null
 }
 
-export function SpotCard({ id, name, subtitle, webcam }: SpotCardProps) {
+export function SpotCard({
+  id,
+  name,
+  subtitle,
+  webcam,
+}: SpotCardProps): React.JSX.Element {
   return (
     <Link
       href={`/spot/${id}`}
@@ -18,7 +24,7 @@ export function SpotCard({ id, name, subtitle, webcam }: SpotCardProps) {
       }`}
     >
       <div className="flex items-center">
-        <div className="text-md flex-grow font-semibold">{name}</div>
+        <div className="grow text-base font-semibold">{name}</div>
         {webcam && <Webcam size={16} className="text-muted-foreground" />}
       </div>
       {subtitle && (

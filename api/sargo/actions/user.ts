@@ -17,18 +17,18 @@ export async function updateUsername(formData: FormData) {
     )
   }
 
+  const cookieStore = await cookies()
+  const jwt = cookieStore.get(CONFIG.api.tokens.sargo.key)?.value
+  if (!jwt) {
+    throw new AppError(
+      'Authentication token not found',
+      ErrorCode.AUTH_UNAUTHORIZED,
+      HTTP_STATUS.UNAUTHORIZED
+    )
+  }
+
   try {
     await sargoClient.updateUserProfile({ username })
-
-    const cookieStore = await cookies()
-    const jwt = cookieStore.get(CONFIG.api.tokens.sargo.key)?.value
-    if (!jwt) {
-      throw new AppError(
-        'Authentication token not found',
-        ErrorCode.AUTH_INVALID_CREDENTIALS,
-        HTTP_STATUS.UNAUTHORIZED
-      )
-    }
 
     const optionsCookie = cookieStore.get(
       CONFIG.api.tokens.sargoOptions.key
@@ -100,6 +100,19 @@ export async function updatePassword(formData: FormData) {
   }
 }
 
+// Type guard functions for validation
+function isWindSpeedUnit(value: unknown): value is UserUnits['wind_speed'] {
+  return ['knots', 'mph', 'kph', 'mps'].includes(value as string)
+}
+
+function isHeightUnit(value: unknown): value is UserUnits['surf_height'] {
+  return ['feet', 'meters'].includes(value as string)
+}
+
+function isTemperatureUnit(value: unknown): value is UserUnits['temperature'] {
+  return ['celsius', 'fahrenheit'].includes(value as string)
+}
+
 export async function updateUnits(formData: FormData) {
   const cookieStore = await cookies()
   const jwt = cookieStore.get(CONFIG.api.tokens.sargo.key)?.value
@@ -111,13 +124,56 @@ export async function updateUnits(formData: FormData) {
     )
   }
 
-  const units = {
-    wind_speed: formData.get('units.wind_speed') as string,
-    surf_height: formData.get('units.surf_height') as string,
-    swell_height: formData.get('units.swell_height') as string,
-    tide_height: formData.get('units.tide_height') as string,
-    temperature: formData.get('units.temperature') as string,
-  } as UserUnits
+  const windSpeed = formData.get('units.wind_speed')
+  const surfHeight = formData.get('units.surf_height')
+  const swellHeight = formData.get('units.swell_height')
+  const tideHeight = formData.get('units.tide_height')
+  const temperature = formData.get('units.temperature')
+
+  // Validate each field
+  if (!windSpeed || !isWindSpeedUnit(windSpeed)) {
+    throw new AppError(
+      `Invalid wind speed unit: ${windSpeed || 'missing'}`,
+      ErrorCode.INVALID_PARAMETERS,
+      HTTP_STATUS.BAD_REQUEST
+    )
+  }
+  if (!surfHeight || !isHeightUnit(surfHeight)) {
+    throw new AppError(
+      `Invalid surf height unit: ${surfHeight || 'missing'}`,
+      ErrorCode.INVALID_PARAMETERS,
+      HTTP_STATUS.BAD_REQUEST
+    )
+  }
+  if (!swellHeight || !isHeightUnit(swellHeight)) {
+    throw new AppError(
+      `Invalid swell height unit: ${swellHeight || 'missing'}`,
+      ErrorCode.INVALID_PARAMETERS,
+      HTTP_STATUS.BAD_REQUEST
+    )
+  }
+  if (!tideHeight || !isHeightUnit(tideHeight)) {
+    throw new AppError(
+      `Invalid tide height unit: ${tideHeight || 'missing'}`,
+      ErrorCode.INVALID_PARAMETERS,
+      HTTP_STATUS.BAD_REQUEST
+    )
+  }
+  if (!temperature || !isTemperatureUnit(temperature)) {
+    throw new AppError(
+      `Invalid temperature unit: ${temperature || 'missing'}`,
+      ErrorCode.INVALID_PARAMETERS,
+      HTTP_STATUS.BAD_REQUEST
+    )
+  }
+
+  const units: UserUnits = {
+    wind_speed: windSpeed,
+    surf_height: surfHeight,
+    swell_height: swellHeight,
+    tide_height: tideHeight,
+    temperature: temperature,
+  }
 
   try {
     await sargoClient.updateUserProfile({ settings: { units } })

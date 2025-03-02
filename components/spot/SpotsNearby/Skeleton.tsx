@@ -1,6 +1,7 @@
 import { Skeleton } from '@/components/ui/skeleton'
+import React from 'react'
 
-export function SpotsNearbySkeleton() {
+export function SpotsNearbySkeleton(): React.JSX.Element {
   return (
     <div className="wrapper flex flex-col gap-3">
       <div className="flex items-center">
@@ -8,8 +9,8 @@ export function SpotsNearbySkeleton() {
           <Skeleton className="h-7 w-52 rounded-md" />
         </div>
         <div className="flex gap-2">
-          <Skeleton className="h-8 w-8 rounded-md" />
-          <Skeleton className="h-8 w-8 rounded-md" />
+          <Skeleton className="size-8 rounded-md" />
+          <Skeleton className="size-8 rounded-md" />
         </div>
       </div>
       <div className="grid grid-cols-4 gap-3 pb-1">

@@ -7,6 +7,7 @@ import {
   WindItemProps,
 } from '@/types/forecast'
 import { cn } from '@/lib/utils'
+import React from 'react'
 
 export function WaveItem({
   height,
@@ -14,7 +15,7 @@ export function WaveItem({
   direction,
   unit,
   className,
-}: WaveItemProps) {
+}: WaveItemProps): React.JSX.Element {
   return (
     <div
       className={cn(
@@ -41,7 +42,7 @@ export function SwellItem({
   direction,
   unit,
   className,
-}: WaveItemProps) {
+}: WaveItemProps): React.JSX.Element {
   if (height === 0) return <div className={className} />
 
   return (
@@ -60,7 +61,7 @@ export function WindItem({
   unit,
   className,
   windRating,
-}: WindItemProps) {
+}: WindItemProps): React.JSX.Element {
   const ratingBackgrounds = {
     0: 'bg-red-100 text-red-900',
     1: 'bg-orange-100 text-orange-900',
@@ -95,7 +96,7 @@ export function TemperatureItem({
   weatherType,
   unit,
   className,
-}: TemperatureItemProps & { className?: string }) {
+}: TemperatureItemProps & { className?: string }): React.JSX.Element {
   return (
     <div className={cn(className, 'flex min-w-16 items-center gap-2 text-sm')}>
       <WeatherIcon weatherType={weatherType} />

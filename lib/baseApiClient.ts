@@ -49,7 +49,10 @@ export abstract class BaseApiClient {
     }
   }
 
-  protected buildUrl(endpoint: string, params?: Record<string, any>): string {
+  protected buildUrl(
+    endpoint: string,
+    params?: Record<string, string | number | boolean>
+  ): string {
     const url = new URL(`${this.config.baseURL}${endpoint}`)
 
     if (params) {

@@ -1,6 +1,7 @@
 import { Skeleton } from '@/components/ui/skeleton'
+import React from 'react'
 
-export function SpotDetailsSkeleton() {
+export function SpotDetailsSkeleton(): React.JSX.Element {
   return (
     <div>
       <div className="wrapper">

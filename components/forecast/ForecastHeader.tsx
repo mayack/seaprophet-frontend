@@ -1,4 +1,6 @@
-export function ForecastHeader() {
+import React from 'react'
+
+export function ForecastHeader(): React.JSX.Element {
   return (
     <div className="sticky top-0 z-20 flex items-center justify-between bg-background py-2 text-2xs font-semibold xl:text-xs">
       <div className="w-9">Time</div>
