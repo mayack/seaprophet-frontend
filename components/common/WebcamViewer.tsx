@@ -333,7 +333,7 @@ export function WebcamViewer({ config }: WebcamViewerProps): React.JSX.Element {
       )}
 
       {isAfk && (
-        <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 bg-foreground text-white">
+        <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 bg-foreground text-white dark:bg-muted dark:text-foreground">
           <div className="font-medium">Are you still there?</div>
           <Button
             onClick={handleKeepWatching}
