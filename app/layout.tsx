@@ -1,7 +1,6 @@
 import type { Metadata } from 'next'
 import { Inter } from 'next/font/google'
 import './globals.css'
-import React from 'react'
 
 const inter = Inter({
   variable: '--font-inter',
@@ -11,16 +10,29 @@ const inter = Inter({
 
 export const metadata: Metadata = {
   title: 'Sea Prophet',
-  // description: 'Surf forecast',
 }
 
 export default function RootLayout({
   children,
-}: Readonly<{
+}: {
   children: React.ReactNode
-}>): React.JSX.Element {
+}): React.JSX.Element {
   return (
-    <html lang="en">
+    <html lang="en" style={{ visibility: 'hidden' }}>
+      <head>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              (function() {
+                document.documentElement.setAttribute('data-theme',
+                  window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
+                );
+                document.documentElement.style.visibility = '';
+              })();
+            `,
+          }}
+        />
+      </head>
       <body className={`${inter.variable} antialiased`}>{children}</body>
     </html>
   )

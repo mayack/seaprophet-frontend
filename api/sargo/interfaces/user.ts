@@ -12,6 +12,7 @@ export interface User {
 
 export interface UserSettings {
   units: UserUnits
+  theme: 'light' | 'dark' | 'system'
 }
 
 export interface UserUnits {

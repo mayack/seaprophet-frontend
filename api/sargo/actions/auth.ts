@@ -7,9 +7,7 @@ import { sargoClient } from '../client'
 import { CONFIG } from '@/constants/config'
 import type { User, UserAuthResponse } from '../interfaces/user'
 
-export async function signIn(
-  formData: FormData
-): Promise<{ success: boolean; error?: string }> {
+export async function signIn(formData: FormData) {
   const identifier = formData.get('identifier')
   const password = formData.get('password')
 
@@ -45,7 +43,7 @@ export async function signIn(
       value: JSON.stringify({
         username: sargoResponse.user.username,
         email: sargoResponse.user.email,
-        settings: sargoResponse.user.settings || CONFIG.units.default,
+        settings: sargoResponse.user.settings || CONFIG.settings.default,
       }),
       ...CONFIG.api.tokens.sargoOptions.options,
     })
@@ -55,10 +53,7 @@ export async function signIn(
     console.error('SignIn Error:', error)
     return {
       success: false,
-      error:
-        error instanceof Error
-          ? error.message
-          : 'Authentication failed. Please try again.',
+      error: error instanceof Error ? error.message : 'Authentication failed',
     }
   }
 }
@@ -67,7 +62,6 @@ export async function signOut() {
   const cookieStore = await cookies()
 
   try {
-    // Delete all relevant cookies
     const cookiesToDelete = [
       CONFIG.api.tokens.polvo.key,
       CONFIG.api.tokens.sargo.key,
@@ -85,20 +79,11 @@ export async function signOut() {
       cookieStore.delete(cookieName)
     }
 
-    // Log remaining cookies for debugging (optional)
-    const remainingCookies = cookiesToDelete.map((name) => ({
-      name,
-      exists: !!cookieStore.get(name),
-    }))
-    console.log('SignOut - Cookies status:', remainingCookies)
-
     revalidatePath('/')
     redirect('/auth/signin')
   } catch (error) {
-    if (error instanceof Error && error.message.includes('NEXT_REDIRECT')) {
-      throw error // Let Next.js handle the redirect
-    }
-
+    if (error instanceof Error && error.message.includes('NEXT_REDIRECT'))
+      throw error
     console.error('SignOut Error:', error)
     redirect('/auth/signin')
   }
@@ -108,10 +93,7 @@ export async function getCurrentUser(): Promise<User | null> {
   const cookieStore = await cookies()
   const jwt = cookieStore.get(CONFIG.api.tokens.sargo.key)?.value
 
-  if (!jwt) {
-    console.log('No JWT found')
-    return null
-  }
+  if (!jwt) return null
 
   const optionsCookie = cookieStore.get(
     CONFIG.api.tokens.sargoOptions.key
@@ -119,11 +101,10 @@ export async function getCurrentUser(): Promise<User | null> {
   if (optionsCookie) {
     try {
       const userOptions = JSON.parse(optionsCookie) as User
-      console.log('User options from cookie:', userOptions)
       return {
         username: userOptions.username || '',
         email: userOptions.email || '',
-        settings: userOptions.settings || { units: CONFIG.units.default },
+        settings: userOptions.settings || CONFIG.settings.default,
       }
     } catch (error) {
       console.error('Failed to parse sargoOptions cookie:', error)
@@ -132,15 +113,11 @@ export async function getCurrentUser(): Promise<User | null> {
 
   try {
     const freshUser = await sargoClient.getCurrentUser()
-    if (!freshUser) {
-      console.log('No fresh user data')
-      return null
-    }
-    console.log('Fresh user data:', freshUser)
+    if (!freshUser) return null
     return {
       username: freshUser.username || '',
       email: freshUser.email || '',
-      settings: freshUser.settings || { units: CONFIG.units.default },
+      settings: freshUser.settings || CONFIG.settings.default,
     }
   } catch (error) {
     console.error('Failed to fetch fresh user data:', error)
@@ -148,7 +125,7 @@ export async function getCurrentUser(): Promise<User | null> {
   }
 }
 
-export async function fetchSargoOptionsAction(sargoToken: string) {
+export async function fetchSargoOptionsAction() {
   const cookieStore = await cookies()
   try {
     const user = await sargoClient.getCurrentUser()
@@ -156,7 +133,7 @@ export async function fetchSargoOptionsAction(sargoToken: string) {
     const options = {
       username: user.username,
       email: user.email,
-      settings: user.settings,
+      settings: user.settings || CONFIG.settings.default,
     }
     cookieStore.set({
       name: CONFIG.api.tokens.sargoOptions.key,

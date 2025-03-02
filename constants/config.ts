@@ -1,5 +1,5 @@
 export const CONFIG = {
-  version: '0.1.10',
+  version: '0.1.11',
   api: {
     urls: {
       sargo: process.env.NEXT_PUBLIC_SARGO_API_URL,
@@ -39,7 +39,7 @@ export const CONFIG = {
           secure: process.env.NODE_ENV === 'production',
           sameSite: 'lax' as const,
           path: '/',
-          maxAge: 7 * 24 * 60 * 60, // 7 days in seconds (matching backend JWT expiration)
+          maxAge: 7 * 24 * 60 * 60,
         },
       },
       sargoOptions: {
@@ -49,7 +49,7 @@ export const CONFIG = {
           secure: process.env.NODE_ENV === 'production',
           sameSite: 'lax' as const,
           path: '/',
-          maxAge: 5 * 60, // 5 minutes
+          maxAge: 5 * 60,
         },
       },
       polvo: {
@@ -59,7 +59,7 @@ export const CONFIG = {
           secure: process.env.NODE_ENV === 'production',
           sameSite: 'lax' as const,
           path: '/',
-          maxAge: 15 * 60, // 15 minutes
+          maxAge: 15 * 60,
         },
       },
     },
@@ -69,19 +69,22 @@ export const CONFIG = {
   },
   geolocation: {
     token: 'USER_LOCATION',
-    maxAge: 1000 * 60 * 30, // 30 minutes
+    maxAge: 1000 * 60 * 30,
   },
-  units: {
+  settings: {
     default: {
-      wind_speed: 'knots',
-      surf_height: 'feet',
-      swell_height: 'feet',
-      tide_height: 'feet',
-      temperature: 'celsius',
+      units: {
+        wind_speed: 'knots',
+        surf_height: 'feet',
+        swell_height: 'feet',
+        tide_height: 'feet',
+        temperature: 'celsius',
+      },
+      theme: 'system',
     } as const,
   },
   webcam: {
-    afk_timer: 120 * 1000, // 2 minutes
+    afk_timer: 120 * 1000,
   },
 } as const
 

@@ -320,7 +320,7 @@ export function WebcamViewer({ config }: WebcamViewerProps): React.JSX.Element {
       )}
 
       {hasError && !isAfk && (
-        <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 text-background">
+        <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 text-background dark:text-foreground">
           <div>{hasError || 'Failed to load webcam stream'}</div>
           <Button
             onClick={initStream}
@@ -333,7 +333,7 @@ export function WebcamViewer({ config }: WebcamViewerProps): React.JSX.Element {
       )}
 
       {isAfk && (
-        <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 bg-black/50 text-white">
+        <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 bg-foreground text-white">
           <div className="font-medium">Are you still there?</div>
           <Button
             onClick={handleKeepWatching}

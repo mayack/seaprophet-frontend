@@ -14,6 +14,7 @@ import {
 import { Settings, LogOut, ChevronDown } from 'lucide-react'
 import { User } from '@/api/sargo/interfaces/user'
 import React from 'react'
+import ThemeSwitcher from './ThemeSwitcher'
 
 interface UserMenuProps {
   user: User
@@ -63,6 +64,8 @@ export function UserMenu({ user }: UserMenuProps): React.JSX.Element | null {
           </Avatar>
           <div className="text-sm font-semibold">{user.username}</div>
         </div>
+        <DropdownMenuSeparator />
+        <ThemeSwitcher />
         <DropdownMenuSeparator />
         <DropdownMenuItem asChild>
           <Link href="/settings" className="flex w-full items-center gap-2">

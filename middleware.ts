@@ -19,13 +19,11 @@ export async function middleware(request: NextRequest) {
     CONFIG.api.tokens.sargoOptions.key
   )?.value
 
-  // Sargo Token Check
   if (!sargoToken || !(await isTokenValid(sargoToken))) {
     console.log('Sargo token invalid or missing, redirecting...')
     return clearTokensAndRedirect(request)
   }
 
-  // Sargo Options Refresh
   let response = NextResponse.next()
   if (!sargoOptions) {
     console.log('No sargoOptions, fetching...')
@@ -40,7 +38,6 @@ export async function middleware(request: NextRequest) {
     }
   }
 
-  // Polvo Token Check
   if (!polvoToken || !(await isTokenValid(polvoToken))) {
     console.log('Polvo token invalid or missing, refreshing...')
     const newPolvoToken = await refreshPolvoToken()

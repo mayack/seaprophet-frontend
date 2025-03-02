@@ -294,6 +294,7 @@ export default function TideChart({
                   textAnchor={textPos.anchor}
                   fontSize="10"
                   fontWeight="500"
+                  fill="hsl(var(--foreground))"
                 >
                   {tide.time}
                 </text>
@@ -302,6 +303,7 @@ export default function TideChart({
                   y={y - 10}
                   textAnchor={textPos.anchor}
                   fontSize="10"
+                  fill="hsl(var(--foreground))"
                 >
                   {formatValueWithUnit(tide.height, unit)}
                 </text>

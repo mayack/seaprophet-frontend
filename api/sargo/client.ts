@@ -1,7 +1,12 @@
 import { BaseApiClient } from '@/lib/baseApiClient'
 import { CONFIG } from '@/constants/config'
 import { cookies } from 'next/headers'
-import { User, UserAuthResponse, UserUnits } from './interfaces/user'
+import {
+  User,
+  UserAuthResponse,
+  UserSettings,
+  UserUnits,
+} from './interfaces/user'
 import { Spot, SpotResponse } from './interfaces/spot'
 
 export class SargoClient extends BaseApiClient {
@@ -82,7 +87,7 @@ export class SargoClient extends BaseApiClient {
 
   async updateUserProfile(data: {
     username?: string
-    settings?: { units: UserUnits }
+    settings?: UserSettings
   }): Promise<User> {
     const headers = await this.getHeaders(
       CONFIG.api.endpoints.sargo.user.update
