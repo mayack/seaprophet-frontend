@@ -38,7 +38,7 @@ export async function signIn(
     cookieStore.set({
       name: CONFIG.api.tokens.sargo.key,
       value: sargoResponse.jwt,
-      ...CONFIG.api.tokens.sargoOptions.options,
+      ...CONFIG.api.tokens.sargo.options,
     })
     cookieStore.set({
       name: CONFIG.api.tokens.sargoOptions.key,
