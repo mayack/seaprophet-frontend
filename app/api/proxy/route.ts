@@ -14,25 +14,41 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
 
   try {
     const providerConfig = webcamProviders[provider] || webcamProviders.generic
-    const decodedUrl = decodeURIComponent(url) // Ensure proper decoding
+    const decodedUrl = decodeURIComponent(url)
 
-    const response = await fetch(decodedUrl, {
+    // Define headers explicitly as Record<string, string>
+    const headers: Record<string, string> = {
+      ...(providerConfig.headers || {}),
+      Accept: '*/*',
+    }
+
+    const fetchOptions: RequestInit = {
       method: 'GET',
-      headers: {
-        ...(providerConfig.headers || {}),
-        // Add headers to match VLC if needed
-        Accept: '*/*',
-      },
-    })
+      headers,
+    }
+
+    // Surfline-specific tweaks for persistence
+    let finalUrl = decodedUrl
+    if (provider === 'surfline') {
+      headers['Connection'] = 'keep-alive'
+      headers['Range'] = 'bytes=0-'
+      headers['Accept-Encoding'] = 'identity'
+      fetchOptions.keepalive = true
+      // Add timestamp to .m3u8 URLs for freshness
+      if (finalUrl.includes('.m3u8')) {
+        finalUrl = finalUrl.includes('?')
+          ? `${finalUrl}&_t=${Date.now()}`
+          : `${finalUrl}?_t=${Date.now()}`
+      }
+    }
+
+    const response = await fetch(finalUrl, fetchOptions)
 
     if (!response.ok) {
       const text = await response.text()
-      // eslint-disable-next-line no-console
-      console.log('Upstream response not OK:', response.status, text)
       throw new Error(`HTTP error! status: ${response.status}, body: ${text}`)
     }
 
-    // Log the content type and a sample of the body for debugging
     const contentType =
       response.headers.get('content-type') || 'application/vnd.apple.mpegurl'
     const bodySample = await response
@@ -40,22 +56,21 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       .text()
       .then((t) => t.slice(0, 100))
 
-    // eslint-disable-next-line no-console
-    console.log('Proxying:', { url: decodedUrl, contentType, bodySample })
+    // Surfline-specific cache control
+    const cacheControl =
+      provider === 'surfline'
+        ? 'no-store, no-cache, must-revalidate, max-age=0'
+        : 'no-store, no-cache, must-revalidate'
 
-    // Stream the response correctly
     return new NextResponse(response.body, {
       status: response.status,
       headers: {
         'Content-Type': contentType,
         'Access-Control-Allow-Origin': '*',
-        'Cache-Control': 'no-store, no-cache, must-revalidate',
+        'Cache-Control': cacheControl,
       },
     })
   } catch (error) {
-    // eslint-disable-next-line no-console
-    console.log('Proxy error:', error)
-
     return NextResponse.json(
       {
         error: 'Failed to fetch stream',

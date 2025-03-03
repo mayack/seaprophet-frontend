@@ -27,28 +27,23 @@ export const webcamProviders: Record<string, WebcamProviderConfig> = {
       'User-Agent': 'VLC/3.0.18 LibVLC/3.0.18',
       Accept: '*/*',
       'Accept-Language': 'en-US,en;q=0.9',
-      'Accept-Encoding': 'gzip, deflate, br, zstd',
+      'Accept-Encoding': 'gzip, deflate, br',
       Origin: 'https://www.surfline.com',
       Referer: 'https://www.surfline.com/',
+      Connection: 'keep-alive',
+      Range: 'bytes=0-',
     },
     transformUrl: (baseUrl: string) => (url: string) => {
-      // Extract spot name from baseUrl (e.g., 'ma-panoramabeach' or 'ma-anchorpointov')
       const spotMatch = baseUrl.match(/cdn-int\/([\w-]+)/)
       const spotName = spotMatch?.[1]
-
-      // Handle .ts segments
       if (url.includes('.ts')) {
-        const filename = url.split('/').pop()
+        const filename = url.split('/').pop() || ''
         return `https://cams.cdn-surfline.com/cdn-int/${spotName}/${filename}`
       }
-
-      // For m3u8 files, return as is if it's already the correct format
-      if (url.includes('cdn-int') && url.includes('chunklist.m3u8')) {
-        return url
+      if (url.includes('.m3u8')) {
+        return `https://cams.cdn-surfline.com/cdn-int/${spotName}/chunklist.m3u8`
       }
-
-      // Default case: construct the proper URL format
-      return `https://cams.cdn-surfline.com/cdn-int/${spotName}/chunklist.m3u8`
+      return url
     },
     requiresProxy: true,
   },
@@ -56,10 +51,10 @@ export const webcamProviders: Record<string, WebcamProviderConfig> = {
     headers: {
       'User-Agent': 'VLC/3.0.18 LibVLC/3.0.18',
       Accept: '*/*',
-      'Accept-Encoding': 'identity', // VLC often avoids compression for streams
+      'Accept-Encoding': 'identity',
       Connection: 'keep-alive',
-      Range: 'bytes=0-', // VLC typically requests full segments
-      'Icy-MetaInt': '32000', // HLS metadata interval (VLC sometimes includes this)
+      Range: 'bytes=0-',
+      'Icy-MetaInt': '32000',
       Referer: 'https://www.skylinewebcams.com/',
     },
     transformUrl: (baseUrl: string) => (url: string) => {
@@ -73,9 +68,15 @@ export const webcamProviders: Record<string, WebcamProviderConfig> = {
       }
       return url
     },
-    requiresProxy: true, // Switch to true as a test, since direct keeps failing
+    requiresProxy: true,
   },
   generic: {
+    headers: {
+      'User-Agent': 'VLC/3.0.18 LibVLC/3.0.18',
+      Accept: '*/*',
+      'Accept-Language': 'en-US,en;q=0.9',
+      Connection: 'keep-alive',
+    },
     requiresProxy: false,
   },
 }
