@@ -51,10 +51,6 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
 
     const contentType =
       response.headers.get('content-type') || 'application/vnd.apple.mpegurl'
-    const bodySample = await response
-      .clone()
-      .text()
-      .then((t) => t.slice(0, 100))
 
     // Surfline-specific cache control
     const cacheControl =
