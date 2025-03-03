@@ -17,7 +17,7 @@ export function Header({ user }: HeaderProps): React.JSX.Element {
             <Link href="/" className="text-xl font-bold">
               Sea Prophet
             </Link>
-            <div className="relative -top-px text-2xs text-muted-foreground">
+            <div className="text-2xs text-muted-foreground">
               {CONFIG.version}
             </div>
           </div>

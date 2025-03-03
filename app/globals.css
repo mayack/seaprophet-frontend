@@ -32,8 +32,8 @@
   }
 
   html[data-theme='dark'] {
-    --background: 0 0% 4%;
-    --foreground: 0 0% 98%;
+    --background: 0 0% 0%;
+    --foreground: 0 0% 100%;
     --card: 0 0% 4%;
     --card-foreground: 0 0% 98%;
     --popover: 0 0% 4%;
@@ -42,14 +42,14 @@
     --primary-foreground: 0 0% 9%;
     --secondary: 0 0% 15%;
     --secondary-foreground: 0 0% 98%;
-    --muted: 0 0% 7%;
+    --muted: 0 0% 10%;
     --muted-foreground: 0 0% 64%;
     --accent: 0 0% 15%;
     --accent-foreground: 0 0% 98%;
     --destructive: 0 663% 30%;
     --destructive-foreground: 0 0% 98%;
-    --border: 0 0% 10%;
-    --input: 0 0% 13%;
+    --border: 0 0% 15%;
+    --input: 0 0% 18%;
     --ring: 0 0% 83%;
     --chart-1: 220 70% 50%;
     --chart-2: 160 60% 45%;

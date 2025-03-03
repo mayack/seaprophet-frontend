@@ -63,10 +63,10 @@ export function WindItem({
   windRating,
 }: WindItemProps): React.JSX.Element {
   const ratingBackgrounds = {
-    0: 'bg-red-100 text-red-900 dark:bg-red-600 dark:text-red-100',
-    1: 'bg-orange-100 text-orange-900 dark:bg-orange-600 dark:text-orange-100',
-    2: 'bg-yellow-100 text-yellow-900 dark:bg-yellow-600 dark:text-yellow-100',
-    3: 'bg-green-100 text-green-900 dark:bg-green-600 dark:text-green-100',
+    0: 'bg-red-200 text-red-900 dark:bg-red-600 dark:text-foreground',
+    1: 'bg-orange-200 text-orange-900 dark:bg-orange-600 dark:text-foreground',
+    2: 'bg-yellow-200 text-yellow-900 dark:bg-yellow-600 dark:text-foreground',
+    3: 'bg-green-200 text-green-900 dark:bg-green-600 dark:text-foreground',
   }
 
   return (
