@@ -1,7 +1,7 @@
 'use client'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useUser } from '@/contexts/UserContext'
-import { Sun, Moon, Computer } from 'lucide-react'
+import { Sun, Moon, Monitor } from 'lucide-react'
 import { useEffect, useOptimistic, useTransition } from 'react'
 import { updateTheme } from '@/api/sargo/actions/user'
 import { toast } from 'sonner'
@@ -71,7 +71,7 @@ export default function ThemeSwitcher(): React.JSX.Element {
           <Moon className="size-4" />
         </TabsTrigger>
         <TabsTrigger value="system" className="h-7 flex-1">
-          <Computer className="size-4" />
+          <Monitor className="size-4" />
         </TabsTrigger>
       </TabsList>
     </Tabs>
