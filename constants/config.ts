@@ -1,5 +1,6 @@
 export const CONFIG = {
-  version: '0.1.11',
+  version: '0.1.12',
+  defaultTheme: 'system',
   api: {
     urls: {
       sargo: process.env.NEXT_PUBLIC_SARGO_API_URL,
@@ -80,12 +81,11 @@ export const CONFIG = {
         tide_height: 'feet',
         temperature: 'celsius',
       },
-      theme: 'system',
+      // Removed theme from default settings as it's now managed by next-themes
     } as const,
   },
   webcam: {
     afk_timer: 120 * 1000,
   },
 } as const
-
 export type Config = typeof CONFIG

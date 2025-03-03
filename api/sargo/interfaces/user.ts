@@ -12,7 +12,8 @@ export interface User {
 
 export interface UserSettings {
   units: UserUnits
-  theme: 'light' | 'dark' | 'system'
+  // Theme is now optional since it's managed by next-themes
+  theme?: 'light' | 'dark' | 'system'
 }
 
 export interface UserUnits {

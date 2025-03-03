@@ -1,6 +1,8 @@
 import type { Metadata } from 'next'
 import { Inter } from 'next/font/google'
 import './globals.css'
+import React from 'react'
+import { ThemeProvider } from '@/contexts/ThemeContext'
 
 const inter = Inter({
   variable: '--font-inter',
@@ -18,22 +20,10 @@ export default function RootLayout({
   children: React.ReactNode
 }): React.JSX.Element {
   return (
-    <html lang="en" style={{ visibility: 'hidden' }}>
-      <head>
-        <script
-          dangerouslySetInnerHTML={{
-            __html: `
-              (function() {
-                document.documentElement.setAttribute('data-theme',
-                  window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
-                );
-                document.documentElement.style.visibility = '';
-              })();
-            `,
-          }}
-        />
-      </head>
-      <body className={`${inter.variable} antialiased`}>{children}</body>
+    <html lang="en" className={inter.variable} suppressHydrationWarning>
+      <body>
+        <ThemeProvider>{children}</ThemeProvider>
+      </body>
     </html>
   )
 }

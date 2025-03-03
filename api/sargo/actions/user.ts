@@ -114,10 +114,6 @@ function isTemperatureUnit(value: unknown): value is UserUnits['temperature'] {
   return ['celsius', 'fahrenheit'].includes(value as string)
 }
 
-function isTheme(value: unknown): value is UserSettings['theme'] {
-  return ['light', 'dark', 'system'].includes(value as string)
-}
-
 export async function updateUnits(formData: FormData) {
   const cookieStore = await cookies()
   const jwt = cookieStore.get(CONFIG.api.tokens.sargo.key)?.value
@@ -182,7 +178,7 @@ export async function updateUnits(formData: FormData) {
   }
 
   try {
-    // First get the current cookie data to get the most recent theme setting
+    // First get the current cookie data
     const optionsCookie = cookieStore.get(
       CONFIG.api.tokens.sargoOptions.key
     )?.value
@@ -190,10 +186,10 @@ export async function updateUnits(formData: FormData) {
       ? JSON.parse(optionsCookie)
       : { username: '', email: '', settings: CONFIG.settings.default }
 
-    // Create updated settings preserving the current theme
-    const updatedSettings = {
+    // Create updated settings without theme
+    const updatedSettings: UserSettings = {
       units,
-      theme: currentSettings.settings.theme, // Use theme from cookie instead of fetching from server
+      // No theme property - it's now optional and managed client-side only
     }
 
     // Update settings on the server
@@ -225,64 +221,4 @@ export async function updateUnits(formData: FormData) {
   }
 }
 
-export async function updateTheme(theme: string) {
-  if (!isTheme(theme)) {
-    throw new AppError(
-      `Invalid theme: ${theme}`,
-      ErrorCode.INVALID_PARAMETERS,
-      HTTP_STATUS.BAD_REQUEST
-    )
-  }
-
-  const cookieStore = await cookies()
-  const jwt = cookieStore.get(CONFIG.api.tokens.sargo.key)?.value
-  if (!jwt) {
-    throw new AppError(
-      'Unauthorized',
-      ErrorCode.AUTH_UNAUTHORIZED,
-      HTTP_STATUS.UNAUTHORIZED
-    )
-  }
-
-  try {
-    // Get current settings from cookie
-    const optionsCookie = cookieStore.get(
-      CONFIG.api.tokens.sargoOptions.key
-    )?.value
-    const currentSettings = optionsCookie
-      ? JSON.parse(optionsCookie)
-      : { username: '', email: '', settings: CONFIG.settings.default }
-
-    // Create updated settings preserving the current units
-    const updatedSettings = {
-      units: currentSettings.settings.units, // Preserve current units
-      theme,
-    }
-
-    // Update settings on server
-    await sargoClient.updateUserProfile({ settings: updatedSettings })
-
-    // Update cookie with new settings while preserving other data
-    const updatedCookieData = {
-      username: currentSettings.username,
-      email: currentSettings.email,
-      settings: updatedSettings,
-    }
-
-    // Set the updated cookie
-    cookieStore.set(
-      CONFIG.api.tokens.sargoOptions.key,
-      JSON.stringify(updatedCookieData),
-      CONFIG.api.tokens.sargoOptions.options
-    )
-
-    return { success: true }
-  } catch (error) {
-    console.error('Update theme error:', error)
-    throw new AppError(
-      error instanceof Error ? error.message : 'Failed to update theme',
-      ErrorCode.SERVER_ERROR,
-      HTTP_STATUS.INTERNAL_SERVER_ERROR
-    )
-  }
-}
+// The updateTheme server action is removed since theme is now managed client-side

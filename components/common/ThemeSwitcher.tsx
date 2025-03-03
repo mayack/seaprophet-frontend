@@ -1,79 +1,88 @@
 'use client'
+
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { useUser } from '@/contexts/UserContext'
 import { Sun, Moon, Monitor } from 'lucide-react'
-import { useEffect, useOptimistic, useTransition } from 'react'
-import { updateTheme } from '@/api/sargo/actions/user'
-import { toast } from 'sonner'
-import type { UserSettings } from '@/api/sargo/interfaces/user'
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '../ui/tooltip'
+import { useTheme } from 'next-themes'
+import { useState, useEffect } from 'react'
+import { CONFIG } from '@/constants/config'
 
 export default function ThemeSwitcher(): React.JSX.Element {
-  const { userData, setUserData } = useUser()
-  const [state, optimisticState] = useOptimistic(userData.settings)
-  const [, startTransition] = useTransition()
+  const { theme, setTheme } = useTheme()
+  const [mounted, setMounted] = useState(false)
 
+  // Handle initial client-side hydration
   useEffect(() => {
-    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)')
-
-    const applyTheme = (): void => {
-      const currentTheme = state.theme
-      if (currentTheme === 'system') {
-        document.documentElement.setAttribute(
-          'data-theme',
-          mediaQuery.matches ? 'dark' : 'light'
-        )
-      } else {
-        document.documentElement.setAttribute('data-theme', currentTheme)
-      }
-    }
-
-    applyTheme()
-    mediaQuery.addEventListener('change', applyTheme)
-    return (): void => mediaQuery.removeEventListener('change', applyTheme)
-  }, [state.theme])
+    setMounted(true)
+  }, [])
 
   const handleChange = (value: string): void => {
-    const themeMode = value as UserSettings['theme']
-
-    startTransition(async (): Promise<void> => {
-      optimisticState((prev) => ({ ...prev, theme: themeMode }))
-
-      try {
-        const result = await updateTheme(themeMode)
-        if (result.success) {
-          setUserData({
-            ...userData,
-            settings: { ...userData.settings, theme: themeMode },
-          })
-          toast.success('Theme updated!')
-        } else {
-          throw new Error('Update failed')
-        }
-      } catch (error) {
-        toast.error(
-          error instanceof Error ? error.message : 'Failed to update theme'
-        )
-      }
-    })
+    // Ensure we only pass a valid theme value to setTheme
+    setTheme(value as 'light' | 'dark' | 'system')
   }
 
+  // Prevent hydration mismatch by not rendering until mounted
+  if (!mounted) {
+    // Return empty fragment instead of null to satisfy TypeScript
+    return <></>
+  }
+
+  // Use next-themes as the source of truth, with fallback to system
+  const currentTheme = theme || CONFIG.defaultTheme
+
   return (
-    <Tabs
-      defaultValue={state.theme}
-      onValueChange={handleChange}
-      className="p-1"
-    >
-      <TabsList className="w-full">
-        <TabsTrigger value="light" className="h-7 flex-1">
-          <Sun className="size-4" />
-        </TabsTrigger>
-        <TabsTrigger value="dark" className="h-7 flex-1">
-          <Moon className="size-4" />
-        </TabsTrigger>
-        <TabsTrigger value="system" className="h-7 flex-1">
-          <Monitor className="size-4" />
-        </TabsTrigger>
-      </TabsList>
-    </Tabs>
+    <TooltipProvider>
+      <Tabs
+        value={currentTheme}
+        onValueChange={handleChange}
+        className="w-full p-1"
+      >
+        <TabsList className="w-full">
+          <div className="flex w-full">
+            <TabsTrigger value="light" className="flex-1">
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <div className="flex h-7 w-full items-center justify-center">
+                    <Sun className="size-4" />
+                  </div>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Light mode</p>
+                </TooltipContent>
+              </Tooltip>
+            </TabsTrigger>
+            <TabsTrigger value="dark" className="flex-1">
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <div className="flex h-7 w-full items-center justify-center">
+                    <Moon className="size-4" />
+                  </div>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Dark mode</p>
+                </TooltipContent>
+              </Tooltip>
+            </TabsTrigger>
+            <TabsTrigger value="system" className="flex-1">
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <div className="flex h-7 w-full items-center justify-center">
+                    <Monitor className="size-4" />
+                  </div>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>System mode</p>
+                </TooltipContent>
+              </Tooltip>
+            </TabsTrigger>
+          </div>
+        </TabsList>
+      </Tabs>
+    </TooltipProvider>
   )
 }
