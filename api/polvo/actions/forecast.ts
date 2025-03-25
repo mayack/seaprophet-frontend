@@ -12,12 +12,18 @@ export async function getForecast(
 ): Promise<ForecastActionResponse> {
   const timestamp = new Date().toISOString()
   const cookieStore = await cookies()
-  let initialToken = cookieStore.get(CONFIG.api.tokens.polvo.key)?.value
 
-  let token: string
-  if (!initialToken) {
+  // First, try to get or refresh token
+  let token: string | undefined = cookieStore.get(
+    CONFIG.api.tokens.polvo.key
+  )?.value
+
+  if (!token) {
+    // No token, try to get a new one
     const result = await refreshPolvoTokenAction()
-    if (!result.success || !result.token) {
+    if (result.success && result.token) {
+      token = result.token
+    } else {
       return {
         data: null,
         error:
@@ -25,17 +31,15 @@ export async function getForecast(
         meta: { timestamp, source: 'polvo-auth', success: false },
       }
     }
-    token = result.token // TypeScript narrows result.token to string here
-  } else {
-    token = initialToken // initialToken is string due to !undefined check
   }
 
   try {
+    // Try with current token
     const forecast = await polvoClient.getForecast(
       params.lat,
       params.lon,
       params,
-      token // token is guaranteed to be string
+      token
     )
     return {
       data: forecast,
@@ -43,18 +47,36 @@ export async function getForecast(
       meta: { timestamp, source: 'polvo', success: true },
     }
   } catch (error) {
+    // If unauthorized, refresh token and retry ONCE
     if (
       error instanceof AppError &&
       error.code === ErrorCode.AUTH_UNAUTHORIZED
     ) {
       const result = await refreshPolvoTokenAction()
       if (result.success && result.token) {
-        return getForecast(params) // Retry with new token
-      }
-      return {
-        data: null,
-        error: result.error || 'Authentication failed after retry.',
-        meta: { timestamp, source: 'polvo-auth-retry', success: false },
+        try {
+          const forecast = await polvoClient.getForecast(
+            params.lat,
+            params.lon,
+            params,
+            result.token
+          )
+          return {
+            data: forecast,
+            error: null,
+            meta: { timestamp, source: 'polvo-retry', success: true },
+          }
+        } catch (retryError) {
+          console.error('Forecast retry error:', retryError)
+          return {
+            data: null,
+            error:
+              retryError instanceof Error
+                ? retryError.message
+                : 'Failed to fetch forecast after token refresh',
+            meta: { timestamp, source: 'polvo-retry-error', success: false },
+          }
+        }
       }
     }
 
