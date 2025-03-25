@@ -18,12 +18,17 @@ export async function refreshPolvoTokenAction() {
     }
 
     console.log('Setting new Polvo token in cookie')
-    const cookieStore = cookies()
-    cookieStore.set({
-      name: CONFIG.api.tokens.polvo.key,
-      value: newToken,
-      ...CONFIG.api.tokens.polvo.options,
-    })
+    try {
+      const cookieStore = await cookies()
+      cookieStore.set({
+        name: CONFIG.api.tokens.polvo.key,
+        value: newToken,
+        ...CONFIG.api.tokens.polvo.options,
+      })
+    } catch (cookieError) {
+      console.error('Error setting cookie:', cookieError)
+      // Continue anyway as we have the token in memory
+    }
 
     return { success: true, token: newToken }
   } catch (error) {
@@ -40,15 +45,20 @@ export async function refreshPolvoTokenAction() {
 export async function getPolvoToken(): Promise<string | null> {
   try {
     // Try to get the token from cookies first
-    const cookieStore = cookies()
-    const token = cookieStore.get(CONFIG.api.tokens.polvo.key)?.value
+    try {
+      const cookieStore = await cookies()
+      const token = cookieStore.get(CONFIG.api.tokens.polvo.key)?.value
 
-    // If we have a token, return it
-    if (token) {
-      return token
+      // If we have a token, return it
+      if (token) {
+        return token
+      }
+    } catch (cookieError) {
+      console.error('Error reading cookie:', cookieError)
+      // Continue to token refresh if we can't read the cookie
     }
 
-    // If no token, try to refresh
+    // If no token or couldn't read cookie, try to refresh
     const refreshResult = await refreshPolvoTokenAction()
     if (refreshResult.success && refreshResult.token) {
       return refreshResult.token
