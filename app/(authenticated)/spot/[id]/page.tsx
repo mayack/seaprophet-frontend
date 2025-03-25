@@ -1,4 +1,3 @@
-// app/(authenticated)/spot/[id]/page.tsx
 export const revalidate = 900
 
 import { getForecast } from '@/api/polvo/actions/forecast'
@@ -10,6 +9,7 @@ import { getCurrentUser } from '@/api/sargo/actions/auth'
 import { calculateDistance } from '@/utils/location'
 import { NearbySpot } from '@/api/sargo/interfaces/spot'
 import { redirect } from 'next/navigation'
+import { refreshPolvoTokenAction } from '@/api/polvo/actions/auth'
 import React from 'react'
 
 interface SpotPageProps {
@@ -27,6 +27,10 @@ export default async function SpotPage({
     redirect('/auth/signin') // Redirect if no user
   }
 
+  // Instead of directly checking for token, refresh it if there's an auth error
+  // This approach avoids the cookies() API complexity
+  await refreshPolvoTokenAction()
+
   const spotResponse = await getSpot(spotId)
   const spot = spotResponse?.data?.attributes
   if (!spot) return <div>Spot not found.</div>
@@ -43,7 +47,23 @@ export default async function SpotPage({
     getNearbySpots(spot.location_lat, spot.location_long, 30),
   ])
 
-  if (!forecastResponse.data) return <div>Forecast not found.</div>
+  if (!forecastResponse.data) {
+    console.error('Forecast data not available:', forecastResponse.error)
+    return (
+      <div className="wrapper">
+        <h1 className="font-style-h1">{spot.name}</h1>
+        <div className="p-4 text-destructive">
+          Forecast not found: {forecastResponse.error || 'Unknown error'}.
+          <button
+            onClick={() => window.location.reload()}
+            className="ml-2 underline"
+          >
+            Try again
+          </button>
+        </div>
+      </div>
+    )
+  }
 
   const nearbySpots: NearbySpot[] =
     nearbySpotsResponse.meta.success && nearbySpotsResponse.data
@@ -73,13 +93,11 @@ export default async function SpotPage({
         webcamConfig={spot.webcam}
         spotName={spot.name}
       />
-      {/* <div className="wrapper"> */}
       <SpotsNearby
         spots={nearbySpots}
         maxDistance={30}
         title={`Spots near ${spot.name}`}
       />
-      {/* </div> */}
       <Forecast days={forecastResponse.data.days} user={user} />
     </div>
   )
