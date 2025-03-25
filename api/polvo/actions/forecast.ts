@@ -13,28 +13,26 @@ export async function getForecast(
   const timestamp = new Date().toISOString()
   const cookieStore = await cookies()
 
-  // First, try to get or refresh token
-  let token: string | undefined = cookieStore.get(
-    CONFIG.api.tokens.polvo.key
-  )?.value
+  // Try to get existing token
+  let token = cookieStore.get(CONFIG.api.tokens.polvo.key)?.value
 
+  // If no token exists, get a new one
   if (!token) {
-    // No token, try to get a new one
-    const result = await refreshPolvoTokenAction()
-    if (result.success && result.token) {
-      token = result.token
-    } else {
+    console.log('No Polvo token, fetching new one')
+    const refreshResult = await refreshPolvoTokenAction()
+    if (!refreshResult.success || !refreshResult.token) {
       return {
         data: null,
-        error:
-          result.error || 'Authentication failed. Please refresh the page.',
-        meta: { timestamp, source: 'polvo-auth', success: false },
+        error: refreshResult.error || 'Failed to obtain authentication token',
+        meta: { timestamp, source: 'polvo-auth-missing', success: false },
       }
     }
+    token = refreshResult.token
   }
 
+  // First attempt with existing/new token
   try {
-    // Try with current token
+    console.log('Attempting forecast with token')
     const forecast = await polvoClient.getForecast(
       params.lat,
       params.lon,
@@ -47,35 +45,43 @@ export async function getForecast(
       meta: { timestamp, source: 'polvo', success: true },
     }
   } catch (error) {
-    // If unauthorized, refresh token and retry ONCE
+    // Only if we got an auth error, try refreshing the token once
     if (
       error instanceof AppError &&
       error.code === ErrorCode.AUTH_UNAUTHORIZED
     ) {
-      const result = await refreshPolvoTokenAction()
-      if (result.success && result.token) {
-        try {
-          const forecast = await polvoClient.getForecast(
-            params.lat,
-            params.lon,
-            params,
-            result.token
-          )
-          return {
-            data: forecast,
-            error: null,
-            meta: { timestamp, source: 'polvo-retry', success: true },
-          }
-        } catch (retryError) {
-          console.error('Forecast retry error:', retryError)
-          return {
-            data: null,
-            error:
-              retryError instanceof Error
-                ? retryError.message
-                : 'Failed to fetch forecast after token refresh',
-            meta: { timestamp, source: 'polvo-retry-error', success: false },
-          }
+      console.log('Token unauthorized, refreshing and retrying')
+
+      // Explicitly refresh token
+      const refreshResult = await refreshPolvoTokenAction()
+      if (!refreshResult.success || !refreshResult.token) {
+        return {
+          data: null,
+          error: 'Failed to refresh authentication token',
+          meta: { timestamp, source: 'polvo-refresh-failed', success: false },
+        }
+      }
+
+      // Second attempt with fresh token
+      try {
+        console.log('Retrying forecast with fresh token')
+        const forecast = await polvoClient.getForecast(
+          params.lat,
+          params.lon,
+          params,
+          refreshResult.token
+        )
+        return {
+          data: forecast,
+          error: null,
+          meta: { timestamp, source: 'polvo-retry', success: true },
+        }
+      } catch (retryError) {
+        console.error('Forecast retry failed:', retryError)
+        return {
+          data: null,
+          error: 'Failed to fetch forecast after token refresh',
+          meta: { timestamp, source: 'polvo-retry-failed', success: false },
         }
       }
     }
