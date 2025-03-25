@@ -5,7 +5,6 @@ import { CONFIG } from '@/constants/config'
 import { polvoClient } from '@/api/polvo/client'
 
 export async function refreshPolvoTokenAction() {
-  const cookieStore = await cookies()
   try {
     console.log('Refreshing Polvo token...')
     const newToken = await polvoClient.getAuthToken()
@@ -19,6 +18,7 @@ export async function refreshPolvoTokenAction() {
     }
 
     console.log('Setting new Polvo token in cookie')
+    const cookieStore = cookies()
     cookieStore.set({
       name: CONFIG.api.tokens.polvo.key,
       value: newToken,
@@ -34,5 +34,29 @@ export async function refreshPolvoTokenAction() {
         'Failed to refresh Polvo token: ' +
         (error instanceof Error ? error.message : 'Unknown error'),
     }
+  }
+}
+
+export async function getPolvoToken(): Promise<string | null> {
+  try {
+    // Try to get the token from cookies first
+    const cookieStore = cookies()
+    const token = cookieStore.get(CONFIG.api.tokens.polvo.key)?.value
+
+    // If we have a token, return it
+    if (token) {
+      return token
+    }
+
+    // If no token, try to refresh
+    const refreshResult = await refreshPolvoTokenAction()
+    if (refreshResult.success && refreshResult.token) {
+      return refreshResult.token
+    }
+
+    return null
+  } catch (error) {
+    console.error('Error getting Polvo token:', error)
+    return null
   }
 }

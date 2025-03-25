@@ -9,7 +9,7 @@ import { getCurrentUser } from '@/api/sargo/actions/auth'
 import { calculateDistance } from '@/utils/location'
 import { NearbySpot } from '@/api/sargo/interfaces/spot'
 import { redirect } from 'next/navigation'
-import { refreshPolvoTokenAction } from '@/api/polvo/actions/auth'
+import { getPolvoToken } from '@/api/polvo/actions/auth'
 import React from 'react'
 
 interface SpotPageProps {
@@ -27,33 +27,88 @@ export default async function SpotPage({
     redirect('/auth/signin') // Redirect if no user
   }
 
-  // Instead of directly checking for token, refresh it if there's an auth error
-  // This approach avoids the cookies() API complexity
-  await refreshPolvoTokenAction()
+  try {
+    // Get polvo token (will refresh if needed)
+    await getPolvoToken()
 
-  const spotResponse = await getSpot(spotId)
-  const spot = spotResponse?.data?.attributes
-  if (!spot) return <div>Spot not found.</div>
+    const spotResponse = await getSpot(spotId)
+    const spot = spotResponse?.data?.attributes
+    if (!spot) return <div>Spot not found.</div>
 
-  const [forecastResponse, nearbySpotsResponse] = await Promise.all([
-    getForecast({
-      lat: spot.location_lat,
-      lon: spot.location_long,
-      orientationFrom: spot.beach_orientation_from,
-      orientationTo: spot.beach_orientation_to,
-      waveFactor: spot.wave_factor,
-      adjustmentFactor: spot.adjustment_factor,
-    }),
-    getNearbySpots(spot.location_lat, spot.location_long, 30),
-  ])
+    const [forecastResponse, nearbySpotsResponse] = await Promise.all([
+      getForecast({
+        lat: spot.location_lat,
+        lon: spot.location_long,
+        orientationFrom: spot.beach_orientation_from,
+        orientationTo: spot.beach_orientation_to,
+        waveFactor: spot.wave_factor,
+        adjustmentFactor: spot.adjustment_factor,
+      }),
+      getNearbySpots(spot.location_lat, spot.location_long, 30),
+    ])
 
-  if (!forecastResponse.data) {
-    console.error('Forecast data not available:', forecastResponse.error)
+    if (!forecastResponse.data) {
+      console.error('Forecast data not available:', forecastResponse.error)
+      return (
+        <div className="wrapper">
+          <h1 className="font-style-h1">{spot.name}</h1>
+          <div className="p-4 text-destructive">
+            Forecast not found: {forecastResponse.error || 'Unknown error'}.
+            <button
+              onClick={() => window.location.reload()}
+              className="ml-2 underline"
+            >
+              Try again
+            </button>
+          </div>
+        </div>
+      )
+    }
+
+    const nearbySpots: NearbySpot[] =
+      nearbySpotsResponse.meta.success && nearbySpotsResponse.data
+        ? nearbySpotsResponse.data
+            .map((spotData) => ({
+              id: spotData.id,
+              name: spotData.name,
+              distance:
+                spotData.location.lat && spotData.location.long
+                  ? calculateDistance(
+                      spot.location_lat,
+                      spot.location_long,
+                      spotData.location.lat,
+                      spotData.location.long
+                    )
+                  : 0,
+              location: spotData.location,
+              webcam: spotData.webcam,
+            }))
+            .sort((a, b) => a.distance - b.distance)
+        : []
+
+    return (
+      <div className="wrapper-spacing">
+        <SpotDetails
+          mapCenter={[spot.location_long, spot.location_lat]}
+          webcamConfig={spot.webcam}
+          spotName={spot.name}
+        />
+        <SpotsNearby
+          spots={nearbySpots}
+          maxDistance={30}
+          title={`Spots near ${spot.name}`}
+        />
+        <Forecast days={forecastResponse.data.days} user={user} />
+      </div>
+    )
+  } catch (error) {
+    console.error('Error in SpotPage:', error)
+
     return (
       <div className="wrapper">
-        <h1 className="font-style-h1">{spot.name}</h1>
+        <h1 className="font-style-h1">Error</h1>
         <div className="p-4 text-destructive">
-          Forecast not found: {forecastResponse.error || 'Unknown error'}.
+          An error occurred while loading the forecast.
           <button
             onClick={() => window.location.reload()}
             className="ml-2 underline"
@@ -64,41 +119,4 @@ export default async function SpotPage({
       </div>
     )
   }
-
-  const nearbySpots: NearbySpot[] =
-    nearbySpotsResponse.meta.success && nearbySpotsResponse.data
-      ? nearbySpotsResponse.data
-          .map((spotData) => ({
-            id: spotData.id,
-            name: spotData.name,
-            distance:
-              spotData.location.lat && spotData.location.long
-                ? calculateDistance(
-                    spot.location_lat,
-                    spot.location_long,
-                    spotData.location.lat,
-                    spotData.location.long
-                  )
-                : 0,
-            location: spotData.location,
-            webcam: spotData.webcam,
-          }))
-          .sort((a, b) => a.distance - b.distance)
-      : []
-
-  return (
-    <div className="wrapper-spacing">
-      <SpotDetails
-        mapCenter={[spot.location_long, spot.location_lat]}
-        webcamConfig={spot.webcam}
-        spotName={spot.name}
-      />
-      <SpotsNearby
-        spots={nearbySpots}
-        maxDistance={30}
-        title={`Spots near ${spot.name}`}
-      />
-      <Forecast days={forecastResponse.data.days} user={user} />
-    </div>
-  )
 }
