@@ -1,13 +1,13 @@
 import { calculateDistance } from '@/utils/location'
 import { getAllSpots } from '@/utils/spots'
-import { NearbySpot, SpotsByCountry } from '@/api/sargo/interfaces/spot'
+import { SpotSummary, SpotsByCountry } from '@/api/sargo/interfaces/spot'
 
 export function getNearbySpots(
   spotsByCountry: SpotsByCountry,
   latitude: number,
   longitude: number,
   maxDistance: number = 50
-): NearbySpot[] {
+): SpotSummary[] {
   const allSpots = getAllSpots(spotsByCountry)
 
   return allSpots

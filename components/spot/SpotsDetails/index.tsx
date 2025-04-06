@@ -1,5 +1,5 @@
 import { WebcamViewer } from '@/components/common/WebcamViewer'
-import { Map } from '@/components/common/Map'
+import { Map } from '@/components/maps/Map'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { MapPin, Webcam } from 'lucide-react'
 import { WebcamConfig } from '@/api/sargo/interfaces/webcam'

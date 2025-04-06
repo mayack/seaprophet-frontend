@@ -13,7 +13,7 @@ export default async function SettingsPage(): Promise<React.JSX.Element> {
 
   return (
     <>
-      <div className="wrapper max-w-lg">
+      <div className="wrapper max-w-lg py-4 sm:py-6 xl:py-8">
         <h1 className="font-style-h2 mb-6">Settings</h1>
         <SettingsForms
           username={user.username}

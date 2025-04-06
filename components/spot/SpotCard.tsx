@@ -7,7 +7,7 @@ interface SpotCardProps {
   id: number
   name: string
   subtitle?: string
-  webcam?: WebcamConfig | null
+  webcam?: WebcamConfig
 }
 
 export function SpotCard({

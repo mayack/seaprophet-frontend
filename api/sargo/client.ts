@@ -266,6 +266,48 @@ export class SargoClient extends BaseApiClient {
       data: response.data,
     }
   }
+
+  async getSpotsByBounds(
+    bounds: {
+      north: number
+      south: number
+      east: number
+      west: number
+    },
+    pageSize: number = 100,
+    isPublic = true
+  ): Promise<{ data: Spot[] }> {
+    const queryParams = new URLSearchParams({
+      'filters[location_lat][$gte]': bounds.south.toString(),
+      'filters[location_lat][$lte]': bounds.north.toString(),
+      'filters[location_long][$gte]': bounds.west.toString(),
+      'filters[location_long][$lte]': bounds.east.toString(),
+      'fields[0]': 'name',
+      'fields[1]': 'location_lat',
+      'fields[2]': 'location_long',
+      'populate[webcam]': 'true',
+      'pagination[pageSize]': pageSize.toString(),
+    }).toString()
+
+    const headers = await this.getHeaders(
+      `${CONFIG.api.endpoints.sargo.spots.list}?${queryParams}`,
+      isPublic
+    )
+
+    const response = await this.fetch<{ data: Spot[] }>(
+      `${CONFIG.api.endpoints.sargo.spots.list}?${queryParams}`,
+      {
+        init: {
+          headers,
+          next: { revalidate: 60 }, // Short cache time for map data
+        },
+      }
+    )
+
+    return {
+      data: response.data,
+    }
+  }
 }
 
 export const sargoClient = new SargoClient()

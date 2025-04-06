@@ -1,9 +1,8 @@
 'use server'
-
 import { calculateDistance } from '@/utils/location'
 import { sargoClient } from '../client'
 import type {
-  NearbySpot,
+  SpotSummary,
   Spot,
   SpotActionResponse,
   SpotsByCountry,
@@ -12,10 +11,8 @@ import { organizeSpotsByCountry } from '../utils/organizeSpotsByCountry'
 
 export async function getSpot(id: number): Promise<SpotActionResponse<Spot>> {
   const timestamp = new Date().toISOString()
-
   try {
     const response = await sargoClient.getSpot(id, true)
-
     return {
       data: response.spot,
       error: null,
@@ -43,11 +40,9 @@ export async function getSpotsByCountry(): Promise<
   SpotActionResponse<SpotsByCountry>
 > {
   const timestamp = new Date().toISOString()
-
   try {
     const response = await sargoClient.getSpotsByCountry(true)
     const organizedSpots = organizeSpotsByCountry(response.data)
-
     return {
       data: organizedSpots,
       error: null,
@@ -56,7 +51,7 @@ export async function getSpotsByCountry(): Promise<
   } catch (error) {
     console.error('getSpotsByCountry error:', error)
     return {
-      data: null, // Changed from {}
+      data: null,
       error: error instanceof Error ? error.message : 'Failed to load spots',
       meta: { timestamp, source: 'error', success: false },
     }
@@ -67,13 +62,11 @@ export async function getNearbySpots(
   lat: number,
   lon: number,
   radiusKm: number = 30
-): Promise<SpotActionResponse<NearbySpot[]>> {
+): Promise<SpotActionResponse<SpotSummary[]>> {
   const timestamp = new Date().toISOString()
-
   try {
     const response = await sargoClient.getNearbySpots(lat, lon, radiusKm, true)
-
-    const nearbySpots: NearbySpot[] = response.data.map((spot) => ({
+    const nearbySpots: SpotSummary[] = response.data.map((spot) => ({
       id: spot.id,
       name: spot.attributes.name,
       location: {
@@ -88,7 +81,6 @@ export async function getNearbySpots(
       ),
       webcam: spot.attributes.webcam || null,
     }))
-
     return {
       data: nearbySpots,
       error: null,
@@ -104,6 +96,67 @@ export async function getNearbySpots(
       data: [],
       error:
         error instanceof Error ? error.message : 'Failed to load nearby spots',
+      meta: {
+        timestamp,
+        source: 'error',
+        success: false,
+      },
+    }
+  }
+}
+
+export async function getSpotsByBounds(
+  bounds: {
+    north: number
+    south: number
+    east: number
+    west: number
+  },
+  pageSize: number = 100
+): Promise<SpotActionResponse<SpotSummary[]>> {
+  const timestamp = new Date().toISOString()
+
+  try {
+    // Calculate center of bounds for distance calculation
+    const centerLat = (bounds.north + bounds.south) / 2
+    const centerLng = (bounds.east + bounds.west) / 2
+
+    const response = await sargoClient.getSpotsByBounds(bounds, pageSize, true)
+
+    // Transform response to NearbySpot format
+    const nearbySpots: SpotSummary[] = response.data.map((spot) => ({
+      id: spot.id,
+      name: spot.attributes.name,
+      location: {
+        lat: spot.attributes.location_lat,
+        long: spot.attributes.location_long,
+      },
+      distance: calculateDistance(
+        centerLat,
+        centerLng,
+        spot.attributes.location_lat,
+        spot.attributes.location_long
+      ),
+      webcam: spot.attributes.webcam || null,
+    }))
+
+    return {
+      data: nearbySpots,
+      error: null,
+      meta: {
+        timestamp,
+        source: 'spots-by-bounds',
+        success: true,
+      },
+    }
+  } catch (error) {
+    console.error('getSpotsByBounds error:', error)
+    return {
+      data: [],
+      error:
+        error instanceof Error
+          ? error.message
+          : 'Failed to load spots in this area',
       meta: {
         timestamp,
         source: 'error',

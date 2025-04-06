@@ -87,14 +87,6 @@ export interface SpotAttributes {
   }
 }
 
-export interface SpotSummary {
-  id: number
-  name: string
-  location: Location
-  municipality: string
-  webcam: WebcamConfig | null
-}
-
 export type RegionsType = {
   [district: string]: SpotSummary[]
 }
@@ -110,20 +102,16 @@ export interface SpotResponse {
   error: string | null
 }
 
-interface Location {
-  lat: number
-  long: number
-}
-
-export interface NearbySpot {
+export interface SpotSummary {
   id: number
   name: string
-  distance: number
+  distance?: number
   location: {
-    lat: number | null
-    long: number | null
+    lat: number
+    long: number
   }
-  webcam?: WebcamConfig | null
+  municipality?: string
+  webcam?: WebcamConfig
 }
 
 export interface SpotActionResponse<T> {

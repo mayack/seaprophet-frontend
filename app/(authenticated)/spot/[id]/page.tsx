@@ -7,7 +7,7 @@ import { Forecast } from '@/components/forecast/Forecast'
 import { SpotsNearby } from '@/components/spot/SpotsNearby'
 import { getCurrentUser } from '@/api/sargo/actions/auth'
 import { calculateDistance } from '@/utils/location'
-import { NearbySpot } from '@/api/sargo/interfaces/spot'
+import { SpotSummary } from '@/api/sargo/interfaces/spot'
 import { redirect } from 'next/navigation'
 import { getPolvoToken } from '@/api/polvo/actions/auth'
 import React from 'react'
@@ -48,7 +48,6 @@ export default async function SpotPage({
     ])
 
     if (!forecastResponse.data) {
-      console.error('Forecast data not available:', forecastResponse.error)
       return (
         <div className="wrapper">
           <h1 className="font-style-h1">{spot.name}</h1>
@@ -65,7 +64,7 @@ export default async function SpotPage({
       )
     }
 
-    const nearbySpots: NearbySpot[] =
+    const nearbySpots: SpotSummary[] =
       nearbySpotsResponse.meta.success && nearbySpotsResponse.data
         ? nearbySpotsResponse.data
             .map((spotData) => ({
@@ -87,7 +86,7 @@ export default async function SpotPage({
         : []
 
     return (
-      <div className="wrapper-spacing">
+      <div className="wrapper-spacing py-4 sm:py-6 xl:py-8">
         <SpotDetails
           mapCenter={[spot.location_long, spot.location_lat]}
           webcamConfig={spot.webcam}
@@ -102,13 +101,12 @@ export default async function SpotPage({
       </div>
     )
   } catch (error) {
-    console.error('Error in SpotPage:', error)
-
     return (
       <div className="wrapper">
         <h1 className="font-style-h1">Error</h1>
         <div className="p-4 text-destructive">
-          An error occurred while loading the forecast.
+          An error occurred while loading the forecast:
+          {error instanceof Error && error.message}
           <button
             onClick={() => window.location.reload()}
             className="ml-2 underline"

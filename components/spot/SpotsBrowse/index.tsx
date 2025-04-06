@@ -22,10 +22,14 @@ export function SpotsBrowse({
                   {Object.entries(districts).map(([districtName, spots]) => {
                     const spotsByMunicipality = spots.reduce(
                       (acc, spot) => {
-                        if (!acc[spot.municipality]) {
-                          acc[spot.municipality] = []
+                        // Use a default value if municipality is undefined
+                        const municipality = spot.municipality || 'Unknown'
+
+                        if (!acc[municipality]) {
+                          acc[municipality] = []
                         }
-                        acc[spot.municipality].push(spot)
+
+                        acc[municipality].push(spot)
                         return acc
                       },
                       {} as Record<string, SpotSummary[]>

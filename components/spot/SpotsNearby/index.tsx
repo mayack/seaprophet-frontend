@@ -1,7 +1,7 @@
 /* eslint-disable tailwindcss/no-custom-classname */
 'use client'
 
-import { NearbySpot } from '@/api/sargo/interfaces/spot'
+import { SpotSummary } from '@/api/sargo/interfaces/spot'
 import { SearchX, LucideIcon, ChevronLeft, ChevronRight } from 'lucide-react'
 import { SpotCard } from '../SpotCard'
 import { EmptyState } from './EmptyState'
@@ -19,14 +19,16 @@ interface ErrorState {
 }
 
 interface SpotsNearbyProps {
-  spots: NearbySpot[]
+  spots: SpotSummary[]
   maxDistance: number
   title: string
   loading?: boolean
   error?: ErrorState
+  className?: string
 }
 
 export function SpotsNearby({
+  className,
   spots,
   maxDistance,
   title,
@@ -162,7 +164,11 @@ export function SpotsNearby({
                     <SpotCard
                       id={spot.id}
                       name={spot.name}
-                      subtitle={formatDistance(spot.distance)}
+                      subtitle={
+                        spot.distance !== undefined
+                          ? formatDistance(spot.distance)
+                          : ''
+                      }
                       webcam={spot.webcam}
                     />
                   </div>
@@ -189,5 +195,5 @@ export function SpotsNearby({
     emblaRef,
   ])
 
-  return <div>{renderContent()}</div>
+  return <div className={className}>{renderContent()}</div>
 }
