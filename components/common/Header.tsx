@@ -25,7 +25,7 @@ export function Header({ user }: HeaderProps): React.JSX.Element {
           <div className="grow text-sm font-semibold">
             <Link
               href="/browse"
-              className="flex items-center gap-1 hover:underline"
+              className="inline-flex items-center gap-1 hover:underline"
             >
               Browse spots
               <ChevronRight size={16} />
