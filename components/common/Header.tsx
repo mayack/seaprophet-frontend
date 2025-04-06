@@ -14,7 +14,7 @@ export function Header({ user }: HeaderProps): React.JSX.Element {
     <header className="bg-background">
       <div className="wrapper">
         <div className="flex h-16 items-center justify-between gap-6 md:gap-12">
-          <div className="relative -top-[2px] flex items-baseline gap-3 leading-none">
+          <div className="relative -top-px flex items-baseline gap-3 leading-none">
             <Link href="/" className="text-xl font-bold">
               Sea Prophet
             </Link>
@@ -22,7 +22,7 @@ export function Header({ user }: HeaderProps): React.JSX.Element {
               {CONFIG.version}
             </div>
           </div>
-          <div className="flex-grow text-sm font-semibold">
+          <div className="grow text-sm font-semibold">
             <Link
               href="/browse"
               className="flex items-center gap-1 hover:underline"

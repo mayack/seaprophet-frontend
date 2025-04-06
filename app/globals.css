@@ -116,4 +116,16 @@
   .wrapper-spacing {
     @apply space-y-8 sm:space-y-10 xl:space-y-12;
   }
+
+  .navigator-popup {
+    color: red !important;
+  }
+
+  .navigator-popup .mapboxgl-popup-content {
+    @apply rounded-sm px-3 py-2 text-black shadow-lg;
+  }
+
+  .navigator-popup .mapboxgl-popup-tip {
+    border-width: 6px !important;
+  }
 }

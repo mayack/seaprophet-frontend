@@ -4,7 +4,7 @@ import { SpotsBrowse } from '@/components/spot/SpotsBrowse'
 import { SpotsBrowseSkeleton } from '@/components/spot/SpotsBrowse/Skeleton'
 import { Suspense } from 'react'
 
-export default async function SpotsPage() {
+export default async function SpotsPage(): Promise<React.JSX.Element> {
   const response = await getSpotsByCountry()
   const spotsByCountry: SpotsByCountry = response.data || {}
 

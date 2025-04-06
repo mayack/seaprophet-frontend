@@ -106,14 +106,17 @@ export function Navigator({
       if (!spot.location?.lat || !spot.location?.long) return
       if (markersRef.current[spot.id]) return
 
-      // Create popup
-      const popup = new mapboxgl.Popup({ offset: 40, closeButton: false })
-        .setHTML(`
-          <a href="/spot/${spot.id}" class="inline-flex items-center gap-1 hover:underline text-muted-foreground" onclick="(function(event) { event.preventDefault(); window.next.router.push('/spot/${spot.id}'); return false; })(event)">
-            <span class="text-base font-medium text-card-foreground">${spot.name}</span>
-            ${spot.webcam ? '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="10" r="8"/><circle cx="12" cy="10" r="3"/><path d="M7 22h10"/><path d="M12 22v-4"/></svg>' : ''}
-          </a>
-        `)
+      // Create popup with custom class and fixed black text
+      const popup = new mapboxgl.Popup({
+        offset: 40,
+        closeButton: false,
+        className: 'navigator-popup',
+      }).setHTML(`
+        <a href="/spot/${spot.id}" class="inline-flex items-center gap-1 hover:underline outline-0" onclick="(function(event) { event.preventDefault(); window.next.router.push('/spot/${spot.id}'); return false; })(event)">
+          <span class="text-base font-medium">${spot.name}</span>
+          ${spot.webcam ? '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="black" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="10" r="8"/><circle cx="12" cy="10" r="3"/><path d="M7 22h10"/><path d="M12 22v-4"/></svg>' : ''}
+        </a>
+      `)
 
       try {
         // Use shared utilities to create marker
@@ -231,10 +234,17 @@ export function Navigator({
     markersRef.current = {}
     popupsRef.current = {}
 
+    // Determine starting location - use userData if available, otherwise use initialLocation
+    let startPosition = initialLocation
+
+    if (userData.latitude && userData.longitude) {
+      startPosition = [userData.longitude, userData.latitude]
+    }
+
     // Use shared initialization function with attribution disabled
     mapInstance.current = initializeMap(
       mapContainer.current,
-      initialLocation,
+      startPosition,
       initialZoom,
       'mapbox://styles/mayack/cm7a9jq2x002i01s87y377mrx',
       false // Disable attribution control in init
@@ -252,6 +262,8 @@ export function Navigator({
         enableHighAccuracy: true,
       },
       trackUserLocation: true,
+      showUserLocation: true,
+      showAccuracyCircle: false,
       fitBoundsOptions: {
         maxZoom: DEFAULT_ZOOM,
       },
@@ -268,7 +280,7 @@ export function Navigator({
       if (!mapInstance.current || !mountedRef.current) return
 
       // Default fetch for initial viewport regardless of location status
-      const [long, lat] = initialLocation
+      const [long, lat] = startPosition // Use our determined position
       const KM_PER_LAT = 111
       const deltaLat = initialRadius / KM_PER_LAT
       const latRad = lat * (Math.PI / 180)
@@ -288,9 +300,13 @@ export function Navigator({
         updateMarkers()
       }
 
-      // Trigger geolocate automatically
+      // Always trigger geolocate to ensure user marker appears
       if (mountedRef.current && geolocateControlRef.current && !locationError) {
-        geolocateControlRef.current.trigger()
+        setTimeout(() => {
+          if (geolocateControlRef.current) {
+            geolocateControlRef.current.trigger()
+          }
+        }, 500)
       }
     }
 
@@ -335,9 +351,11 @@ export function Navigator({
     updateMarkers,
     locationError,
     debouncedFetch,
+    userData.latitude,
+    userData.longitude,
   ])
 
-  // Separate effect to handle user location changes after map is initialized
+  // Effect to react to user location changes after map initialization
   useEffect(() => {
     if (!mapInitializedRef.current || !mapInstance.current) return
 

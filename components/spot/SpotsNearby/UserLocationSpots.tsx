@@ -1,5 +1,5 @@
 'use client'
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { MapPin } from 'lucide-react'
 import { SpotsByCountry, SpotSummary } from '@/api/sargo/interfaces/spot'
 import { useUser } from '@/contexts/UserContext'
@@ -21,17 +21,24 @@ export function UserLocationSpots({
   const { userData, requestLocation, locationError, isLocating } = useUser()
   const [mounted, setMounted] = useState(false)
   const [spots, setSpots] = useState<SpotSummary[]>([])
+  const locationRequested = useRef(false)
 
   useEffect(() => {
     setMounted(true)
 
     // Function to get and process location
     const getLocationAndSpots = async (): Promise<void> => {
-      // Request location if not already available
-      if (!userData.latitude || !userData.longitude) {
+      // Only request location if we don't have it yet, there's no error, and we haven't tried already
+      if (
+        (!userData.latitude || !userData.longitude) &&
+        !locationError &&
+        !locationRequested.current
+      ) {
+        locationRequested.current = true
         await requestLocation()
       }
-      // If we have location data after the request, find nearby spots
+
+      // If we have location data, find nearby spots
       if (userData.latitude && userData.longitude) {
         const nearbySpots = getNearbySpots(
           spotsByCountry,
@@ -44,7 +51,7 @@ export function UserLocationSpots({
     }
 
     getLocationAndSpots()
-  }, [spotsByCountry, maxDistance, userData, requestLocation])
+  }, [spotsByCountry, maxDistance, userData, requestLocation, locationError])
 
   if (locationError) {
     return (
