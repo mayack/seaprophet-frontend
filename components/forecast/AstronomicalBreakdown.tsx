@@ -27,7 +27,7 @@ export function AstronomicalBreakdown({
       )}
     >
       <InfoBreakdownLine
-        icon={<MoonStar className="size-5" />}
+        icon={<Moon className="size-5" />}
         label="First light"
         value={astronomical.firstLight}
         className="md:order-1"
@@ -48,7 +48,7 @@ export function AstronomicalBreakdown({
         className="md:order-5 lg:order-3"
       />
       <InfoBreakdownLine
-        icon={<Moon className="size-5" />}
+        icon={<MoonStar className="size-5" />}
         label="Last light"
         value={astronomical.lastLight}
         className="md:order-4 lg:order-4"
