@@ -19,6 +19,7 @@ import {
   createMarker,
   spotsCache,
 } from './utils'
+import { calculateBounds } from '@/utils/location'
 
 // Default coordinates for Peniche
 const DEFAULT_CENTER = [-9.356267, 39.368892] as [number, number]
@@ -281,18 +282,9 @@ export function Navigator({
 
       // Default fetch for initial viewport regardless of location status
       const [long, lat] = startPosition // Use our determined position
-      const KM_PER_LAT = 111
-      const deltaLat = initialRadius / KM_PER_LAT
-      const latRad = lat * (Math.PI / 180)
-      const kmPerLng = KM_PER_LAT * Math.cos(latRad)
-      const deltaLng = initialRadius / kmPerLng
 
-      const bounds: MapBounds = {
-        north: lat + deltaLat,
-        south: lat - deltaLat,
-        east: long + deltaLng,
-        west: long - deltaLng,
-      }
+      // Use the utility function to calculate bounds
+      const bounds = calculateBounds(lat, long, initialRadius)
 
       if (!isAreaLoaded(bounds)) {
         fetchSpots(bounds)
@@ -372,21 +364,9 @@ export function Navigator({
         speed: 1.5,
       })
 
-      // Fetch spots around user location
-      const lat = userData.latitude
-      const lng = userData.longitude
-      const KM_PER_LAT = 111
-      const deltaLat = initialRadius / KM_PER_LAT
-      const latRad = lat * (Math.PI / 180)
-      const kmPerLng = KM_PER_LAT * Math.cos(latRad)
-      const deltaLng = initialRadius / kmPerLng
-
-      fetchSpots({
-        north: lat + deltaLat,
-        south: lat - deltaLat,
-        east: lng + deltaLng,
-        west: lng - deltaLng,
-      })
+      // Fetch spots around user location using the utility function
+      const bounds = calculateBounds(userData.latitude, userData.longitude, initialRadius)
+      fetchSpots(bounds)
     }
   }, [userData.latitude, userData.longitude, fetchSpots, initialRadius])
 

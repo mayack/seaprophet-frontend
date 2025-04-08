@@ -1,5 +1,5 @@
 export const CONFIG = {
-  version: '0.2.1',
+  version: '0.2.2',
   defaultTheme: 'system',
   api: {
     urls: {

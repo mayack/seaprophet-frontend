@@ -1,5 +1,3 @@
-import { getSpotsByCountry } from '@/api/sargo/actions/spot'
-import { SpotsByCountry } from '@/api/sargo/interfaces/spot'
 import { Suspense } from 'react'
 import { UserLocationSpots } from '@/components/spot/SpotsNearby/UserLocationSpots'
 import React from 'react'
@@ -7,24 +5,9 @@ import { SpotsNearbySkeleton } from '@/components/spot/SpotsNearby/Skeleton'
 import { Navigator } from '@/components/maps/Navigator'
 
 async function SpotsContent(): Promise<React.JSX.Element> {
-  const response = await getSpotsByCountry()
-  const spotsByCountry: SpotsByCountry = response.data || {}
-
-  if (response.error) {
-    return (
-      <div className="wrapper">
-        <p className="text-red-500">Error loading spots: {response.error}</p>
-      </div>
-    )
-  }
-
   return (
     <>
-      <UserLocationSpots
-        spotsByCountry={spotsByCountry}
-        maxDistance={30}
-        className="py-4"
-      />
+      <UserLocationSpots maxDistance={30} className="py-4" />
       <Navigator height="calc(100vh - 224px)" initialRadius={250} />
     </>
   )
