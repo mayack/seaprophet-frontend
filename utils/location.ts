@@ -1,3 +1,5 @@
+import { GeographicBounds } from '@/types/map'
+
 /**
  * Calculate distance between two geographic coordinates
  * @param lat1 First latitude in degrees
@@ -47,7 +49,11 @@ export function formatDistance(distance: number): string {
  * @param radiusKm Radius in kilometers
  * @returns Bounds object with north, south, east, west coordinates
  */
-export function calculateBounds(lat: number, lng: number, radiusKm: number) {
+export function calculateBounds(
+  lat: number,
+  lng: number,
+  radiusKm: number
+): GeographicBounds {
   const KM_PER_LAT = 111
   const deltaLat = radiusKm / KM_PER_LAT
   const latRad = lat * (Math.PI / 180)

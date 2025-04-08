@@ -20,6 +20,7 @@ import {
   spotsCache,
 } from './utils'
 import { calculateBounds } from '@/utils/location'
+import { GeographicBounds } from '@/types/map'
 
 // Default coordinates for Peniche
 const DEFAULT_CENTER = [-9.356267, 39.368892] as [number, number]
@@ -32,14 +33,6 @@ interface NavigatorProps {
   viewportPadding?: number // Percentage value (20 = 20%)
   initialZoom?: number
   initialLocation?: [number, number] // [longitude, latitude]
-}
-
-// Define bounds interface to avoid 'possibly null' errors
-interface MapBounds {
-  north: number
-  south: number
-  east: number
-  west: number
 }
 
 export function Navigator({
@@ -70,7 +63,7 @@ export function Navigator({
   const { userData, locationError } = useUser()
 
   // Check if an area is already in the loaded regions
-  const isAreaLoaded = useCallback((bounds: MapBounds): boolean => {
+  const isAreaLoaded = useCallback((bounds: GeographicBounds): boolean => {
     return spotsCache.loadedRegions.some((region) => {
       return (
         bounds.north <= region.north &&
@@ -147,7 +140,7 @@ export function Navigator({
 
   // Fetch spots for given bounds
   const fetchSpots = useCallback(
-    async (bounds: MapBounds): Promise<void> => {
+    async (bounds: GeographicBounds): Promise<void> => {
       if (fetchingRef.current || !mountedRef.current) return
 
       // Check if this area is already loaded
@@ -193,7 +186,7 @@ export function Navigator({
       const bounds = mapInstance.current.getBounds()
       if (!bounds) return
 
-      const currentBounds: MapBounds = {
+      const currentBounds: GeographicBounds = {
         north: bounds.getNorth(),
         south: bounds.getSouth(),
         east: bounds.getEast(),
@@ -365,7 +358,11 @@ export function Navigator({
       })
 
       // Fetch spots around user location using the utility function
-      const bounds = calculateBounds(userData.latitude, userData.longitude, initialRadius)
+      const bounds = calculateBounds(
+        userData.latitude,
+        userData.longitude,
+        initialRadius
+      )
       fetchSpots(bounds)
     }
   }, [userData.latitude, userData.longitude, fetchSpots, initialRadius])

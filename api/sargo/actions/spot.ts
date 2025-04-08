@@ -8,6 +8,7 @@ import type {
   SpotsByCountry,
 } from '../interfaces/spot'
 import { organizeSpotsByCountry } from '../utils/organizeSpotsByCountry'
+import { GeographicBounds } from '@/types/map'
 
 export async function getSpot(id: number): Promise<SpotActionResponse<Spot>> {
   const timestamp = new Date().toISOString()
@@ -109,12 +110,7 @@ export async function getNearbySpots(
 }
 
 export async function getSpotsByBounds(
-  bounds: {
-    north: number
-    south: number
-    east: number
-    west: number
-  },
+  bounds: GeographicBounds,
   pageSize: number = 100
 ): Promise<SpotActionResponse<SpotSummary[]>> {
   const timestamp = new Date().toISOString()

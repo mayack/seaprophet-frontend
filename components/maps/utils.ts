@@ -1,5 +1,6 @@
 'use client'
 import { SpotSummary } from '@/api/sargo/interfaces/spot'
+import { GeographicBounds } from '@/types/map'
 import mapboxgl from 'mapbox-gl'
 
 // Set Mapbox token
@@ -80,10 +81,5 @@ export function createMarker(
 // Global cache for SpotsMap component
 export const spotsCache = {
   spots: new Map<number, SpotSummary>(),
-  loadedRegions: [] as {
-    north: number
-    south: number
-    east: number
-    west: number
-  }[],
+  loadedRegions: [] as GeographicBounds[],
 }

@@ -39,16 +39,23 @@ export function UserLocationSpots({
       if (userData.latitude && userData.longitude) {
         setLoading(true)
         try {
-          const bounds = calculateBounds(userData.latitude, userData.longitude, maxDistance)
+          const bounds = calculateBounds(
+            userData.latitude,
+            userData.longitude,
+            maxDistance
+          )
           const response = await getSpotsByBounds(bounds)
 
           if (response.data && response.meta.success) {
-            const sortedSpots = [...response.data].sort((a, b) =>
-              (a.distance || Infinity) - (b.distance || Infinity)
+            const sortedSpots = [...response.data].sort(
+              (a, b) => (a.distance || Infinity) - (b.distance || Infinity)
             )
             setSpots(sortedSpots)
           }
         } catch (error) {
+          // Silently handle error or use a proper error logging service
+          // If you truly need to log it, you can disable the linter for just this line:
+          // eslint-disable-next-line no-console
           console.error('Error fetching nearby spots:', error)
         } finally {
           setLoading(false)
@@ -59,7 +66,13 @@ export function UserLocationSpots({
     }
 
     getLocationAndSpots()
-  }, [userData.latitude, userData.longitude, maxDistance, requestLocation, locationError])
+  }, [
+    userData.latitude,
+    userData.longitude,
+    maxDistance,
+    requestLocation,
+    locationError,
+  ])
 
   if (locationError) {
     return (
@@ -85,7 +98,10 @@ export function UserLocationSpots({
       title="Spots near you"
       className={className}
       loading={
-        !mounted || isLocating || loading || (!userData.latitude && !userData.longitude)
+        !mounted ||
+        isLocating ||
+        loading ||
+        (!userData.latitude && !userData.longitude)
       }
     />
   )

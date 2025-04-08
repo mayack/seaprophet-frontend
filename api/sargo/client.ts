@@ -8,6 +8,7 @@ import {
   UserUnits,
 } from './interfaces/user'
 import { Spot, SpotResponse } from './interfaces/spot'
+import { GeographicBounds } from '@/types/map'
 
 export class SargoClient extends BaseApiClient {
   constructor() {
@@ -268,12 +269,7 @@ export class SargoClient extends BaseApiClient {
   }
 
   async getSpotsByBounds(
-    bounds: {
-      north: number
-      south: number
-      east: number
-      west: number
-    },
+    bounds: GeographicBounds,
     pageSize: number = 100,
     isPublic = true
   ): Promise<{ data: Spot[] }> {
