@@ -36,6 +36,7 @@ export interface SpotAttributes {
   camping_self_long: number | null
   parking_comment: string | null
   beach_orientation_from: number | null
+  beach_orientation_mid: number | null
   beach_orientation_to: number | null
   surf_comment: string | null
   description: string | null

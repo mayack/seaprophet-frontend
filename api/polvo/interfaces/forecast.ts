@@ -14,6 +14,7 @@ export interface ForecastParams {
   lon: number
   orientationFrom?: number | null
   orientationTo?: number | null
+  orientationMid?: number | null
   waveFactor?: number | null
   adjustmentFactor?: number | null
   // Make units optional since they'll be handled by the action
