@@ -24,7 +24,9 @@ export function SpotCard({
       }`}
     >
       <div className="flex items-center">
-        <div className="grow text-base font-semibold">{name}</div>
+        <div className="grow overflow-hidden text-ellipsis whitespace-nowrap text-base font-semibold">
+          {name}
+        </div>
         {webcam && <Webcam size={16} className="text-muted-foreground" />}
       </div>
       {subtitle && (

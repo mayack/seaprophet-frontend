@@ -18,7 +18,7 @@ export default async function Page(): Promise<React.JSX.Element> {
     return (
       <Suspense
         fallback={
-          <div className="wrapper-spacing">
+          <>
             <div className="py-4">
               <SpotsNearbySkeleton />
             </div>
@@ -26,7 +26,7 @@ export default async function Page(): Promise<React.JSX.Element> {
               className="bg-muted"
               style={{ height: 'calc(100vh - 224px)' }}
             ></div>
-          </div>
+          </>
         }
       >
         <SpotsContent />

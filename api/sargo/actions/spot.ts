@@ -66,9 +66,6 @@ export async function getNearbySpots(
 ): Promise<SpotActionResponse<SpotSummary[]>> {
   const timestamp = new Date().toISOString()
   try {
-    // Use the utility function to calculate bounds
-    const bounds = calculateBounds(lat, lon, radiusKm)
-
     const response = await sargoClient.getNearbySpots(lat, lon, radiusKm, true)
     const nearbySpots: SpotSummary[] = response.data.map((spot) => ({
       id: spot.id,
