@@ -18,11 +18,13 @@ import {
   createMarkerElement,
   createMarker,
   spotsCache,
+  getStoredMapState,
+  storeMapState,
 } from './utils'
 import { calculateBounds } from '@/utils/location'
 import { GeographicBounds } from '@/types/map'
 
-// Default coordinates for Peniche
+// Default coordinates and zoom levels
 const DEFAULT_CENTER = [-9.356267, 39.368892] as [number, number]
 const DEFAULT_ZOOM = 11
 
@@ -35,6 +37,18 @@ interface NavigatorProps {
   initialLocation?: [number, number] // [longitude, latitude]
 }
 
+interface MapStateRef {
+  markers: Record<number, mapboxgl.Marker | null>
+  popups: Record<number, mapboxgl.Popup | null>
+  geolocateControl: mapboxgl.GeolocateControl | null
+  isFetching: boolean
+  isInitialized: boolean
+  geolocateTriggered: boolean
+  userLocationUsed: boolean
+  mapStateStored: boolean
+  isMounted: boolean
+}
+
 export function Navigator({
   className = '',
   height = '500px',
@@ -43,47 +57,53 @@ export function Navigator({
   initialZoom = DEFAULT_ZOOM,
   initialLocation = DEFAULT_CENTER,
 }: NavigatorProps): React.JSX.Element {
-  // DOM refs
+  // DOM ref
   const mapContainer = useRef<HTMLDivElement>(null)
 
-  // Map state refs
+  // Map instance ref
   const mapInstance = useRef<mapboxgl.Map | null>(null)
-  const markersRef = useRef<{ [id: number]: mapboxgl.Marker | null }>({})
-  const popupsRef = useRef<{ [id: number]: mapboxgl.Popup | null }>({})
-  const geolocateControlRef = useRef<mapboxgl.GeolocateControl | null>(null)
-  const fetchingRef = useRef(false)
-  const initializedRef = useRef(false)
-  const locationRequestPendingRef = useRef(false)
-  const mountedRef = useRef(true)
-  const mapInitializedRef = useRef(false) // Track if map is initialized
 
-  // Minimal state
+  // Combined state object for all map-related refs
+  const mapState = useRef<MapStateRef>({
+    markers: {},
+    popups: {},
+    geolocateControl: null,
+    isFetching: false,
+    isInitialized: false,
+    geolocateTriggered: false,
+    userLocationUsed: false,
+    mapStateStored: false,
+    isMounted: true,
+  })
+
+  // UI state
   const [isLoading, setIsLoading] = useState(false)
 
+  // User context
   const { userData, locationError } = useUser()
+  const hasUserLocation =
+    userData.latitude !== undefined && userData.longitude !== undefined
 
-  // Check if an area is already in the loaded regions
+  // Check if an area is already loaded
   const isAreaLoaded = useCallback((bounds: GeographicBounds): boolean => {
-    return spotsCache.loadedRegions.some((region) => {
-      return (
+    return spotsCache.loadedRegions.some(
+      (region) =>
         bounds.north <= region.north &&
         bounds.south >= region.south &&
         bounds.east <= region.east &&
         bounds.west >= region.west
-      )
-    })
+    )
   }, [])
 
-  // Update markers without triggering re-renders
+  // Update markers
   const updateMarkers = useCallback((): void => {
-    if (!mapInstance.current || !mountedRef.current) return
+    if (!mapInstance.current || !mapState.current.isMounted) return
 
     const spots = Array.from(spotsCache.spots.values())
-
-    // Filter spots that are in the current viewport
     const bounds = mapInstance.current.getBounds()
     if (!bounds) return
 
+    // Filter visible spots
     const visibleSpots = spots.filter((spot) => {
       if (!spot.location?.lat || !spot.location?.long) return false
 
@@ -95,25 +115,25 @@ export function Navigator({
       )
     })
 
-    // Add markers for spots in the viewport that don't have markers yet
+    // Add new markers
     visibleSpots.forEach((spot) => {
       if (!spot.location?.lat || !spot.location?.long) return
-      if (markersRef.current[spot.id]) return
-
-      // Create popup with custom class and fixed black text
-      const popup = new mapboxgl.Popup({
-        offset: 40,
-        closeButton: false,
-        className: 'navigator-popup',
-      }).setHTML(`
-        <a href="/spot/${spot.id}" class="inline-flex items-center gap-1 hover:underline outline-none focus:outline-none" onclick="(function(event) { event.preventDefault(); window.next.router.push('/spot/${spot.id}'); return false; })(event)">
-          <span class="text-base font-medium">${spot.name}</span>
-          ${spot.webcam ? '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="black" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="10" r="8"/><circle cx="12" cy="10" r="3"/><path d="M7 22h10"/><path d="M12 22v-4"/></svg>' : ''}
-        </a>
-      `)
+      if (mapState.current.markers[spot.id]) return
 
       try {
-        // Use shared utilities to create marker
+        // Create popup
+        const popup = new mapboxgl.Popup({
+          offset: 40,
+          closeButton: false,
+          className: 'navigator-popup',
+        }).setHTML(`
+          <a href="/spot/${spot.id}" class="inline-flex items-center gap-1 hover:underline outline-none focus:outline-none" onclick="(function(event) { event.preventDefault(); window.next.router.push('/spot/${spot.id}'); return false; })(event)">
+            <span class="text-base font-medium">${spot.name}</span>
+            ${spot.webcam ? '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="black" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="10" r="8"/><circle cx="12" cy="10" r="3"/><path d="M7 22h10"/><path d="M12 22v-4"/></svg>' : ''}
+          </a>
+        `)
+
+        // Create marker
         const markerElement = createMarkerElement(
           '/map-pin.svg',
           '32px',
@@ -130,153 +150,175 @@ export function Navigator({
         )
 
         // Store references
-        markersRef.current[spot.id] = marker
-        popupsRef.current[spot.id] = popup
+        mapState.current.markers[spot.id] = marker
+        mapState.current.popups[spot.id] = popup
       } catch {
-        // Silently handle error
+        // Error silently handled
       }
     })
   }, [])
 
-  // Fetch spots for given bounds
+  // Fetch spots
   const fetchSpots = useCallback(
     async (bounds: GeographicBounds): Promise<void> => {
-      if (fetchingRef.current || !mountedRef.current) return
+      if (mapState.current.isFetching || !mapState.current.isMounted) return
 
-      // Check if this area is already loaded
+      // Check if already loaded
       if (isAreaLoaded(bounds)) {
-        updateMarkers() // Just update markers if area is already loaded
+        updateMarkers()
         return
       }
 
-      fetchingRef.current = true
+      mapState.current.isFetching = true
       setIsLoading(true)
 
       try {
         const response = await getSpotsByBounds(bounds)
 
         if (response.data && !response.error) {
-          // Add new spots to global cache
+          // Add to cache
           response.data.forEach((spot) => {
             spotsCache.spots.set(spot.id, spot)
           })
 
-          // Add this region to loaded regions
+          // Record loaded region
           spotsCache.loadedRegions.push(bounds)
 
           // Update markers
           updateMarkers()
         }
       } catch {
-        // Silently handle error
+        // Error silently handled
       } finally {
         setIsLoading(false)
-        fetchingRef.current = false
+        mapState.current.isFetching = false
       }
     },
     [isAreaLoaded, updateMarkers]
   )
 
-  // Debounced fetch for map movement
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  const debouncedFetch = useCallback(
-    debounce((): void => {
-      if (!mapInstance.current || !mountedRef.current) return
+  // Store map position
+  const storeCurrentMapPosition = useCallback((): void => {
+    if (!mapInstance.current || mapState.current.mapStateStored) return
 
-      const bounds = mapInstance.current.getBounds()
-      if (!bounds) return
+    const center = mapInstance.current.getCenter()
+    const zoom = mapInstance.current.getZoom()
 
-      const currentBounds: GeographicBounds = {
-        north: bounds.getNorth(),
-        south: bounds.getSouth(),
-        east: bounds.getEast(),
-        west: bounds.getWest(),
-      }
+    storeMapState([center.lng, center.lat] as [number, number], zoom)
+    mapState.current.mapStateStored = true
+  }, [])
 
-      // Always update markers on movement
-      updateMarkers()
-
-      // Check if this area is already loaded before fetching
-      if (isAreaLoaded(currentBounds)) return
-
-      // Add padding (configurable through viewportPadding prop)
-      const latPadding =
-        (currentBounds.north - currentBounds.south) * (viewportPadding / 100)
-      const lngPadding =
-        (currentBounds.east - currentBounds.west) * (viewportPadding / 100)
-
-      fetchSpots({
-        north: currentBounds.north + latPadding,
-        south: currentBounds.south - latPadding,
-        east: currentBounds.east + lngPadding,
-        west: currentBounds.west - lngPadding,
-      })
-    }, 500),
-    [fetchSpots, updateMarkers, isAreaLoaded, viewportPadding]
-  )
-
-  // Initialize map - using useLayoutEffect to ensure DOM operations happen before paint
+  // Initialize map
   useLayoutEffect(() => {
-    if (mapInitializedRef.current || !mapContainer.current)
-      return (): void => {}
+    if (mapState.current.isInitialized || !mapContainer.current) return
 
-    mountedRef.current = true
-    initializedRef.current = true
-    mapInitializedRef.current = true
+    // Mark as mounted and initialized
+    mapState.current.isMounted = true
+    mapState.current.isInitialized = true
 
-    // Reset marker references on new mount
-    markersRef.current = {}
-    popupsRef.current = {}
+    // Reset state
+    mapState.current.markers = {}
+    mapState.current.popups = {}
+    mapState.current.geolocateTriggered = false
+    mapState.current.userLocationUsed = false
+    mapState.current.mapStateStored = false
 
-    // Determine starting location - use userData if available, otherwise use initialLocation
+    // Store initial state for cleanup function
+    const mapStateRef = mapState.current
+
+    // Determine starting position
     let startPosition = initialLocation
+    let startZoom = initialZoom
 
-    if (userData.latitude && userData.longitude) {
-      startPosition = [userData.longitude, userData.latitude]
+    // Check stored state first
+    const storedState = getStoredMapState()
+    if (storedState) {
+      startPosition = storedState.center
+      startZoom = storedState.zoom
+    }
+    // Use user location if available
+    else if (hasUserLocation && !mapState.current.userLocationUsed) {
+      startPosition = [userData.longitude!, userData.latitude!] as [
+        number,
+        number,
+      ]
+      mapState.current.userLocationUsed = true
     }
 
-    // Use shared initialization function with attribution disabled
+    // Initialize map
     mapInstance.current = initializeMap(
       mapContainer.current,
       startPosition,
-      initialZoom,
-      'mapbox://styles/mayack/cm7a9jq2x002i01s87y377mrx',
-      false // Disable attribution control in init
+      startZoom
     )
 
-    // Add navigation controls without bearing control
+    // Add navigation control
     const nav = new mapboxgl.NavigationControl({
-      showCompass: false, // Remove bearing control
+      showCompass: false,
     })
     mapInstance.current.addControl(nav, 'top-right')
 
-    // Add geolocate control (native MapBox solution)
-    geolocateControlRef.current = new mapboxgl.GeolocateControl({
-      positionOptions: {
-        enableHighAccuracy: true,
-      },
-      trackUserLocation: true,
-      showUserLocation: true,
-      showAccuracyCircle: false,
-      fitBoundsOptions: {
-        maxZoom: DEFAULT_ZOOM,
-      },
-    })
-    mapInstance.current.addControl(geolocateControlRef.current, 'top-right')
+    // Define setupGeolocateControl inside useLayoutEffect
+    const setupGeolocateControl = function (): void {
+      if (!mapInstance.current || !mapStateRef.isMounted) return
 
-    // Initial load with cached spots
-    if (spotsCache.spots.size > 0) {
-      updateMarkers()
+      // Create geolocate control with more permissive settings
+      const geolocateControl = new mapboxgl.GeolocateControl({
+        positionOptions: {
+          enableHighAccuracy: true,
+          timeout: 10000,
+          maximumAge: 0,
+        },
+        trackUserLocation: true,
+        showUserLocation: true,
+        showAccuracyCircle: true,
+        fitBoundsOptions: {
+          maxZoom: DEFAULT_ZOOM,
+        },
+      })
+
+      // Add to map AFTER binding events
+      mapStateRef.geolocateControl = geolocateControl
+
+      // Add proper event listeners directly to the control
+      geolocateControl.on('geolocate', () => {
+        mapStateRef.geolocateTriggered = true
+
+        // Force map to recognize user location is active
+        if (mapInstance.current) {
+          mapInstance.current.resize()
+        }
+      })
+
+      geolocateControl.on('trackuserlocationstart', () => {
+        // Location tracking started
+      })
+
+      geolocateControl.on('trackuserlocationend', () => {
+        // Location tracking ended
+      })
+
+      geolocateControl.on('error', () => {
+        // Geolocate control error with code
+      })
+
+      // Now add the control to the map
+      mapInstance.current!.addControl(geolocateControl, 'top-right')
+
+      // Also listen for map errors
+      mapInstance.current!.on('error', () => {
+        // Mapbox error
+      })
     }
 
-    // Initial fetch after map loads if needed
-    const mapLoadHandler = (): void => {
-      if (!mapInstance.current || !mountedRef.current) return
+    setupGeolocateControl()
 
-      // Default fetch for initial viewport regardless of location status
-      const [long, lat] = startPosition // Use our determined position
+    // Define mapLoadHandler inside useLayoutEffect
+    const mapLoadHandler = function (): void {
+      if (!mapInstance.current || !mapStateRef.isMounted) return
 
-      // Use the utility function to calculate bounds
+      // Initial fetch
+      const [long, lat] = startPosition
       const bounds = calculateBounds(lat, long, initialRadius)
 
       if (!isAreaLoaded(bounds)) {
@@ -285,47 +327,115 @@ export function Navigator({
         updateMarkers()
       }
 
-      // Always trigger geolocate to ensure user marker appears
-      if (mountedRef.current && geolocateControlRef.current && !locationError) {
-        setTimeout(() => {
-          if (geolocateControlRef.current) {
-            geolocateControlRef.current.trigger()
+      // Always try to trigger geolocate after map load to ensure indicator appears
+      const triggerDelay = storedState ? 2000 : 1000
+
+      setTimeout(() => {
+        if (
+          mapStateRef.geolocateControl &&
+          mapStateRef.isMounted &&
+          !mapStateRef.geolocateTriggered
+        ) {
+          try {
+            mapStateRef.geolocateControl.trigger()
+
+            // Set a backup timeout to retry once if needed
+            setTimeout(() => {
+              if (
+                mapStateRef.isMounted &&
+                !mapStateRef.geolocateTriggered &&
+                mapStateRef.geolocateControl
+              ) {
+                try {
+                  mapStateRef.geolocateControl.trigger()
+                } catch {
+                  // Error silently handled
+                }
+              }
+            }, 2000)
+          } catch {
+            // Error silently handled
           }
-        }, 500)
-      }
+        }
+      }, triggerDelay)
     }
 
-    // Set up movement event listeners
-    const moveEndHandler = debouncedFetch
-    const zoomEndHandler = debouncedFetch
+    // Debounced fetch function defined inside useLayoutEffect
+    const handleMapMovement = function (): void {
+      if (!mapInstance.current || !mapStateRef.isMounted) return
 
+      const bounds = mapInstance.current.getBounds()
+      if (!bounds) return
+
+      // Get current bounds
+      const currentBounds: GeographicBounds = {
+        north: bounds.getNorth(),
+        south: bounds.getSouth(),
+        east: bounds.getEast(),
+        west: bounds.getWest(),
+      }
+
+      // Always update markers
+      updateMarkers()
+
+      // Store position after user interaction
+      storeCurrentMapPosition()
+
+      // Skip if already loaded
+      if (isAreaLoaded(currentBounds)) return
+
+      // Add padding
+      const latPadding =
+        (currentBounds.north - currentBounds.south) * (viewportPadding / 100)
+      const lngPadding =
+        (currentBounds.east - currentBounds.west) * (viewportPadding / 100)
+
+      // Fetch with padded bounds
+      fetchSpots({
+        north: currentBounds.north + latPadding,
+        south: currentBounds.south - latPadding,
+        east: currentBounds.east + lngPadding,
+        west: currentBounds.west - lngPadding,
+      })
+    }
+
+    // Create a debounced version
+    const debouncedHandleMapMovement = debounce(handleMapMovement, 500)
+
+    // Event listeners
     mapInstance.current.on('load', mapLoadHandler)
-    mapInstance.current.on('moveend', moveEndHandler)
-    mapInstance.current.on('zoomend', zoomEndHandler)
+    mapInstance.current.on('moveend', debouncedHandleMapMovement)
+    mapInstance.current.on('zoomend', debouncedHandleMapMovement)
 
-    // Cleanup function
+    // Cleanup
     return (): void => {
-      mountedRef.current = false
-      debouncedFetch.cancel()
+      mapStateRef.isMounted = false
+
+      if (typeof debouncedHandleMapMovement.cancel === 'function') {
+        debouncedHandleMapMovement.cancel()
+      }
 
       if (mapInstance.current) {
-        // Remove event listeners first
-        mapInstance.current.off('load', mapLoadHandler)
-        mapInstance.current.off('moveend', moveEndHandler)
-        mapInstance.current.off('zoomend', zoomEndHandler)
+        // Store final position
+        storeCurrentMapPosition()
 
-        // Then remove the map instance
+        // Remove event listeners
+        mapInstance.current.off('load', mapLoadHandler)
+        mapInstance.current.off('moveend', debouncedHandleMapMovement)
+        mapInstance.current.off('zoomend', debouncedHandleMapMovement)
+
+        // Remove map
         mapInstance.current.remove()
         mapInstance.current = null
       }
 
-      initializedRef.current = false
-      mapInitializedRef.current = false
-
-      // Clear the references but not the cached data
-      geolocateControlRef.current = null
-      markersRef.current = {}
-      popupsRef.current = {}
+      // Reset state
+      mapStateRef.isInitialized = false
+      mapStateRef.geolocateTriggered = false
+      mapStateRef.mapStateStored = false
+      mapStateRef.geolocateControl = null
+      mapStateRef.markers = {}
+      mapStateRef.popups = {}
     }
   }, [
     initialLocation,
@@ -335,37 +445,86 @@ export function Navigator({
     fetchSpots,
     updateMarkers,
     locationError,
-    debouncedFetch,
+    hasUserLocation,
     userData.latitude,
     userData.longitude,
+    storeCurrentMapPosition,
+    viewportPadding,
   ])
 
-  // Effect to react to user location changes after map initialization
+  // Handle user location changes
   useEffect(() => {
-    if (!mapInitializedRef.current || !mapInstance.current) return
+    if (!mapState.current.isInitialized || !mapInstance.current) return
 
-    // If we have user location data and the map is ready
+    // Only use location if:
+    // 1. We have user location
+    // 2. Not currently fetching
+    // 3. Location not used yet
+    // 4. No stored map state
     if (
-      userData.latitude &&
-      userData.longitude &&
-      !fetchingRef.current &&
-      !locationRequestPendingRef.current
+      hasUserLocation &&
+      !mapState.current.isFetching &&
+      !mapState.current.userLocationUsed &&
+      !getStoredMapState()
     ) {
+      mapState.current.userLocationUsed = true
+
+      // Fly to user location
       mapInstance.current.flyTo({
-        center: [userData.longitude, userData.latitude],
+        center: [userData.longitude!, userData.latitude!] as [number, number],
         zoom: DEFAULT_ZOOM,
         speed: 1.5,
       })
 
-      // Fetch spots around user location using the utility function
+      // Fetch spots at user location
       const bounds = calculateBounds(
-        userData.latitude,
-        userData.longitude,
+        userData.latitude!,
+        userData.longitude!,
         initialRadius
       )
       fetchSpots(bounds)
+
+      // Try to trigger geolocate for location indicator
+      if (
+        mapState.current.geolocateControl &&
+        !mapState.current.geolocateTriggered
+      ) {
+        // First attempt
+        setTimeout(() => {
+          if (mapState.current.geolocateControl && mapState.current.isMounted) {
+            try {
+              // Don't set triggered flag yet to allow retry
+              mapState.current.geolocateControl.trigger()
+
+              // Second attempt with delay
+              setTimeout(() => {
+                if (
+                  mapState.current.geolocateControl &&
+                  mapState.current.isMounted &&
+                  !mapState.current.geolocateTriggered
+                ) {
+                  try {
+                    mapState.current.geolocateTriggered = true
+                    mapState.current.geolocateControl.trigger()
+                  } catch {
+                    // Error silently handled
+                  }
+                }
+              }, 1500)
+            } catch {
+              // Error silently handled
+            }
+          }
+        }, 1000)
+      }
     }
-  }, [userData.latitude, userData.longitude, fetchSpots, initialRadius])
+  }, [
+    userData.latitude,
+    userData.longitude,
+    fetchSpots,
+    initialRadius,
+    hasUserLocation,
+  ])
 
   return (
     <div style={{ height: height }} className="bg-muted">

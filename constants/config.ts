@@ -1,5 +1,5 @@
 export const CONFIG = {
-  version: '0.2.2',
+  version: '0.2.3',
   defaultTheme: 'system',
   api: {
     urls: {
@@ -63,14 +63,18 @@ export const CONFIG = {
           maxAge: 15 * 60,
         },
       },
+      geolocation: {
+        token: 'USER_LOCATION',
+        maxAge: 5 * 60 * 1000,
+      },
+      navigator: {
+        token: 'USER_NAVIGATOR',
+        maxAge: 5 * 60 * 1000,
+      },
     },
   },
   auth: {
     maxRetries: 3,
-  },
-  geolocation: {
-    token: 'USER_LOCATION',
-    maxAge: 1000 * 60 * 30,
   },
   settings: {
     default: {
@@ -86,6 +90,9 @@ export const CONFIG = {
   },
   webcam: {
     afk_timer: 120 * 1000,
+  },
+  mapbox: {
+    style: 'mapbox://styles/mayack/cm7a9jq2x002i01s87y377mrx',
   },
 } as const
 export type Config = typeof CONFIG

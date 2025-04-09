@@ -1,5 +1,7 @@
 'use client'
+
 import { User } from '@/api/sargo/interfaces/user'
+import { CONFIG } from '@/constants/config'
 import {
   createContext,
   useContext,
@@ -8,6 +10,7 @@ import {
   ReactNode,
 } from 'react'
 
+// Interface definitions
 interface UserContextType {
   userData: User & { latitude?: number; longitude?: number }
   setUserData: (data: User & { latitude?: number; longitude?: number }) => void
@@ -16,7 +19,45 @@ interface UserContextType {
   isLocating: boolean
 }
 
+interface StoredLocation {
+  latitude: number
+  longitude: number
+  timestamp: number
+}
+
 const UserContext = createContext<UserContextType | undefined>(undefined)
+
+// Get location from storage
+function getStoredLocation() {
+  if (typeof window === 'undefined') return {}
+
+  try {
+    const storedLocationJson = sessionStorage.getItem(
+      CONFIG.api.tokens.geolocation.token
+    )
+
+    if (storedLocationJson) {
+      const storedLocation = JSON.parse(storedLocationJson) as StoredLocation
+
+      if (
+        Date.now() - storedLocation.timestamp <
+        CONFIG.api.tokens.geolocation.maxAge
+      ) {
+        return {
+          latitude: storedLocation.latitude,
+          longitude: storedLocation.longitude,
+        }
+      } else {
+        sessionStorage.removeItem(CONFIG.api.tokens.geolocation.token)
+      }
+    }
+  } catch (error) {
+    console.error('Error parsing stored location', error)
+    sessionStorage.removeItem(CONFIG.api.tokens.geolocation.token)
+  }
+
+  return {}
+}
 
 export function UserProvider({
   initialUserData,
@@ -25,42 +66,38 @@ export function UserProvider({
   initialUserData: User
   children: ReactNode
 }) {
+  // Initialize with stored location
   const [userData, setUserData] = useState<
     User & { latitude?: number; longitude?: number }
-  >(initialUserData)
+  >(() => ({
+    ...initialUserData,
+    ...getStoredLocation(),
+  }))
+
   const [locationError, setLocationError] = useState<string | null>(null)
   const [isLocating, setIsLocating] = useState(false)
 
-  // Load from sessionStorage on mount
-  useEffect(() => {
-    const storedLocation = sessionStorage.getItem('userLocation')
-    if (storedLocation) {
-      try {
-        const { latitude, longitude } = JSON.parse(storedLocation)
-        setUserData((prev) => ({ ...prev, latitude, longitude }))
-      } catch (error) {
-        console.error('Error parsing stored location', error)
-        sessionStorage.removeItem('userLocation')
-      }
-    }
-  }, [])
-
-  // Persist userData changes to sessionStorage
+  // Store location changes
   useEffect(() => {
     if (userData.latitude !== undefined && userData.longitude !== undefined) {
-      sessionStorage.setItem(
-        'userLocation',
-        JSON.stringify({
-          latitude: userData.latitude,
-          longitude: userData.longitude,
-        })
-      )
+      try {
+        sessionStorage.setItem(
+          CONFIG.api.tokens.geolocation.token,
+          JSON.stringify({
+            latitude: userData.latitude,
+            longitude: userData.longitude,
+            timestamp: Date.now(),
+          })
+        )
+      } catch (error) {
+        console.error('Error saving location to sessionStorage', error)
+      }
     }
   }, [userData.latitude, userData.longitude])
 
-  // Central function to request user location
+  // Request user location
   const requestLocation = async () => {
-    // First check for cached location
+    // Return cached location if available
     if (userData.latitude !== undefined && userData.longitude !== undefined) {
       return {
         latitude: userData.latitude,
@@ -68,50 +105,63 @@ export function UserProvider({
       }
     }
 
-    // Check if geolocation is supported
+    // Try stored location as fallback
+    const storedLocation = getStoredLocation()
+    if (storedLocation.latitude && storedLocation.longitude) {
+      setUserData((prev) => ({
+        ...prev,
+        ...storedLocation,
+      }))
+      return storedLocation as { latitude: number; longitude: number }
+    }
+
+    // Check browser support
     if (!navigator.geolocation) {
       const errorMsg = 'Geolocation is not supported by this browser.'
       setLocationError(errorMsg)
       return null
     }
 
-    // Skip if already locating
-    if (isLocating) {
-      return null
-    }
+    // Skip if already in progress
+    if (isLocating) return null
 
     setIsLocating(true)
     setLocationError(null)
 
     try {
-      // Use a timeout promise to ensure we don't wait forever
-      const positionPromise = new Promise<GeolocationPosition>(
+      // Get position with timeout
+      const position = await new Promise<GeolocationPosition>(
         (resolve, reject) => {
-          navigator.geolocation.getCurrentPosition(resolve, reject, {
-            enableHighAccuracy: true,
-            timeout: 5000,
-            maximumAge: 0,
-          })
+          const timeoutId = setTimeout(() => {
+            reject(new Error('Location request timed out'))
+          }, 8000)
+
+          navigator.geolocation.getCurrentPosition(
+            (pos) => {
+              clearTimeout(timeoutId)
+              resolve(pos)
+            },
+            (err) => {
+              clearTimeout(timeoutId)
+              reject(err)
+            },
+            {
+              enableHighAccuracy: true,
+              timeout: 5000,
+              maximumAge: 0,
+            }
+          )
         }
       )
 
-      // Race against a timeout - make this longer than the geolocation API timeout
-      const timeoutPromise = new Promise<never>((_, reject) => {
-        setTimeout(() => reject(new Error('Location request timed out')), 8000)
-      })
-
-      const position = (await Promise.race([
-        positionPromise,
-        timeoutPromise,
-      ])) as GeolocationPosition
-
       const { latitude, longitude } = position.coords
 
-      // Update user data with location
+      // Update state
       setUserData((prev) => ({ ...prev, latitude, longitude }))
       setIsLocating(false)
       return { latitude, longitude }
     } catch (error) {
+      // Handle errors
       let errorMessage = 'Unknown error accessing location'
 
       if (error instanceof GeolocationPositionError) {

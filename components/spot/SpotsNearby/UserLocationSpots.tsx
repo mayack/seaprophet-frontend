@@ -1,10 +1,10 @@
 'use client'
-import { useEffect, useState, useRef } from 'react'
+
+import React, { useEffect, useState, useCallback } from 'react'
 import { MapPin } from 'lucide-react'
 import { SpotSummary } from '@/api/sargo/interfaces/spot'
 import { useUser } from '@/contexts/UserContext'
 import { SpotsNearby } from '.'
-import React from 'react'
 import { getSpotsByBounds } from '@/api/sargo/actions/spot'
 import { calculateBounds } from '@/utils/location'
 
@@ -18,63 +18,95 @@ export function UserLocationSpots({
   maxDistance = 30,
 }: UserLocationSpotsProps): React.JSX.Element {
   const { userData, requestLocation, locationError, isLocating } = useUser()
-  const [mounted, setMounted] = useState(false)
-  const [spots, setSpots] = useState<SpotSummary[]>([])
-  const [loading, setLoading] = useState(true)
-  const locationRequested = useRef(false)
 
+  const [state, setState] = useState({
+    spots: [] as SpotSummary[],
+    loading: true,
+    locationRequested: false,
+    initialized: false,
+  })
+
+  const hasLocation =
+    userData.latitude !== undefined && userData.longitude !== undefined
+
+  // Fetch spots with user location
+  const fetchSpots = useCallback(async (): Promise<void> => {
+    if (!hasLocation) return
+
+    setState((prev) => ({ ...prev, loading: true }))
+
+    try {
+      const bounds = calculateBounds(
+        userData.latitude!,
+        userData.longitude!,
+        maxDistance
+      )
+
+      const response = await getSpotsByBounds(bounds)
+
+      if (response.data && response.meta.success) {
+        const sortedSpots = [...response.data].sort(
+          (a, b) => (a.distance || Infinity) - (b.distance || Infinity)
+        )
+
+        setState((prev) => ({
+          ...prev,
+          spots: sortedSpots,
+          loading: false,
+        }))
+      }
+    } catch {
+      // Silently handle error
+      setState((prev) => ({ ...prev, loading: false }))
+    }
+  }, [userData.latitude, userData.longitude, maxDistance, hasLocation])
+
+  // Initialize component and handle location
   useEffect(() => {
-    setMounted(true)
+    // First render initialization
+    if (!state.initialized) {
+      setState((prev) => ({ ...prev, initialized: true }))
+      return
+    }
 
-    const getLocationAndSpots = async (): Promise<void> => {
+    const handleLocation = async (): Promise<void> => {
+      // Request location if needed
       if (
-        (!userData.latitude || !userData.longitude) &&
+        !hasLocation &&
         !locationError &&
-        !locationRequested.current
+        !state.locationRequested &&
+        !isLocating
       ) {
-        locationRequested.current = true
+        setState((prev) => ({ ...prev, locationRequested: true }))
         await requestLocation()
+        return
       }
 
-      if (userData.latitude && userData.longitude) {
-        setLoading(true)
-        try {
-          const bounds = calculateBounds(
-            userData.latitude,
-            userData.longitude,
-            maxDistance
-          )
-          const response = await getSpotsByBounds(bounds)
+      // If we have location, fetch spots
+      if (hasLocation) {
+        await fetchSpots()
+        return
+      }
 
-          if (response.data && response.meta.success) {
-            const sortedSpots = [...response.data].sort(
-              (a, b) => (a.distance || Infinity) - (b.distance || Infinity)
-            )
-            setSpots(sortedSpots)
-          }
-        } catch (error) {
-          // Silently handle error or use a proper error logging service
-          // If you truly need to log it, you can disable the linter for just this line:
-          // eslint-disable-next-line no-console
-          console.error('Error fetching nearby spots:', error)
-        } finally {
-          setLoading(false)
-        }
-      } else {
-        setLoading(false)
+      // If we don't have location and not currently locating, stop loading
+      if (!hasLocation && !isLocating) {
+        setState((prev) => ({ ...prev, loading: false }))
       }
     }
 
-    getLocationAndSpots()
+    handleLocation()
   }, [
-    userData.latitude,
-    userData.longitude,
-    maxDistance,
-    requestLocation,
+    hasLocation,
     locationError,
+    isLocating,
+    requestLocation,
+    state.initialized,
+    state.locationRequested,
+    fetchSpots,
   ])
 
-  if (locationError) {
+  // Handle location error case
+  if (locationError && !hasLocation) {
     return (
       <SpotsNearby
         spots={[]}
@@ -91,18 +123,14 @@ export function UserLocationSpots({
     )
   }
 
+  // Normal rendering
   return (
     <SpotsNearby
-      spots={spots}
+      spots={state.spots}
       maxDistance={maxDistance}
       title="Spots near you"
       className={className}
-      loading={
-        !mounted ||
-        isLocating ||
-        loading ||
-        (!userData.latitude && !userData.longitude)
-      }
+      loading={!state.initialized || isLocating || state.loading}
     />
   )
 }

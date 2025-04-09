@@ -7,6 +7,7 @@ import {
   createMarkerElement,
   createMarker,
 } from './utils'
+import { CONFIG } from '@/constants/config'
 
 interface MapProps {
   center: [number, number]
@@ -49,12 +50,7 @@ export function Map({
     }
 
     // Use shared initialization function with attributionControl set to false
-    mapInstance.current = initializeMap(
-      mapcontainer.current,
-      center,
-      zoom,
-      'mapbox://styles/mayack/cm7a9jq2x002i01s87y377mrx'
-    )
+    mapInstance.current = initializeMap(mapcontainer.current, center, zoom)
 
     // Apply interaction restrictions
     if (disablePanning || disableZooming) {

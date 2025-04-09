@@ -1,5 +1,6 @@
 'use client'
 import { SpotSummary } from '@/api/sargo/interfaces/spot'
+import { CONFIG } from '@/constants/config'
 import { GeographicBounds } from '@/types/map'
 import mapboxgl from 'mapbox-gl'
 
@@ -26,7 +27,7 @@ export function initializeMap(
   container: HTMLDivElement,
   center: [number, number],
   zoom: number,
-  style: string = 'mapbox://styles/mayack/cm7a9jq2x002i01s87y377mrx',
+  style: string = CONFIG.mapbox.style,
   attributionControl: boolean = false // Set to false by default
 ): mapboxgl.Map {
   return new mapboxgl.Map({
@@ -82,4 +83,47 @@ export function createMarker(
 export const spotsCache = {
   spots: new Map<number, SpotSummary>(),
   loadedRegions: [] as GeographicBounds[],
+}
+
+type MapState = {
+  center: [number, number]
+  zoom: number
+  timestamp: number
+}
+
+export function getStoredMapState(): MapState | null {
+  if (typeof window === 'undefined') return null
+
+  try {
+    const stored = window.sessionStorage.getItem(
+      CONFIG.api.tokens.navigator.token
+    )
+    if (stored) {
+      const state = JSON.parse(stored) as MapState
+      if (Date.now() - state.timestamp < CONFIG.api.tokens.navigator.maxAge) {
+        return state
+      }
+    }
+  } catch {
+    // Error silently handled
+  }
+  return null
+}
+
+export function storeMapState(center: [number, number], zoom: number): void {
+  if (typeof window === 'undefined') return
+
+  try {
+    const state: MapState = {
+      center,
+      zoom,
+      timestamp: Date.now(),
+    }
+    window.sessionStorage.setItem(
+      CONFIG.api.tokens.navigator.token,
+      JSON.stringify(state)
+    )
+  } catch {
+    // Error silently handled
+  }
 }
