@@ -1,5 +1,5 @@
 export const CONFIG = {
-  version: '0.2.3',
+  version: '0.2.4',
   defaultTheme: 'system',
   api: {
     urls: {
@@ -65,6 +65,10 @@ export const CONFIG = {
       },
       geolocation: {
         token: 'USER_LOCATION',
+        maxAge: 5 * 60 * 1000,
+      },
+      geolocation_spots: {
+        token: 'USER_LOCATION_SPOTS',
         maxAge: 5 * 60 * 1000,
       },
       navigator: {

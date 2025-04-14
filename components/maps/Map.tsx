@@ -7,7 +7,6 @@ import {
   createMarkerElement,
   createMarker,
 } from './utils'
-import { CONFIG } from '@/constants/config'
 
 interface MapProps {
   center: [number, number]

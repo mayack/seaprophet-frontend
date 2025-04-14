@@ -20,7 +20,7 @@ export function SpotDetails({
     <div>
       <Tabs defaultValue={webcamConfig ? 'webcam' : 'map'} className="w-full">
         <div className="wrapper">
-          <div className="mb-6 flex items-end">
+          <div className="mb-4 flex items-end sm:mb-6">
             <h1 className="font-style-h1 flex-1">{spotName}</h1>
             <TabsList>
               {webcamConfig && (

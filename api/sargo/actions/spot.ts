@@ -1,5 +1,5 @@
 'use server'
-import { calculateDistance, calculateBounds } from '@/utils/location'
+import { calculateDistance } from '@/utils/location'
 import { sargoClient } from '../client'
 import type {
   SpotSummary,

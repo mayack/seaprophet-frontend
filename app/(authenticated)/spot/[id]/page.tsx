@@ -88,16 +88,18 @@ export default async function SpotPage({
 
     return (
       <div className="wrapper-spacing py-4 sm:py-6 xl:py-8">
-        <SpotDetails
-          mapCenter={[spot.location_long, spot.location_lat]}
-          webcamConfig={spot.webcam}
-          spotName={spot.name}
-        />
-        <SpotsNearby
-          spots={nearbySpots}
-          maxDistance={30}
-          title={`Spots near ${spot.name}`}
-        />
+        <div className="space-y-4 sm:space-y-6">
+          <SpotDetails
+            mapCenter={[spot.location_long, spot.location_lat]}
+            webcamConfig={spot.webcam}
+            spotName={spot.name}
+          />
+          <SpotsNearby
+            spots={nearbySpots}
+            maxDistance={30}
+            title={`Spots near ${spot.name}`}
+          />
+        </div>
         <Forecast days={forecastResponse.data.days} user={user} />
       </div>
     )
