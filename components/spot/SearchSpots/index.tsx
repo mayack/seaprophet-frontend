@@ -123,32 +123,32 @@ export function SearchSpots({
   return (
     <div ref={containerRef} className={cn('md:relative', className)}>
       <div className="relative">
-      <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-      <Input
-        type="text"
-        placeholder={placeholder}
-        value={query}
-        onChange={handleInputChange}
-        onBlur={handleInputBlur}
-        className="px-9"
-        variant="muted"
-      />
-      {query && (
-        <Button
-          variant="ghost"
-          size="icon"
-          className="absolute right-1 top-1/2 -translate-y-1/2 rounded-full"
-          onClick={clearSearch}
-          type="button"
-        >
-          <X className="size-4" />
-          <span className="sr-only">Clear search</span>
-        </Button>
-      )}
+        <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+        <Input
+          type="text"
+          placeholder={placeholder}
+          value={query}
+          onChange={handleInputChange}
+          onBlur={handleInputBlur}
+          className="px-9"
+          variant="muted"
+        />
+        {query && (
+          <Button
+            variant="ghost"
+            size="icon"
+            className="absolute right-1 top-1/2 -translate-y-1/2 rounded-full"
+            onClick={clearSearch}
+            type="button"
+          >
+            <X className="size-4" />
+            <span className="sr-only">Clear search</span>
+          </Button>
+        )}
       </div>
 
       {showDropdown && (
-        <div className="absolute inset-x-0 top-16 md:top-[calc(100%+0.75rem)] z-50 max-h-64 overflow-auto md:rounded-md md:border bg-popover p-4 text-popover-foreground shadow-lg">
+        <div className="absolute inset-x-0 top-16 z-50 max-h-64 overflow-auto bg-popover p-4 text-popover-foreground shadow-lg md:top-[calc(100%+0.75rem)] md:rounded-md md:border">
           {isLoading && (
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
               {[...Array(4)].map((_, i) => (

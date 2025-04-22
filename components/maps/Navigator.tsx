@@ -3,7 +3,6 @@
 import React, {
   useRef,
   useLayoutEffect,
-  useEffect,
   useState,
   useCallback,
 } from 'react'
@@ -201,8 +200,8 @@ export function Navigator({
       showAccuracyCircle: true,
       fitBoundsOptions: {
         maxZoom: initialZoom, // Prevents zooming in beyond initial zoom
-        animate: false // Disables the flying animation
-      }
+        animate: false, // Disables the flying animation
+      },
     })
 
     // Handle initial load
