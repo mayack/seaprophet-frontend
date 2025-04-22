@@ -304,6 +304,32 @@ export class SargoClient extends BaseApiClient {
       data: response.data,
     }
   }
+
+  async searchSpots(query: string, isPublic = true): Promise<{ data: Spot[] }> {
+    const queryParams = new URLSearchParams({
+      'filters[name][$containsi]': query,
+      'fields[0]': 'name',
+      'fields[1]': 'location_lat',
+      'fields[2]': 'location_long',
+      'populate[webcam]': 'true',
+      'pagination[pageSize]': '10',
+    }).toString()
+
+    const headers = await this.getHeaders(
+      `${CONFIG.api.endpoints.sargo.spots.list}?${queryParams}`,
+      isPublic
+    )
+
+    return this.fetch<{ data: Spot[] }>(
+      `${CONFIG.api.endpoints.sargo.spots.list}?${queryParams}`,
+      {
+        init: {
+          headers,
+          cache: 'no-store',
+        },
+      }
+    )
+  }
 }
 
 export const sargoClient = new SargoClient()

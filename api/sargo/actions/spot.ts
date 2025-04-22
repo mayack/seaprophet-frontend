@@ -161,3 +161,52 @@ export async function getSpotsByBounds(
     }
   }
 }
+
+export async function searchSpots(
+  query: string,
+  isPublic = true
+): Promise<SpotActionResponse<SpotSummary[]>> {
+  const timestamp = new Date().toISOString()
+
+  if (!query.trim()) {
+    return {
+      data: [],
+      error: null,
+      meta: { timestamp, source: 'search-empty', success: true },
+    }
+  }
+
+  try {
+    const response = await sargoClient.searchSpots(query, isPublic)
+
+    const spots: SpotSummary[] = response.data
+      .map((spot) => ({
+        id: spot.id,
+        name: spot.attributes.name,
+        location: {
+          lat: spot.attributes.location_lat,
+          long: spot.attributes.location_long,
+        },
+        webcam: spot.attributes.webcam || null,
+      }))
+      .sort((a, b) =>
+        a.name.localeCompare(b.name, undefined, {
+          sensitivity: 'base',
+          numeric: true,
+        })
+      )
+
+    return {
+      data: spots,
+      error: null,
+      meta: { timestamp, source: 'search', success: true },
+    }
+  } catch (error) {
+    console.error('Search spots error:', error)
+    return {
+      data: [],
+      error: error instanceof Error ? error.message : 'Failed to search spots',
+      meta: { timestamp, source: 'error', success: false },
+    }
+  }
+}

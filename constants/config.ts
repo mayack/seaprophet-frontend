@@ -1,5 +1,5 @@
 export const CONFIG = {
-  version: '0.2.5',
+  version: '0.3',
   defaultTheme: 'system',
   api: {
     urls: {
@@ -21,6 +21,8 @@ export const CONFIG = {
           list: '/api/spots',
           detail: (id: number) => `/api/spots/${id}?populate=*`,
           byCountry: '/api/spots',
+          search:
+            '/api/spots?filters[name][$containsi]=:query&fields[0]=name&populate[webcam]=true',
         },
       },
       polvo: {

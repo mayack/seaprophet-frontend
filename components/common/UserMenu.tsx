@@ -15,6 +15,7 @@ import { Settings, LogOut, ChevronDown } from 'lucide-react'
 import { User } from '@/api/sargo/interfaces/user'
 import React from 'react'
 import ThemeSwitcher from './ThemeSwitcher'
+import { CONFIG } from '@/constants/config'
 
 interface UserMenuProps {
   user: User
@@ -80,6 +81,9 @@ export function UserMenu({ user }: UserMenuProps): React.JSX.Element | null {
           <LogOut size={16} />
           <span>Sign out</span>
         </DropdownMenuItem>
+        <div className="px-2 pb-1 pt-2 text-left text-xs text-muted-foreground">
+          Version {CONFIG.version}
+        </div>
       </DropdownMenuContent>
     </DropdownMenu>
   )
