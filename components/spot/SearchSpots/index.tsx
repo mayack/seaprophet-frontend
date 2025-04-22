@@ -121,7 +121,8 @@ export function SearchSpots({
   const showDropdown = isOpen && query.length > 0
 
   return (
-    <div ref={containerRef} className={cn('relative', className)}>
+    <div ref={containerRef} className={cn('md:relative', className)}>
+      <div className="relative">
       <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
       <Input
         type="text"
@@ -144,11 +145,12 @@ export function SearchSpots({
           <span className="sr-only">Clear search</span>
         </Button>
       )}
+      </div>
 
       {showDropdown && (
-        <div className="absolute inset-x-0 top-[calc(100%+0.75rem)] z-50 max-h-[calc(100vh-16rem)] overflow-auto rounded-md border bg-popover p-4 text-popover-foreground shadow-lg">
+        <div className="absolute inset-x-0 top-16 md:top-[calc(100%+0.75rem)] z-50 max-h-64 overflow-auto md:rounded-md md:border bg-popover p-4 text-popover-foreground shadow-lg">
           {isLoading && (
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
               {[...Array(4)].map((_, i) => (
                 <Skeleton key={i} className="h-14 w-full rounded-lg" />
               ))}
@@ -180,7 +182,7 @@ export function SearchSpots({
           )}
 
           {!isLoading && spots.length > 0 && (
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
               {spots.map((spot) => (
                 <div
                   key={spot.id}

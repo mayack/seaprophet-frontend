@@ -2,7 +2,7 @@ import Link from 'next/link'
 import { UserMenu } from './UserMenu'
 import { User } from '@/api/sargo/interfaces/user'
 import React from 'react'
-import { Library, Waves } from 'lucide-react'
+import { Globe, Waves } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
   Tooltip,
@@ -38,7 +38,7 @@ export function Header({ user }: HeaderProps): React.JSX.Element {
                     asChild
                   >
                     <Link href="/browse">
-                      <Library className="size-4" />
+                      <Globe />
                     </Link>
                   </Button>
                 </TooltipTrigger>

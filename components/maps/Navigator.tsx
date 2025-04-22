@@ -18,8 +18,6 @@ import {
   createMarkerElement,
   createMarker,
   spotsCache,
-  getStoredMapState,
-  storeMapState,
 } from './utils'
 import { calculateBounds } from '@/utils/location'
 import { GeographicBounds } from '@/types/map'
@@ -41,9 +39,6 @@ interface MapStateRef {
   geolocateControl: mapboxgl.GeolocateControl | null
   isFetching: boolean
   isInitialized: boolean
-  geolocateTriggered: boolean
-  userLocationUsed: boolean
-  mapStateStored: boolean
   isMounted: boolean
 }
 
@@ -62,15 +57,12 @@ export function Navigator({
     geolocateControl: null,
     isFetching: false,
     isInitialized: false,
-    geolocateTriggered: false,
-    userLocationUsed: false,
-    mapStateStored: false,
     isMounted: true,
   })
 
   const [isLoading, setIsLoading] = useState(false)
 
-  const { userData, locationError } = useUser()
+  const { userData } = useUser()
   const hasUserLocation =
     userData.latitude !== undefined && userData.longitude !== undefined
 
@@ -174,88 +166,46 @@ export function Navigator({
     [isAreaLoaded, updateMarkers]
   )
 
-  const storeCurrentMapPosition = useCallback((): void => {
-    if (!mapInstance.current || mapState.current.mapStateStored) return
-
-    const center = mapInstance.current.getCenter()
-    const zoom = mapInstance.current.getZoom()
-
-    storeMapState([center.lng, center.lat] as [number, number], zoom)
-    mapState.current.mapStateStored = true
-  }, [])
-
   useLayoutEffect(() => {
     if (mapState.current.isInitialized || !mapContainer.current) return
 
     mapState.current.isMounted = true
     mapState.current.isInitialized = true
 
-    mapState.current.markers = {}
-    mapState.current.popups = {}
-    mapState.current.geolocateTriggered = false
-    mapState.current.userLocationUsed = false
-    mapState.current.mapStateStored = false
-
     const mapStateRef = mapState.current
 
-    // Determine starting position - Priority order:
-    // 1. Stored map state
-    // 2. User location
-    // 3. Default location
-    let startPosition: [number, number]
-    let startZoom = initialZoom
-
-    const storedState = getStoredMapState()
-    if (storedState) {
-      startPosition = storedState.center
-      startZoom = storedState.zoom
-    } else if (hasUserLocation) {
-      startPosition = [userData.longitude!, userData.latitude!]
-      mapState.current.userLocationUsed = true
-    } else {
-      startPosition = CONFIG.map.defaults.center
-    }
+    // Initialize map with user location or default center
+    const startPosition: [number, number] = hasUserLocation
+      ? [userData.longitude!, userData.latitude!]
+      : CONFIG.map.defaults.center
 
     mapInstance.current = initializeMap(
       mapContainer.current,
       startPosition,
-      startZoom
+      initialZoom
     )
 
+    // Add navigation control
     const nav = new mapboxgl.NavigationControl({ showCompass: false })
     mapInstance.current.addControl(nav, 'top-right')
 
-    const setupGeolocateControl = (): void => {
-      if (!mapInstance.current || !mapStateRef.isMounted) return
+    // Add geolocate control
+    const geolocateControl = new mapboxgl.GeolocateControl({
+      positionOptions: {
+        enableHighAccuracy: true,
+        timeout: 10000,
+        maximumAge: 0,
+      },
+      trackUserLocation: true,
+      showUserLocation: true,
+      showAccuracyCircle: true,
+      fitBoundsOptions: {
+        maxZoom: initialZoom, // Prevents zooming in beyond initial zoom
+        animate: false // Disables the flying animation
+      }
+    })
 
-      const geolocateControl = new mapboxgl.GeolocateControl({
-        positionOptions: {
-          enableHighAccuracy: true,
-          timeout: 10000,
-          maximumAge: 0,
-        },
-        trackUserLocation: true,
-        showUserLocation: true,
-        showAccuracyCircle: true,
-        fitBoundsOptions: {
-          maxZoom: DEFAULT_ZOOM,
-        },
-      })
-
-      mapStateRef.geolocateControl = geolocateControl
-
-      geolocateControl.on('geolocate', () => {
-        mapStateRef.geolocateTriggered = true
-        if (mapInstance.current) {
-          mapInstance.current.resize()
-        }
-      })
-
-      mapInstance.current.addControl(geolocateControl, 'top-right')
-    }
-
-    setupGeolocateControl()
-
+    // Handle initial load
     const handleInitialLoad = async (): Promise<void> => {
       if (!mapInstance.current || !mapStateRef.isMounted) return
 
@@ -270,38 +220,9 @@ export function Navigator({
       } else {
         updateMarkers()
       }
-
-      const triggerDelay = storedState ? 2000 : 1000
-
-      setTimeout(() => {
-        if (
-          mapStateRef.geolocateControl &&
-          mapStateRef.isMounted &&
-          !mapStateRef.geolocateTriggered
-        ) {
-          try {
-            mapStateRef.geolocateControl.trigger()
-
-            setTimeout(() => {
-              if (
-                mapStateRef.isMounted &&
-                !mapStateRef.geolocateTriggered &&
-                mapStateRef.geolocateControl
-              ) {
-                try {
-                  mapStateRef.geolocateControl.trigger()
-                } catch {
-                  // Error silently handled
-                }
-              }
-            }, 2000)
-          } catch {
-            // Error silently handled
-          }
-        }
-      }, triggerDelay)
     }
 
+    // Handle map movement
     const handleMapMovement = (): void => {
       if (!mapInstance.current || !mapStateRef.isMounted) return
 
@@ -316,7 +237,6 @@ export function Navigator({
       }
 
       updateMarkers()
-      storeCurrentMapPosition()
 
       if (isAreaLoaded(currentBounds)) return
 
@@ -335,9 +255,17 @@ export function Navigator({
 
     const debouncedHandleMapMovement = debounce(handleMapMovement, 500)
 
-    mapInstance.current.on('load', () => handleInitialLoad())
+    // Set up map events
+    mapInstance.current.on('load', () => {
+      handleInitialLoad()
+      geolocateControl.trigger() // Trigger geolocation immediately after load
+    })
     mapInstance.current.on('moveend', debouncedHandleMapMovement)
     mapInstance.current.on('zoomend', debouncedHandleMapMovement)
+
+    // Add geolocate control after setting up events
+    mapInstance.current.addControl(geolocateControl, 'top-right')
+    mapStateRef.geolocateControl = geolocateControl
 
     return (): void => {
       mapStateRef.isMounted = false
@@ -347,14 +275,11 @@ export function Navigator({
       }
 
       if (mapInstance.current) {
-        storeCurrentMapPosition()
         mapInstance.current.remove()
         mapInstance.current = null
       }
 
       mapStateRef.isInitialized = false
-      mapStateRef.geolocateTriggered = false
-      mapStateRef.mapStateStored = false
       mapStateRef.geolocateControl = null
       mapStateRef.markers = {}
       mapStateRef.popups = {}
@@ -365,81 +290,10 @@ export function Navigator({
     isAreaLoaded,
     fetchSpots,
     updateMarkers,
-    locationError,
     hasUserLocation,
     userData.latitude,
     userData.longitude,
-    storeCurrentMapPosition,
     viewportPadding,
-  ])
-
-  useEffect(() => {
-    if (!mapState.current.isInitialized || !mapInstance.current) return
-
-    const handleLocation = async (): Promise<void> => {
-      if (
-        hasUserLocation &&
-        !mapState.current.isFetching &&
-        !mapState.current.userLocationUsed &&
-        !getStoredMapState()
-      ) {
-        mapState.current.userLocationUsed = true
-
-        mapInstance.current?.flyTo({
-          center: [userData.longitude!, userData.latitude!],
-          zoom: DEFAULT_ZOOM,
-          speed: 1.5,
-        })
-
-        const bounds = calculateBounds(
-          userData.latitude!,
-          userData.longitude!,
-          initialRadius
-        )
-        fetchSpots(bounds)
-
-        if (
-          mapState.current.geolocateControl &&
-          !mapState.current.geolocateTriggered
-        ) {
-          setTimeout(() => {
-            if (
-              mapState.current.geolocateControl &&
-              mapState.current.isMounted
-            ) {
-              try {
-                mapState.current.geolocateControl.trigger()
-
-                setTimeout(() => {
-                  if (
-                    mapState.current.geolocateControl &&
-                    mapState.current.isMounted &&
-                    !mapState.current.geolocateTriggered
-                  ) {
-                    try {
-                      mapState.current.geolocateTriggered = true
-                      mapState.current.geolocateControl.trigger()
-                    } catch {
-                      // Error silently handled
-                    }
-                  }
-                }, 1500)
-              } catch {
-                // Error silently handled
-              }
-            }
-          }, 1000)
-        }
-      }
-    }
-
-    handleLocation()
-  }, [
-    userData.latitude,
-    userData.longitude,
-    fetchSpots,
-    initialRadius,
-    hasUserLocation,
   ])
 
   return (
