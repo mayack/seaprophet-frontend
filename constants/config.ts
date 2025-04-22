@@ -1,5 +1,5 @@
 export const CONFIG = {
-  version: '0.2.4',
+  version: '0.2.5',
   defaultTheme: 'system',
   api: {
     urls: {
@@ -66,10 +66,8 @@ export const CONFIG = {
       geolocation: {
         token: 'USER_LOCATION',
         maxAge: 5 * 60 * 1000,
-      },
-      geolocation_spots: {
-        token: 'USER_LOCATION_SPOTS',
-        maxAge: 5 * 60 * 1000,
+        spots_cache_key: 'USER_LOCATION_SPOTS',
+        map_state_key: 'USER_MAP_STATE',
       },
       navigator: {
         token: 'USER_NAVIGATOR',
@@ -94,6 +92,12 @@ export const CONFIG = {
   },
   webcam: {
     afk_timer: 120 * 1000,
+  },
+  map: {
+    defaults: {
+      center: [-9.356267, 39.368892] as [number, number],
+      zoom: 11,
+    },
   },
   mapbox: {
     style: 'mapbox://styles/mayack/cm7a9jq2x002i01s87y377mrx',

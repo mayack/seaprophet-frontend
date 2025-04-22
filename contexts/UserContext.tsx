@@ -7,16 +7,17 @@ import {
   useContext,
   useState,
   useEffect,
+  useCallback,
   ReactNode,
 } from 'react'
 
-// Interface definitions
 interface UserContextType {
   userData: User & { latitude?: number; longitude?: number }
   setUserData: (data: User & { latitude?: number; longitude?: number }) => void
   requestLocation: () => Promise<{ latitude: number; longitude: number } | null>
   locationError: string | null
   isLocating: boolean
+  lastLocationUpdate: number | null
 }
 
 interface StoredLocation {
@@ -27,33 +28,28 @@ interface StoredLocation {
 
 const UserContext = createContext<UserContextType | undefined>(undefined)
 
-// Get location from storage
-function getStoredLocation() {
+const LOCATION_CACHE_KEY = CONFIG.api.tokens.geolocation.token
+const LOCATION_CACHE_MAX_AGE = CONFIG.api.tokens.geolocation.maxAge
+
+function getStoredLocation(): {
+  latitude?: number
+  longitude?: number
+  timestamp?: number
+} {
   if (typeof window === 'undefined') return {}
 
   try {
-    const storedLocationJson = sessionStorage.getItem(
-      CONFIG.api.tokens.geolocation.token
-    )
-
-    if (storedLocationJson) {
-      const storedLocation = JSON.parse(storedLocationJson) as StoredLocation
-
-      if (
-        Date.now() - storedLocation.timestamp <
-        CONFIG.api.tokens.geolocation.maxAge
-      ) {
-        return {
-          latitude: storedLocation.latitude,
-          longitude: storedLocation.longitude,
-        }
-      } else {
-        sessionStorage.removeItem(CONFIG.api.tokens.geolocation.token)
+    const stored = sessionStorage.getItem(LOCATION_CACHE_KEY)
+    if (stored) {
+      const location = JSON.parse(stored) as StoredLocation
+      if (Date.now() - location.timestamp < LOCATION_CACHE_MAX_AGE) {
+        return location
       }
+      sessionStorage.removeItem(LOCATION_CACHE_KEY)
     }
   } catch (error) {
-    console.error('Error parsing stored location', error)
-    sessionStorage.removeItem(CONFIG.api.tokens.geolocation.token)
+    console.error('Error reading location cache:', error)
+    sessionStorage.removeItem(LOCATION_CACHE_KEY)
   }
 
   return {}
@@ -66,70 +62,58 @@ export function UserProvider({
   initialUserData: User
   children: ReactNode
 }) {
-  // Initialize with stored location
+  const storedLocation = getStoredLocation()
+
   const [userData, setUserData] = useState<
     User & { latitude?: number; longitude?: number }
   >(() => ({
     ...initialUserData,
-    ...getStoredLocation(),
+    latitude: storedLocation.latitude,
+    longitude: storedLocation.longitude,
   }))
 
   const [locationError, setLocationError] = useState<string | null>(null)
   const [isLocating, setIsLocating] = useState(false)
+  const [lastLocationUpdate, setLastLocationUpdate] = useState<number | null>(
+    storedLocation.timestamp || null
+  )
 
-  // Store location changes
-  useEffect(() => {
-    if (userData.latitude !== undefined && userData.longitude !== undefined) {
-      try {
-        sessionStorage.setItem(
-          CONFIG.api.tokens.geolocation.token,
-          JSON.stringify({
-            latitude: userData.latitude,
-            longitude: userData.longitude,
-            timestamp: Date.now(),
-          })
-        )
-      } catch (error) {
-        console.error('Error saving location to sessionStorage', error)
-      }
+  const storeLocation = useCallback((latitude: number, longitude: number) => {
+    const timestamp = Date.now()
+    try {
+      const locationData: StoredLocation = { latitude, longitude, timestamp }
+      sessionStorage.setItem(LOCATION_CACHE_KEY, JSON.stringify(locationData))
+      setLastLocationUpdate(timestamp)
+    } catch (error) {
+      console.error('Error storing location:', error)
     }
-  }, [userData.latitude, userData.longitude])
+  }, [])
 
-  // Request user location
-  const requestLocation = async () => {
-    // Return cached location if available
-    if (userData.latitude !== undefined && userData.longitude !== undefined) {
+  const requestLocation = useCallback(async () => {
+    // Return cached location if still valid
+    if (
+      userData.latitude !== undefined &&
+      userData.longitude !== undefined &&
+      lastLocationUpdate &&
+      Date.now() - lastLocationUpdate < LOCATION_CACHE_MAX_AGE
+    ) {
       return {
         latitude: userData.latitude,
         longitude: userData.longitude,
       }
     }
 
-    // Try stored location as fallback
-    const storedLocation = getStoredLocation()
-    if (storedLocation.latitude && storedLocation.longitude) {
-      setUserData((prev) => ({
-        ...prev,
-        ...storedLocation,
-      }))
-      return storedLocation as { latitude: number; longitude: number }
-    }
-
-    // Check browser support
     if (!navigator.geolocation) {
-      const errorMsg = 'Geolocation is not supported by this browser.'
-      setLocationError(errorMsg)
+      setLocationError('Geolocation is not supported by this browser.')
       return null
     }
 
-    // Skip if already in progress
     if (isLocating) return null
 
     setIsLocating(true)
     setLocationError(null)
 
     try {
-      // Get position with timeout
       const position = await new Promise<GeolocationPosition>(
         (resolve, reject) => {
           const timeoutId = setTimeout(() => {
@@ -156,12 +140,12 @@ export function UserProvider({
 
       const { latitude, longitude } = position.coords
 
-      // Update state
       setUserData((prev) => ({ ...prev, latitude, longitude }))
+      storeLocation(latitude, longitude)
       setIsLocating(false)
+
       return { latitude, longitude }
     } catch (error) {
-      // Handle errors
       let errorMessage = 'Unknown error accessing location'
 
       if (error instanceof GeolocationPositionError) {
@@ -186,20 +170,41 @@ export function UserProvider({
       setIsLocating(false)
       return null
     }
+  }, [
+    userData.latitude,
+    userData.longitude,
+    lastLocationUpdate,
+    isLocating,
+    storeLocation,
+  ])
+
+  // Clear expired location on mount
+  useEffect(() => {
+    if (
+      lastLocationUpdate &&
+      Date.now() - lastLocationUpdate >= LOCATION_CACHE_MAX_AGE
+    ) {
+      setUserData((prev) => ({
+        ...prev,
+        latitude: undefined,
+        longitude: undefined,
+      }))
+      setLastLocationUpdate(null)
+      sessionStorage.removeItem(LOCATION_CACHE_KEY)
+    }
+  }, [lastLocationUpdate])
+
+  const contextValue = {
+    userData,
+    setUserData,
+    requestLocation,
+    locationError,
+    isLocating,
+    lastLocationUpdate,
   }
 
   return (
-    <UserContext.Provider
-      value={{
-        userData,
-        setUserData,
-        requestLocation,
-        locationError,
-        isLocating,
-      }}
-    >
-      {children}
-    </UserContext.Provider>
+    <UserContext.Provider value={contextValue}>{children}</UserContext.Provider>
   )
 }
 

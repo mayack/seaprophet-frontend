@@ -8,11 +8,16 @@ import mapboxgl from 'mapbox-gl'
 if (process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN) {
   mapboxgl.accessToken = process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN
 } else {
-  // Suppress console logging in production
   if (process.env.NODE_ENV !== 'production') {
     // eslint-disable-next-line no-console
     console.error('Mapbox access token is missing')
   }
+}
+
+interface MapState {
+  center: [number, number]
+  zoom: number
+  timestamp: number
 }
 
 // Validate coordinates helper
@@ -28,7 +33,7 @@ export function initializeMap(
   center: [number, number],
   zoom: number,
   style: string = CONFIG.mapbox.style,
-  attributionControl: boolean = false // Set to false by default
+  attributionControl: boolean = false
 ): mapboxgl.Map {
   return new mapboxgl.Map({
     container,
@@ -79,16 +84,10 @@ export function createMarker(
   return marker
 }
 
-// Global cache for SpotsMap component
+// Global cache for spots
 export const spotsCache = {
   spots: new Map<number, SpotSummary>(),
   loadedRegions: [] as GeographicBounds[],
-}
-
-type MapState = {
-  center: [number, number]
-  zoom: number
-  timestamp: number
 }
 
 export function getStoredMapState(): MapState | null {
@@ -96,13 +95,16 @@ export function getStoredMapState(): MapState | null {
 
   try {
     const stored = window.sessionStorage.getItem(
-      CONFIG.api.tokens.navigator.token
+      CONFIG.api.tokens.geolocation.map_state_key
     )
     if (stored) {
       const state = JSON.parse(stored) as MapState
-      if (Date.now() - state.timestamp < CONFIG.api.tokens.navigator.maxAge) {
+      if (Date.now() - state.timestamp < CONFIG.api.tokens.geolocation.maxAge) {
         return state
       }
+      window.sessionStorage.removeItem(
+        CONFIG.api.tokens.geolocation.map_state_key
+      )
     }
   } catch {
     // Error silently handled
@@ -120,7 +122,7 @@ export function storeMapState(center: [number, number], zoom: number): void {
       timestamp: Date.now(),
     }
     window.sessionStorage.setItem(
-      CONFIG.api.tokens.navigator.token,
+      CONFIG.api.tokens.geolocation.map_state_key,
       JSON.stringify(state)
     )
   } catch {
