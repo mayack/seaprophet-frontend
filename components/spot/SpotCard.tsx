@@ -8,6 +8,7 @@ interface SpotCardProps {
   name: string
   subtitle?: string
   webcam?: WebcamConfig
+  onClick?: (e: React.MouseEvent) => void
 }
 
 export function SpotCard({
@@ -15,10 +16,12 @@ export function SpotCard({
   name,
   subtitle,
   webcam,
+  onClick,
 }: SpotCardProps): React.JSX.Element {
   return (
     <Link
       href={`/spot/${id}`}
+      onClick={onClick}
       className={`flex flex-col justify-center rounded-lg border border-border bg-background px-4 py-2 text-primary shadow-sm hover:bg-muted ${
         subtitle ? 'min-h-20' : 'min-h-14'
       }`}

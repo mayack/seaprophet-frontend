@@ -111,12 +111,11 @@ export function SearchSpots({
     [debouncedSearch]
   )
 
-  const handleInputBlur = useCallback((event: React.FocusEvent): void => {
-    // Only close if we're not clicking inside the dropdown
-    if (!containerRef.current?.contains(event.relatedTarget as Node)) {
-      setIsOpen(false)
+  const handleInputFocus = useCallback((): void => {
+    if (query.trim()) {
+      setIsOpen(true)
     }
-  }, [])
+  }, [query])
 
   const showDropdown = isOpen && query.length > 0
 
@@ -129,7 +128,7 @@ export function SearchSpots({
           placeholder={placeholder}
           value={query}
           onChange={handleInputChange}
-          onBlur={handleInputBlur}
+          onFocus={handleInputFocus}
           className="px-9"
           variant="muted"
         />
@@ -184,20 +183,19 @@ export function SearchSpots({
           {!isLoading && spots.length > 0 && (
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
               {spots.map((spot) => (
-                <div
+                <SpotCard
                   key={spot.id}
-                  onClick={() => {
+                  id={spot.id}
+                  name={spot.name}
+                  webcam={spot.webcam}
+                  onClick={(e: React.MouseEvent) => {
+                    e.preventDefault()
+                    e.stopPropagation()
+                    setIsOpen(false)
                     clearSearch()
                     router.push(`/spot/${spot.id}`)
-                    router.refresh()
                   }}
-                >
-                  <SpotCard
-                    id={spot.id}
-                    name={spot.name}
-                    webcam={spot.webcam}
-                  />
-                </div>
+                />
               ))}
             </div>
           )}
