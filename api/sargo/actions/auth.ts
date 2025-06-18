@@ -63,7 +63,6 @@ export async function signOut() {
 
   try {
     const cookiesToDelete = [
-      CONFIG.api.tokens.polvo.key,
       CONFIG.api.tokens.sargo.key,
       CONFIG.api.tokens.sargoOptions.key,
     ]
@@ -95,9 +94,7 @@ export async function getCurrentUser(): Promise<User | null> {
 
   if (!jwt) return null
 
-  const optionsCookie = cookieStore.get(
-    CONFIG.api.tokens.sargoOptions.key
-  )?.value
+  const optionsCookie = cookieStore.get(CONFIG.api.tokens.sargoOptions.key)?.value
   if (optionsCookie) {
     try {
       const userOptions = JSON.parse(optionsCookie) as User
@@ -114,11 +111,14 @@ export async function getCurrentUser(): Promise<User | null> {
   try {
     const freshUser = await sargoClient.getCurrentUser()
     if (!freshUser) return null
-    return {
+
+    const userData = {
       username: freshUser.username || '',
       email: freshUser.email || '',
       settings: freshUser.settings || CONFIG.settings.default,
     }
+
+    return userData
   } catch (error) {
     console.error('Failed to fetch fresh user data:', error)
     return null

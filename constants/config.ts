@@ -1,5 +1,5 @@
 export const CONFIG = {
-  version: '0.3.1',
+  version: '0.4.0',
   defaultTheme: 'system',
   api: {
     urls: {
@@ -42,7 +42,7 @@ export const CONFIG = {
           secure: process.env.NODE_ENV === 'production',
           sameSite: 'lax' as const,
           path: '/',
-          maxAge: 7 * 24 * 60 * 60,
+          maxAge: 7 * 24 * 60 * 60, // 7 days
         },
       },
       sargoOptions: {
@@ -52,28 +52,22 @@ export const CONFIG = {
           secure: process.env.NODE_ENV === 'production',
           sameSite: 'lax' as const,
           path: '/',
-          maxAge: 5 * 60,
+          maxAge: 5 * 60, // 5 minutes
         },
       },
+      // Simplified: only cache duration for in-memory storage
       polvo: {
-        key: 'TOKEN_POLVO',
-        options: {
-          httpOnly: true,
-          secure: process.env.NODE_ENV === 'production',
-          sameSite: 'lax' as const,
-          path: '/',
-          maxAge: 15 * 60,
-        },
+        cacheDuration: 15 * 60, // 15 minutes in seconds
       },
       geolocation: {
         token: 'USER_LOCATION',
-        maxAge: 5 * 60 * 1000,
+        maxAge: 5 * 60 * 1000, // 5 minutes in milliseconds
         spots_cache_key: 'USER_LOCATION_SPOTS',
         map_state_key: 'USER_MAP_STATE',
       },
       navigator: {
         token: 'USER_NAVIGATOR',
-        maxAge: 5 * 60 * 1000,
+        maxAge: 5 * 60 * 1000, // 5 minutes in milliseconds
       },
     },
   },
@@ -89,11 +83,10 @@ export const CONFIG = {
         tide_height: 'feet',
         temperature: 'celsius',
       },
-      // Removed theme from default settings as it's now managed by next-themes
     } as const,
   },
   webcam: {
-    afk_timer: 120 * 1000,
+    afk_timer: 120 * 1000, // 2 minutes in milliseconds
   },
   map: {
     defaults: {
@@ -105,4 +98,5 @@ export const CONFIG = {
     style: 'mapbox://styles/mayack/cm7a9jq2x002i01s87y377mrx',
   },
 } as const
+
 export type Config = typeof CONFIG

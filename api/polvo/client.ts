@@ -26,15 +26,16 @@ export class PolvoClient extends BaseApiClient {
     const headers: HeadersInit = {
       'Content-Type': 'application/json',
       Accept: 'application/json',
-      'Cache-Control': 'private, max-age=3600',
+      'Cache-Control': 'no-cache, no-store, must-revalidate',
+      'Pragma': 'no-cache',
       'Accept-Encoding': 'gzip',
     }
 
     try {
       const response = await fetch(url, {
-        method: 'GET',
+        method: 'POST',
         headers,
-        next: { revalidate: 3600 }, // 1-hour cache
+        cache: 'no-store',
       })
 
       console.log(
@@ -54,7 +55,6 @@ export class PolvoClient extends BaseApiClient {
       }
 
       const data = (await response.json()) as PolvoAuthResponse
-      // console.log('Auth token response data:', data)
       return data.data.token
     } catch (error) {
       console.error('Auth token error:', {

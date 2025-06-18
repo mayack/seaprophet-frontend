@@ -12,7 +12,7 @@ import type { UserSettings } from '@/api/sargo/interfaces/user'
 import {
   updateUsername,
   updatePassword,
-  updateUnits,
+  updateUserUnits,
 } from '@/api/sargo/actions/user'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 
@@ -112,6 +112,8 @@ export function SettingsForms({
             settings: state.settings,
           })
           toast.success(MESSAGES.username)
+        } else {
+          toast.error(result.error || 'Failed to update username')
         }
       } catch (error) {
         toast.error(
@@ -127,6 +129,8 @@ export function SettingsForms({
       if (result.success) {
         toast.success(MESSAGES.password)
         setActiveFormId(null)
+      } else {
+        toast.error(result.error || 'Failed to update password')
       }
     } catch (error) {
       toast.error(
@@ -139,34 +143,49 @@ export function SettingsForms({
     unit: keyof UserSettings['units'],
     value: string
   ): Promise<void> => {
-    startTransition(async () => {
-      const newUnits = { ...state.settings.units, [unit]: value }
+    const newUnits = { ...state.settings.units, [unit]: value }
+
+    // Update optimistic state immediately
+    startTransition(() => {
       optimisticState((prev) => ({
         ...prev,
         settings: { ...prev.settings, units: newUnits },
       }))
-      const formData = new FormData()
-      Object.entries(newUnits).forEach(([key, val]) =>
-        formData.append(`units.${key}`, val)
-      )
-      try {
-        const result = await updateUnits(formData)
-        if (result.success && result.units) {
-          setUserData({
-            username: state.username,
-            email: state.email,
-            settings: { ...state.settings, units: result.units },
-          }) // Preserve theme
-          toast.success('Units updated!')
-        } else {
-          toast.error('Failed to update settings')
-        }
-      } catch (error) {
-        toast.error(
-          error instanceof Error ? error.message : 'Failed to update settings'
-        )
-      }
     })
+
+    // Call the new server action (no FormData, no Chrome extension issues)
+    try {
+      const result = await updateUserUnits(newUnits)
+
+      if (result.success && result.units) {
+        setUserData({
+          username: state.username,
+          email: state.email,
+          settings: { ...state.settings, units: result.units },
+        })
+        toast.success('Units updated!')
+      } else {
+        toast.error(result.error || 'Failed to update settings')
+        // Revert optimistic update on failure
+        startTransition(() => {
+          optimisticState((prev) => ({
+            ...prev,
+            settings: { ...prev.settings, units: state.settings.units },
+          }))
+        })
+      }
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : 'Failed to update settings'
+      )
+      // Revert optimistic update on error
+      startTransition(() => {
+        optimisticState((prev) => ({
+          ...prev,
+          settings: { ...prev.settings, units: state.settings.units },
+        }))
+      })
+    }
   }
 
   return (

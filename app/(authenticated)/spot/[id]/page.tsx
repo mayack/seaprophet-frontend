@@ -9,7 +9,6 @@ import { getCurrentUser } from '@/api/sargo/actions/auth'
 import { calculateDistance } from '@/utils/location'
 import { SpotSummary } from '@/api/sargo/interfaces/spot'
 import { redirect } from 'next/navigation'
-import { getPolvoToken } from '@/api/polvo/actions/auth'
 import React from 'react'
 
 interface SpotPageProps {
@@ -24,15 +23,13 @@ export default async function SpotPage({
   const user = await getCurrentUser()
 
   if (!user) {
-    redirect('/auth/signin') // Redirect if no user
+    redirect('/auth/signin')
   }
 
   try {
-    // Get polvo token (will refresh if needed)
-    await getPolvoToken()
-
     const spotResponse = await getSpot(spotId)
     const spot = spotResponse?.data?.attributes
+
     if (!spot) return <div>Spot not found.</div>
 
     const [forecastResponse, nearbySpotsResponse] = await Promise.all([

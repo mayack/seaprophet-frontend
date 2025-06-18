@@ -2,223 +2,207 @@
 
 import { cookies } from 'next/headers'
 import { revalidatePath } from 'next/cache'
-import { sargoClient } from '@/api/sargo/client'
+import { sargoClient } from '../client'
 import { CONFIG } from '@/constants/config'
-import { AppError, ErrorCode, HTTP_STATUS } from '@/utils/error'
-import type { UserUnits, UserSettings } from '../interfaces/user'
+import type { UserSettings } from '../interfaces/user'
 
 export async function updateUsername(formData: FormData) {
-  const username = formData.get('username')
-  if (!username || typeof username !== 'string') {
-    throw new AppError(
-      'Username is required',
-      ErrorCode.INVALID_PARAMETERS,
-      HTTP_STATUS.BAD_REQUEST
-    )
-  }
-
-  const cookieStore = await cookies()
-  const jwt = cookieStore.get(CONFIG.api.tokens.sargo.key)?.value
-  if (!jwt) {
-    throw new AppError(
-      'Authentication token not found',
-      ErrorCode.AUTH_UNAUTHORIZED,
-      HTTP_STATUS.UNAUTHORIZED
-    )
-  }
-
   try {
-    await sargoClient.updateUserProfile({ username })
+    const username = formData.get('username') as string
 
-    const optionsCookie = cookieStore.get(
-      CONFIG.api.tokens.sargoOptions.key
-    )?.value
-    const parsedOptions = optionsCookie
-      ? JSON.parse(optionsCookie)
-      : { username: '', email: '', settings: CONFIG.settings.default }
-
-    const updatedCookieData = {
-      username,
-      email: parsedOptions.email,
-      settings: parsedOptions.settings,
+    if (!username || username.trim().length === 0) {
+      return { success: false, error: 'Username is required' }
     }
 
-    cookieStore.set(
-      CONFIG.api.tokens.sargoOptions.key,
-      JSON.stringify(updatedCookieData),
-      CONFIG.api.tokens.sargoOptions.options
-    )
+    const updatedUser = await sargoClient.updateUserProfile({
+      username: username.trim()
+    })
+
+    // Update cached user options
+    const cookieStore = await cookies()
+    const existingOptionsStr = cookieStore.get(CONFIG.api.tokens.sargoOptions.key)?.value
+
+    if (existingOptionsStr) {
+      try {
+        const existingOptions = JSON.parse(existingOptionsStr)
+        cookieStore.set({
+          name: CONFIG.api.tokens.sargoOptions.key,
+          value: JSON.stringify({
+            ...existingOptions,
+            username: updatedUser.username
+          }),
+          ...CONFIG.api.tokens.sargoOptions.options,
+        })
+      } catch (error) {
+        console.error('Failed to update cached username:', error)
+      }
+    }
 
     revalidatePath('/settings')
-    return { success: true }
+    return { success: true, user: updatedUser }
   } catch (error) {
-    throw error instanceof AppError
-      ? error
-      : new AppError(
-          'Failed to update username',
-          ErrorCode.UNKNOWN_ERROR,
-          HTTP_STATUS.INTERNAL_SERVER_ERROR
-        )
+    console.error('Failed to update username:', error)
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to update username'
+    }
   }
 }
 
 export async function updatePassword(formData: FormData) {
-  const currentPassword = formData.get('currentPassword') as string
-  const newPassword = formData.get('newPassword') as string
-  const confirmPassword = formData.get('confirmPassword') as string
-
-  if (!currentPassword || !newPassword || !confirmPassword) {
-    throw new AppError(
-      'All password fields are required',
-      ErrorCode.INVALID_PARAMETERS,
-      HTTP_STATUS.BAD_REQUEST
-    )
-  }
-
-  if (newPassword !== confirmPassword) {
-    throw new AppError(
-      'New passwords do not match',
-      ErrorCode.INVALID_PARAMETERS,
-      HTTP_STATUS.BAD_REQUEST
-    )
-  }
-
   try {
+    const currentPassword = formData.get('currentPassword') as string
+    const newPassword = formData.get('newPassword') as string
+    const confirmPassword = formData.get('confirmPassword') as string
+
+    if (!currentPassword || !newPassword || !confirmPassword) {
+      return { success: false, error: 'All password fields are required' }
+    }
+
+    if (newPassword !== confirmPassword) {
+      return { success: false, error: 'New passwords do not match' }
+    }
+
+    if (newPassword.length < 6) {
+      return { success: false, error: 'Password must be at least 6 characters' }
+    }
+
     await sargoClient.changePassword({
       currentPassword,
       password: newPassword,
-      passwordConfirmation: confirmPassword,
+      passwordConfirmation: confirmPassword
     })
-    revalidatePath('/settings')
+
     return { success: true }
   } catch (error) {
-    throw error instanceof AppError
-      ? error
-      : new AppError(
-          'Failed to update password',
-          ErrorCode.UNKNOWN_ERROR,
-          HTTP_STATUS.INTERNAL_SERVER_ERROR
-        )
+    console.error('Failed to update password:', error)
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to update password'
+    }
   }
-}
-
-function isWindSpeedUnit(value: unknown): value is UserUnits['wind_speed'] {
-  return ['knots', 'mph', 'kph', 'mps'].includes(value as string)
-}
-
-function isHeightUnit(value: unknown): value is UserUnits['surf_height'] {
-  return ['feet', 'meters'].includes(value as string)
-}
-
-function isTemperatureUnit(value: unknown): value is UserUnits['temperature'] {
-  return ['celsius', 'fahrenheit'].includes(value as string)
 }
 
 export async function updateUnits(formData: FormData) {
-  const cookieStore = await cookies()
-  const jwt = cookieStore.get(CONFIG.api.tokens.sargo.key)?.value
-  if (!jwt) {
-    throw new AppError(
-      'Unauthorized',
-      ErrorCode.AUTH_UNAUTHORIZED,
-      HTTP_STATUS.UNAUTHORIZED
-    )
-  }
-
-  // Validate form data
-  const windSpeed = formData.get('units.wind_speed')
-  const surfHeight = formData.get('units.surf_height')
-  const swellHeight = formData.get('units.swell_height')
-  const tideHeight = formData.get('units.tide_height')
-  const temperature = formData.get('units.temperature')
-
-  // Validate each unit
-  if (!windSpeed || !isWindSpeedUnit(windSpeed)) {
-    throw new AppError(
-      `Invalid wind speed unit: ${windSpeed || 'missing'}`,
-      ErrorCode.INVALID_PARAMETERS,
-      HTTP_STATUS.BAD_REQUEST
-    )
-  }
-  if (!surfHeight || !isHeightUnit(surfHeight)) {
-    throw new AppError(
-      `Invalid surf height unit: ${surfHeight || 'missing'}`,
-      ErrorCode.INVALID_PARAMETERS,
-      HTTP_STATUS.BAD_REQUEST
-    )
-  }
-  if (!swellHeight || !isHeightUnit(swellHeight)) {
-    throw new AppError(
-      `Invalid swell height unit: ${swellHeight || 'missing'}`,
-      ErrorCode.INVALID_PARAMETERS,
-      HTTP_STATUS.BAD_REQUEST
-    )
-  }
-  if (!tideHeight || !isHeightUnit(tideHeight)) {
-    throw new AppError(
-      `Invalid tide height unit: ${tideHeight || 'missing'}`,
-      ErrorCode.INVALID_PARAMETERS,
-      HTTP_STATUS.BAD_REQUEST
-    )
-  }
-  if (!temperature || !isTemperatureUnit(temperature)) {
-    throw new AppError(
-      `Invalid temperature unit: ${temperature || 'missing'}`,
-      ErrorCode.INVALID_PARAMETERS,
-      HTTP_STATUS.BAD_REQUEST
-    )
-  }
-
-  const units: UserUnits = {
-    wind_speed: windSpeed,
-    surf_height: surfHeight,
-    swell_height: swellHeight,
-    tide_height: tideHeight,
-    temperature: temperature,
-  }
-
   try {
-    // First get the current cookie data
-    const optionsCookie = cookieStore.get(
-      CONFIG.api.tokens.sargoOptions.key
-    )?.value
-    const currentSettings = optionsCookie
-      ? JSON.parse(optionsCookie)
-      : { username: '', email: '', settings: CONFIG.settings.default }
+    const user = await sargoClient.getCurrentUser()
+    if (!user) throw new Error('User not found')
 
-    // Create updated settings without theme
+    const units: UserSettings['units'] = {
+      wind_speed: (formData.get('units.wind_speed') as string || user.settings.units.wind_speed) as UserSettings['units']['wind_speed'],
+      surf_height: (formData.get('units.surf_height') as string || user.settings.units.surf_height) as UserSettings['units']['surf_height'],
+      swell_height: (formData.get('units.swell_height') as string || user.settings.units.swell_height) as UserSettings['units']['swell_height'],
+      tide_height: (formData.get('units.tide_height') as string || user.settings.units.tide_height) as UserSettings['units']['tide_height'],
+      temperature: (formData.get('units.temperature') as string || user.settings.units.temperature) as UserSettings['units']['temperature'],
+    }
+
     const updatedSettings: UserSettings = {
-      units,
-      // No theme property - it's now optional and managed client-side only
+      ...user.settings,
+      units: units
     }
 
-    // Update settings on the server
-    await sargoClient.updateUserProfile({ settings: updatedSettings })
+    const updatedUser = await sargoClient.updateUserProfile({
+      settings: updatedSettings
+    })
 
-    // Update cookie with new settings while preserving other data
-    const updatedCookieData = {
-      username: currentSettings.username,
-      email: currentSettings.email,
-      settings: updatedSettings,
-    }
-
-    // Set the updated cookie
-    cookieStore.set(
-      CONFIG.api.tokens.sargoOptions.key,
-      JSON.stringify(updatedCookieData),
-      CONFIG.api.tokens.sargoOptions.options
-    )
+    // Update cached user options
+    const cookieStore = await cookies()
+    cookieStore.set({
+      name: CONFIG.api.tokens.sargoOptions.key,
+      value: JSON.stringify({
+        username: updatedUser.username,
+        email: updatedUser.email,
+        settings: updatedSettings,
+      }),
+      ...CONFIG.api.tokens.sargoOptions.options,
+    })
 
     revalidatePath('/settings')
-    return { success: true, units }
+    return {
+      success: true,
+      units: units,
+      user: updatedUser
+    }
   } catch (error) {
-    console.error('Update units error:', error)
-    throw new AppError(
-      error instanceof Error ? error.message : 'Failed to update units',
-      ErrorCode.SERVER_ERROR,
-      HTTP_STATUS.INTERNAL_SERVER_ERROR
-    )
+    console.error('Failed to update units:', error)
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to update units'
+    }
   }
 }
 
-// The updateTheme server action is removed since theme is now managed client-side
+// New server action that accepts plain objects (no FormData)
+export async function updateUserUnits(units: UserSettings['units']) {
+  try {
+    const user = await sargoClient.getCurrentUser()
+    if (!user) throw new Error('User not found')
+
+    const updatedSettings: UserSettings = {
+      ...user.settings,
+      units: units
+    }
+
+    console.log('Updating user profile with settings:', updatedSettings)
+
+    const updatedUser = await sargoClient.updateUserProfile({
+      settings: updatedSettings
+    })
+
+    console.log('Updated user response:', updatedUser)
+
+    // Check if the API call returned a valid user object
+    if (!updatedUser || !updatedUser.username) {
+      console.error('Invalid user response from updateUserProfile:', updatedUser)
+      // Fall back to using the original user data with updated settings
+      const fallbackUser = {
+        ...user,
+        settings: updatedSettings
+      }
+
+      // Update cached user options with fallback data
+      const cookieStore = await cookies()
+      cookieStore.set({
+        name: CONFIG.api.tokens.sargoOptions.key,
+        value: JSON.stringify({
+          username: fallbackUser.username,
+          email: fallbackUser.email,
+          settings: updatedSettings,
+        }),
+        ...CONFIG.api.tokens.sargoOptions.options,
+      })
+
+      revalidatePath('/settings')
+      return {
+        success: true,
+        units: units,
+        user: fallbackUser
+      }
+    }
+
+    // Update cached user options with the response from API
+    const cookieStore = await cookies()
+    cookieStore.set({
+      name: CONFIG.api.tokens.sargoOptions.key,
+      value: JSON.stringify({
+        username: updatedUser.username,
+        email: updatedUser.email,
+        settings: updatedSettings,
+      }),
+      ...CONFIG.api.tokens.sargoOptions.options,
+    })
+
+    revalidatePath('/settings')
+    return {
+      success: true,
+      units: units,
+      user: updatedUser
+    }
+  } catch (error) {
+    console.error('Failed to update user units:', error)
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to update units'
+    }
+  }
+}

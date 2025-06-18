@@ -48,7 +48,7 @@ export async function clearTokensAndRedirect(request: NextRequest) {
   const response = NextResponse.redirect(new URL('/auth/signin', request.url))
   const tokensToDelete = [
     CONFIG.api.tokens.sargo.key,
-    CONFIG.api.tokens.polvo.key,
+
     CONFIG.api.tokens.sargoOptions.key,
   ]
   for (const tokenName of tokensToDelete) {
