@@ -41,6 +41,11 @@ export default async function SpotPage({
         orientationTo: spot.beach_orientation_to,
         waveFactor: spot.wave_factor,
         adjustmentFactor: spot.adjustment_factor,
+        windUnits: user.settings.units.wind_speed,
+        swellUnits: user.settings.units.swell_height,
+        tideUnits: user.settings.units.tide_height,
+        tempUnits: user.settings.units.temperature,
+        surfUnits: user.settings.units.surf_height,
       }),
       getNearbySpots(spot.location_lat, spot.location_long, 30),
     ])
