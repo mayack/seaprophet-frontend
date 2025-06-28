@@ -6,10 +6,15 @@ export interface ApiRequestConfig {
 export interface ApiRequestOptions {
   init?: RequestInit
   params?: Record<string, string | number | boolean>
-  timeout?: number
-  retries?: number
-  cacheOptions?: {
-    enabled: boolean
-    ttl: number
+}
+
+// Unified action response interface
+export interface ActionResponse<T = unknown> {
+  data: T | null
+  error: string | null
+  meta: {
+    timestamp: string
+    source: string
+    success: boolean
   }
 }

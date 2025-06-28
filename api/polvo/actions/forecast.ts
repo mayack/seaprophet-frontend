@@ -1,6 +1,6 @@
 'use server'
 
-import { AppError, ErrorCode } from '@/utils/error'
+import { getErrorMessage } from '@/utils/error'
 import { polvoClient } from '../client'
 import { ForecastParams, ForecastActionResponse } from '../interfaces/forecast'
 import { getPolvoToken, fetchPolvoToken, clearPolvoTokenCache } from './auth'
@@ -11,20 +11,18 @@ export async function getForecast(
   const timestamp = new Date().toISOString()
 
   try {
-    // First, try to get cached token
-    let token = await getPolvoToken()
+    const token = await getPolvoToken()
 
     if (!token) {
       return {
         data: null,
-        error: 'No authentication token available',
-        meta: { timestamp, source: 'polvo-no-token', success: false },
+        error: 'Authentication token not available',
+        meta: { timestamp, source: 'polvo', success: false },
       }
     }
 
-    // Try to fetch forecast with the token
+    // Try forecast request
     try {
-      console.log('🌊 Attempting forecast fetch...')
       const forecast = await polvoClient.getForecast(
         params.lat,
         params.lon,
@@ -32,28 +30,19 @@ export async function getForecast(
         token
       )
 
-      console.log('✅ Forecast fetch successful')
       return {
         data: forecast,
         error: null,
         meta: { timestamp, source: 'polvo', success: true },
       }
     } catch (error) {
-      // If auth error, clear cache and fetch fresh token
-      if (
-        error instanceof AppError &&
-        error.code === ErrorCode.AUTH_UNAUTHORIZED
-      ) {
-        console.log('🔐 Auth failed, clearing cache and fetching fresh token...')
-
-        // Clear the expired token from cache
+      // If auth error, try once with fresh token
+      if (error instanceof Error && error.name === 'auth') {
         await clearPolvoTokenCache()
-
-        // Fetch completely fresh token
         const freshToken = await fetchPolvoToken()
+
         if (freshToken) {
           try {
-            console.log('🔄 Retrying forecast with fresh token...')
             const forecast = await polvoClient.getForecast(
               params.lat,
               params.lon,
@@ -61,43 +50,32 @@ export async function getForecast(
               freshToken
             )
 
-            console.log('✅ Retry successful!')
             return {
               data: forecast,
               error: null,
-              meta: { timestamp, source: 'polvo-retry', success: true },
+              meta: { timestamp, source: 'polvo', success: true },
             }
           } catch (retryError) {
-            console.error('❌ Retry failed:', retryError)
             return {
               data: null,
-              error: 'Failed to fetch forecast after token refresh',
-              meta: { timestamp, source: 'polvo-retry-failed', success: false },
+              error: `Forecast request failed: ${getErrorMessage(retryError)}`,
+              meta: { timestamp, source: 'polvo', success: false },
             }
-          }
-        } else {
-          console.error('🚨 Failed to obtain fresh token for retry')
-          return {
-            data: null,
-            error: 'Failed to obtain fresh auth token',
-            meta: { timestamp, source: 'polvo-token-failed', success: false },
           }
         }
       }
 
       return {
         data: null,
-        error:
-          error instanceof Error ? error.message : 'Failed to fetch forecast',
-        meta: { timestamp, source: 'polvo-error', success: false },
+        error: getErrorMessage(error),
+        meta: { timestamp, source: 'polvo', success: false },
       }
     }
   } catch (error) {
-    console.error('Unexpected error in getForecast:', error)
     return {
       data: null,
-      error: 'An unexpected error occurred',
-      meta: { timestamp, source: 'polvo-unexpected', success: false },
+      error: getErrorMessage(error),
+      meta: { timestamp, source: 'polvo', success: false },
     }
   }
 }

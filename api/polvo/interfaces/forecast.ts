@@ -1,8 +1,6 @@
-export interface ForecastActionResponse {
-  data: ForecastResponse | null
-  error: string | null
-  meta: { timestamp: string; source: string; success: boolean }
-}
+import { ActionResponse } from '@/types/api'
+
+export type ForecastActionResponse = ActionResponse<ForecastResponse>
 
 export interface ForecastResponse {
   days: ForecastDay[]
@@ -97,8 +95,3 @@ export type WeatherType =
   | 'fog-day'
   | 'fog-night'
   | 'gale'
-
-export interface FormattedValue {
-  value: number
-  unit: string
-}

@@ -1,8 +1,18 @@
 import { WebcamConfig } from './webcam'
+import { ActionResponse } from '@/types/api'
 
 export interface Spot {
   id: number
   attributes: SpotAttributes
+}
+
+// Simplified location data extracted from the complex API response
+export interface LocationInfo {
+  municipality: string
+  district: string
+  region: string
+  country: string
+  countryEmoji: string
 }
 
 export interface SpotAttributes {
@@ -56,7 +66,9 @@ export interface SpotAttributes {
   updatedAt: string
   publishedAt: string
   webcam: WebcamConfig
-  municipality: {
+  // Keep the original nested structure for API compatibility
+  // but add optional flattened location for easier access
+  municipality?: {
     data: {
       attributes: {
         name: string
@@ -86,6 +98,8 @@ export interface SpotAttributes {
       id: number
     }
   }
+  // Simplified location info (populated by transform utilities)
+  locationInfo?: LocationInfo
 }
 
 export type RegionsType = {
@@ -115,12 +129,4 @@ export interface SpotSummary {
   webcam?: WebcamConfig
 }
 
-export interface SpotActionResponse<T> {
-  data: T | null
-  error: string | null
-  meta: {
-    timestamp: string
-    source: string
-    success: boolean
-  }
-}
+export type SpotActionResponse<T> = ActionResponse<T>

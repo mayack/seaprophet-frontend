@@ -1,30 +1,24 @@
-export enum ErrorCode {
-  AUTH_INVALID_CREDENTIALS = 'AUTH_INVALID_CREDENTIALS',
-  AUTH_UNAUTHORIZED = 'AUTH_UNAUTHORIZED',
-  AUTH_MAX_RETRIES = 'AUTH_MAX_RETRIES',
-  API_REQUEST_FAILED = 'API_REQUEST_FAILED',
-  INVALID_PARAMETERS = 'INVALID_PARAMETERS',
-  UNKNOWN_ERROR = 'UNKNOWN_ERROR',
-  SERVER_ERROR = 'SERVER_ERROR',
+// Simple error types for the most common cases
+export type ErrorType = 'auth' | 'network' | 'validation' | 'unknown'
+
+// Standard HTTP status codes (use native Response.status instead of custom constants)
+export const isClientError = (status: number): boolean =>
+  status >= 400 && status < 500
+export const isServerError = (status: number): boolean => status >= 500
+
+// Simple error creator for consistent error responses
+export function createError(
+  message: string,
+  type: ErrorType = 'unknown'
+): Error {
+  const error = new Error(message)
+  error.name = type
+  return error
 }
 
-export const HTTP_STATUS = {
-  OK: 200,
-  BAD_REQUEST: 400,
-  UNAUTHORIZED: 401,
-  FORBIDDEN: 403,
-  NOT_FOUND: 404,
-  INTERNAL_SERVER_ERROR: 500,
-} as const
-
-export class AppError extends Error {
-  constructor(
-    message: string,
-    public code: ErrorCode,
-    public status: number = HTTP_STATUS.INTERNAL_SERVER_ERROR,
-    public details?: unknown
-  ) {
-    super(message)
-    this.name = 'AppError'
-  }
+// Helper to extract meaningful error messages
+export function getErrorMessage(error: unknown): string {
+  if (error instanceof Error) return error.message
+  if (typeof error === 'string') return error
+  return 'An unexpected error occurred'
 }

@@ -1,5 +1,5 @@
 import { ApiRequestConfig, ApiRequestOptions } from '@/types/api'
-import { AppError, ErrorCode, HTTP_STATUS } from '@/utils/error'
+import { createError, getErrorMessage } from '@/utils/error'
 
 export abstract class BaseApiClient {
   protected config: ApiRequestConfig
@@ -30,22 +30,18 @@ export abstract class BaseApiClient {
       const data = await response.json()
 
       if (!response.ok) {
-        throw new AppError(
-          data.error?.message || `HTTP error! status: ${response.status}`,
-          ErrorCode.API_REQUEST_FAILED,
-          response.status,
-          data.error?.details
-        )
+        const message =
+          data.error?.message || `Request failed with status ${response.status}`
+        throw createError(message, response.status === 401 ? 'auth' : 'network')
       }
 
       return data
     } catch (error) {
-      if (error instanceof AppError) throw error
-      throw new AppError(
-        error instanceof Error ? error.message : 'API request failed',
-        ErrorCode.API_REQUEST_FAILED,
-        HTTP_STATUS.INTERNAL_SERVER_ERROR
-      )
+      // Re-throw our own errors, wrap others
+      if (error instanceof Error && error.name !== 'unknown') {
+        throw error
+      }
+      throw createError(getErrorMessage(error), 'network')
     }
   }
 

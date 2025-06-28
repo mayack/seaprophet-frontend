@@ -1,11 +1,7 @@
 import { IconDirection } from './IconDirection'
 import { WeatherIcon } from '../common/WeatherIcon'
 import { formatValueWithUnit, formatUnit } from '@/lib/units'
-import {
-  TemperatureItemProps,
-  WaveItemProps,
-  WindItemProps,
-} from '@/types/forecast'
+import { WeatherType } from '@/api/polvo/interfaces/forecast'
 import { cn } from '@/lib/utils'
 import React from 'react'
 
@@ -15,7 +11,13 @@ export function WaveItem({
   direction,
   unit,
   className,
-}: WaveItemProps): React.JSX.Element {
+}: {
+  height: number
+  period: number
+  direction: number
+  unit: string
+  className: string
+}): React.JSX.Element {
   return (
     <div
       className={cn(
@@ -42,7 +44,13 @@ export function SwellItem({
   direction,
   unit,
   className,
-}: WaveItemProps): React.JSX.Element {
+}: {
+  height: number
+  period: number
+  direction: number
+  unit: string
+  className: string
+}): React.JSX.Element {
   if (height === 0) return <div className={className} />
 
   return (
@@ -61,7 +69,14 @@ export function WindItem({
   unit,
   className,
   windRating,
-}: WindItemProps): React.JSX.Element {
+}: {
+  speed: number
+  gust: number
+  direction: number
+  unit: string
+  className: string
+  windRating: number
+}): React.JSX.Element {
   const ratingBackgrounds = {
     0: 'bg-red-200 text-red-900 dark:bg-red-600 dark:text-foreground',
     1: 'bg-orange-200 text-orange-900 dark:bg-orange-600 dark:text-foreground',
@@ -96,7 +111,12 @@ export function TemperatureItem({
   weatherType,
   unit,
   className,
-}: TemperatureItemProps & { className?: string }): React.JSX.Element {
+}: {
+  airTemp: number
+  weatherType: WeatherType
+  unit: string
+  className?: string
+}): React.JSX.Element {
   return (
     <div className={cn(className, 'flex min-w-16 items-center gap-2 text-sm')}>
       <WeatherIcon weatherType={weatherType} />

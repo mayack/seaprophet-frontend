@@ -60,6 +60,38 @@ NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN=your_mapbox_token
 - **HTTP Client**: Fetch API
 - **Deployment**: Netlify
 
+## Type System
+
+Simple and maintainable TypeScript definitions:
+
+### 🏗️ Type Architecture
+- **Unified Responses**: Single `ActionResponse<T>` interface for all API responses
+- **Inline Component Props**: Direct prop types instead of separate interfaces
+- **Flattened Data Structures**: Simplified nested API responses where possible
+- **Minimal Redundancy**: Removed duplicate and unused type definitions
+
+### 📝 Type Guidelines
+- Use inline types for simple component props
+- Create interfaces only when reused across multiple files
+- Prefer composition over deep nesting
+- Keep API response types close to their usage
+
+## Error Handling
+
+Simple and consistent error management:
+
+### 🚨 Error Strategy
+- **Standard Errors**: Use native `Error` objects with meaningful messages
+- **Error Types**: Simple categorization (`auth`, `network`, `validation`, `unknown`)
+- **Consistent Responses**: Unified error format across all API actions
+- **Minimal Logging**: Essential errors only, no excessive console output
+
+### 🛠️ Error Guidelines
+- Throw errors close to where they occur
+- Use `getErrorMessage()` for consistent error extraction
+- Avoid complex error hierarchies and custom classes
+- Handle auth errors with simple retry logic
+
 ## Project Structure
 
 ```
@@ -70,7 +102,7 @@ frontend/
 ├── lib/                   # Utility libraries
 ├── utils/                 # Helper functions
 ├── api/                   # API client implementations
-├── types/                 # TypeScript type definitions
+├── types/                 # Core TypeScript definitions
 └── constants/             # Configuration constants
 ```
 

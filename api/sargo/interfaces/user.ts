@@ -23,8 +23,3 @@ export interface UserUnits {
   tide_height: 'feet' | 'meters'
   temperature: 'celsius' | 'fahrenheit'
 }
-
-export interface UserLocation {
-  latitude: number | null
-  longitude: number | null
-}
