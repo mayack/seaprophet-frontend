@@ -183,12 +183,12 @@ export function Navigator({
     const nav = new mapboxgl.NavigationControl({ showCompass: false })
     mapInstance.current.addControl(nav, 'top-right')
 
-    // Add geolocate control
+    // Add geolocate control with optimized settings
     const geolocateControl = new mapboxgl.GeolocateControl({
       positionOptions: {
         enableHighAccuracy: true,
-        timeout: 10000,
-        maximumAge: 0,
+        timeout: 15000, // Allow more time for GPS lock on maps
+        maximumAge: 60000, // 1 minute cache for map positioning
       },
       trackUserLocation: true,
       showUserLocation: true,

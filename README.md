@@ -1,24 +1,105 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Seaprophet Frontend
+
+This is the frontend application for Seaprophet, built with Next.js 14, TypeScript, and Tailwind CSS.
+
+## Features
+
+- 🌊 Real-time surf forecast data
+- 📍 Location-based spot recommendations
+- 🗺️ Interactive maps with Mapbox
+- 📱 Responsive design for mobile and desktop
+- 🔐 User authentication and personalization
+- ⚙️ Customizable unit preferences
+- 📸 Webcam integration for surf spots
+
+## Enhanced Geolocation System
+
+The application features an advanced geolocation system designed for optimal performance and user experience:
+
+### 🎯 Adaptive Accuracy
+- **Standard Accuracy**: Used for nearby spots and general features (faster, battery-friendly)
+- **High Accuracy**: Used for precise mapping and navigation (GPS-level precision)
+- **Progressive Fallback**: Automatically falls back from high to standard accuracy if needed
+
+### ⚡ Smart Caching
+- **5-minute cache** for location data to avoid repeated requests
+- **Accuracy-aware caching**: Different cache durations based on precision requirements
+- **Session persistence**: Location survives page refreshes
+
+### 🔄 Intelligent Timeouts
+- **Progressive timeouts**: Longer timeouts for initial GPS lock, shorter for subsequent requests
+- **Use case optimization**: Different timeout strategies for maps vs. nearby spots
+- **Retry mechanisms**: Automatic fallback strategies on failure
+
+### 📊 Location Quality Indicators
+- Real-time accuracy feedback to users
+- Quality assessment (excellent/good/fair/poor)
+- Visual indicators for location confidence
+
+### 🛡️ Privacy & Security
+- HTTPS-only geolocation access
+- Clear permission explanations
+- Configurable via Netlify Permissions Policy
+- Graceful error handling for denied permissions
 
 ## Getting Started
 
-First, run the development server:
-
 ```bash
-npm run dev
-# or
-yarn dev
-# or
+# Install dependencies
+pnpm install
+
+# Start development server
 pnpm dev
-# or
-bun dev
+
+# Build for production
+pnpm build
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Environment Variables
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Create a `.env.local` file with:
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```env
+NEXT_PUBLIC_SARGO_API_URL=your_sargo_api_url
+NEXT_PUBLIC_POLVO_API_URL=your_polvo_api_url
+NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN=your_mapbox_token
+```
+
+## Tech Stack
+
+- **Framework**: Next.js 14 with App Router
+- **Language**: TypeScript
+- **Styling**: Tailwind CSS
+- **Maps**: Mapbox GL JS
+- **State Management**: React Context
+- **HTTP Client**: Fetch API
+- **Deployment**: Netlify
+
+## Project Structure
+
+```
+frontend/
+├── app/                    # Next.js app router pages
+├── components/             # Reusable UI components
+├── contexts/              # React contexts (User, Theme)
+├── lib/                   # Utility libraries
+├── utils/                 # Helper functions
+├── api/                   # API client implementations
+├── types/                 # TypeScript type definitions
+└── constants/             # Configuration constants
+```
+
+## Contributing
+
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Run tests and linting
+5. Submit a pull request
+
+## License
+
+This project is private and proprietary.
 
 ## Learn More
 
