@@ -12,29 +12,14 @@ This is the frontend application for Seaprophet, built with Next.js 14, TypeScri
 - ⚙️ Customizable unit preferences
 - 📸 Webcam integration for surf spots
 
-## Enhanced Geolocation System
+## Geolocation System
 
-The application features an advanced geolocation system designed for optimal performance and user experience:
+Simple and efficient geolocation handling:
 
-### 🎯 Adaptive Accuracy
-- **Standard Accuracy**: Used for nearby spots and general features (faster, battery-friendly)
-- **High Accuracy**: Used for precise mapping and navigation (GPS-level precision)
-- **Progressive Fallback**: Automatically falls back from high to standard accuracy if needed
-
-### ⚡ Smart Caching
-- **5-minute cache** for location data to avoid repeated requests
-- **Accuracy-aware caching**: Different cache durations based on precision requirements
-- **Session persistence**: Location survives page refreshes
-
-### 🔄 Intelligent Timeouts
-- **Progressive timeouts**: Longer timeouts for initial GPS lock, shorter for subsequent requests
-- **Use case optimization**: Different timeout strategies for maps vs. nearby spots
-- **Retry mechanisms**: Automatic fallback strategies on failure
-
-### 📊 Location Quality Indicators
-- Real-time accuracy feedback to users
-- Quality assessment (excellent/good/fair/poor)
-- Visual indicators for location confidence
+### 📍 Location Features
+- **Standard/High Accuracy**: Simple toggle between standard (fast) and high accuracy (GPS) modes
+- **Smart Caching**: 5-minute cache for location data to avoid repeated requests
+- **Session Persistence**: Location survives page refreshes
 
 ### 🛡️ Privacy & Security
 - HTTPS-only geolocation access

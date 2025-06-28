@@ -6,11 +6,7 @@ import { SpotSummary } from '@/api/sargo/interfaces/spot'
 import { useUser } from '@/contexts/UserContext'
 import { SpotsNearby } from '.'
 import { getSpotsByBounds } from '@/api/sargo/actions/spot'
-import {
-  calculateBounds,
-  LocationAccuracy,
-  getLocationOptions,
-} from '@/utils/location'
+import { calculateBounds } from '@/utils/location'
 import { CONFIG } from '@/constants/config'
 
 interface UserLocationSpotsProps {
@@ -72,7 +68,6 @@ export function UserLocationSpots({
     locationError,
     isLocating,
     lastLocationUpdate,
-    locationAccuracy,
   } = useUser()
   const [state, setState] = useState({
     spots: [] as SpotSummary[],
@@ -139,7 +134,7 @@ export function UserLocationSpots({
       ) {
         setState((prev) => ({ ...prev, locationRequested: true }))
         // Use standard accuracy for nearby spots - faster and sufficient precision
-        await requestLocation(getLocationOptions(LocationAccuracy.STANDARD))
+        await requestLocation(false) // false = standard accuracy
         return
       }
 
@@ -176,7 +171,7 @@ export function UserLocationSpots({
         error={{
           icon: MapPin,
           title: 'Location access required',
-          description: `${locationError}${locationAccuracy ? ` (Last accuracy: ${Math.round(locationAccuracy)}m)` : ''}`,
+          description: locationError,
         }}
       />
     )
