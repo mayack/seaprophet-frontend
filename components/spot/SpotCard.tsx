@@ -9,6 +9,7 @@ interface SpotCardProps {
   subtitle?: string
   webcam?: WebcamConfig
   onClick?: (e: React.MouseEvent) => void
+  variant?: 'border' | 'shadow'
 }
 
 export function SpotCard({
@@ -17,14 +18,15 @@ export function SpotCard({
   subtitle,
   webcam,
   onClick,
+  variant = 'border',
 }: SpotCardProps): React.JSX.Element {
   return (
     <Link
       href={`/spot/${id}`}
       onClick={onClick}
-      className={`flex flex-col justify-center rounded-lg border border-border bg-background px-4 py-2 text-primary shadow-sm hover:bg-muted ${
-        subtitle ? 'min-h-20' : 'min-h-14'
-      }`}
+      className={`flex flex-col justify-center rounded-lg bg-card px-4 py-2 text-primary hover:bg-muted ${
+        variant === 'border' ? 'border border-border' : 'shadow-sm'
+      } ${subtitle ? 'min-h-20' : 'min-h-14'}`}
     >
       <div className="flex items-center">
         <div className="grow truncate text-base font-semibold">{name}</div>

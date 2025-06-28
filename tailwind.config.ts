@@ -62,6 +62,7 @@ export default {
       // Add custom animation
       animation: {
         'fade-in': 'fadeIn 0.5s ease-in', // Custom fade-in animation
+        'spin-slow': 'spin 2s linear infinite', // Slower spin animation
       },
       keyframes: {
         fadeIn: {

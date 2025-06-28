@@ -92,6 +92,22 @@ Simple and consistent error management:
 - Avoid complex error hierarchies and custom classes
 - Handle auth errors with simple retry logic
 
+## Component Architecture
+
+Unified and simplified component design:
+
+### 🗺️ Map Integration
+- **Unified MapNavigator**: Combines map display with integrated spot carousel overlay
+- **Dynamic Content**: Spot cards update automatically when panning/zooming the map
+- **Smart Caching**: Efficient loading and caching of spots based on map viewport
+- **Responsive Design**: Carousel adapts to screen size (2-4 spots visible)
+
+### 🎯 Simplification Benefits
+- **Single Component**: Replaced separate `UserLocationSpots` + `Navigator` components
+- **Unified State**: Single source of truth for map spots and user location
+- **Better UX**: Contextual spot information directly overlaid on the map
+- **Reduced Complexity**: Fewer components to maintain and debug
+
 ## Project Structure
 
 ```
