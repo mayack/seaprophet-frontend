@@ -81,7 +81,6 @@ export function MapNavigator({
 
   const [isLoading, setIsLoading] = useState(false)
   const [visibleSpots, setVisibleSpots] = useState<SpotSummary[]>([])
-  const [visibleSlides, setVisibleSlides] = useState(1)
   const [showCarousel, setShowCarousel] = useState(false)
   const [locationState, setLocationState] = useState<
     | 'idle'
@@ -91,30 +90,6 @@ export function MapNavigator({
     | 'error'
     | 'permission-denied'
   >('idle')
-
-  // Retry tracking for network/connection errors
-  const [retryCount, setRetryCount] = useState(0)
-  const retryTimeoutRef = useRef<NodeJS.Timeout | null>(null)
-  const MAX_RETRIES = 3
-
-  // Location state ref to avoid re-renders in move handler
-  const locationStateRef = useRef<
-    | 'idle'
-    | 'loading'
-    | 'centered'
-    | 'off-center'
-    | 'error'
-    | 'permission-denied'
-  >('idle')
-
-  // Flag to prevent multiple state updates
-  const isUpdatingLocationState = useRef(false)
-
-  // Update ref when state changes
-  React.useEffect(() => {
-    locationStateRef.current = locationState
-    isUpdatingLocationState.current = false
-  }, [locationState])
 
   // Carousel setup
   const [emblaRef, emblaApi] = useEmblaCarousel({
@@ -128,13 +103,32 @@ export function MapNavigator({
     },
   })
 
-  const [canPrev, setCanPrev] = useState(false)
-  const [canNext, setCanNext] = useState(false)
-  const [selectedIndex, setSelectedIndex] = useState(0)
-
   const { userData, requestLocation } = useUser()
   const hasUserLocation =
     userData.latitude !== undefined && userData.longitude !== undefined
+
+  // Helper function to create user location marker
+  const createUserLocationMarker = useCallback(
+    (location: { latitude: number; longitude: number }): void => {
+      if (!mapInstance.current) return
+
+      // Remove existing user location marker
+      if (mapState.current.userLocationMarker) {
+        mapState.current.userLocationMarker.remove()
+      }
+
+      // Create user location marker
+      const userMarker = new mapboxgl.Marker({
+        color: '#3b82f6', // Blue color
+        scale: 0.8,
+      })
+        .setLngLat([location.longitude, location.latitude])
+        .addTo(mapInstance.current)
+
+      mapState.current.userLocationMarker = userMarker
+    },
+    []
+  )
 
   // Custom zoom functions
   const zoomIn = useCallback((): void => {
@@ -162,7 +156,7 @@ export function MapNavigator({
       // Create simple move handler that only updates location state
       const handleMove = () => {
         const currentCenter = mapInstance.current?.getCenter()
-        if (currentCenter && locationStateRef.current === 'centered') {
+        if (currentCenter && locationState === 'centered') {
           // Calculate distance in meters using Haversine formula
           const R = 6371e3 // Earth's radius in meters
           const φ1 = (location.latitude * Math.PI) / 180
@@ -200,23 +194,7 @@ export function MapNavigator({
 
     // Check if result has coordinates (success)
     if ('latitude' in result && 'longitude' in result) {
-      // Reset retry count on success
-      setRetryCount(0)
-
-      // Remove existing user location marker
-      if (mapState.current.userLocationMarker) {
-        mapState.current.userLocationMarker.remove()
-      }
-
-      // Create user location marker
-      const userMarker = new mapboxgl.Marker({
-        color: '#3b82f6', // Blue color
-        scale: 0.8,
-      })
-        .setLngLat([result.longitude, result.latitude])
-        .addTo(mapInstance.current!)
-
-      mapState.current.userLocationMarker = userMarker
+      createUserLocationMarker(result)
 
       // Set up simple move handler to detect when user pans away
       setupMoveHandler(result)
@@ -237,33 +215,12 @@ export function MapNavigator({
         case 'unavailable':
         case 'timeout':
           setLocationState('error')
-
-          // Auto-retry for network/connection issues (up to MAX_RETRIES)
-          if (retryCount < MAX_RETRIES) {
-            const nextRetryCount = retryCount + 1
-            setRetryCount(nextRetryCount)
-
-            // Clear any existing timeout
-            if (retryTimeoutRef.current) {
-              clearTimeout(retryTimeoutRef.current)
-            }
-
-            // Retry with exponential backoff: 2s, 4s, 8s
-            const retryDelay = Math.pow(2, nextRetryCount) * 1000
-            retryTimeoutRef.current = setTimeout(() => {
-              console.log(
-                `Retrying location request (attempt ${nextRetryCount}/${MAX_RETRIES})`
-              )
-              handleLocationClick()
-            }, retryDelay)
-          } else {
-            // Max retries reached, stay in error state
-            setTimeout(() => setLocationState('idle'), 3000)
-            setRetryCount(0) // Reset for next manual attempt
-          }
+          // Auto-reset for network/connection issues only
+          setTimeout(() => setLocationState('idle'), 3000)
           break
         case 'unsupported':
           setLocationState('error')
+          // Unsupported stays in error state (no auto-reset)
           break
       }
     }
@@ -294,21 +251,11 @@ export function MapNavigator({
       handleRecenter()
     } else if (locationState === 'permission-denied') {
       // For permission denied, try again to potentially prompt browser dialog
-      setRetryCount(0) // Reset retry count for fresh start
       handleLocationClick()
     } else {
       handleLocationClick()
     }
-  }, [locationState, handleRecenter, setRetryCount])
-
-  // Cleanup retry timeout on unmount
-  useEffect(() => {
-    return () => {
-      if (retryTimeoutRef.current) {
-        clearTimeout(retryTimeoutRef.current)
-      }
-    }
-  }, [])
+  }, [locationState, handleRecenter])
 
   // Handle carousel fade in/out animation
   React.useEffect(() => {
@@ -316,44 +263,21 @@ export function MapNavigator({
     setShowCarousel(shouldShow)
   }, [visibleSpots.length, isLoading])
 
-  const updateVisibleSlides = useCallback((): void => {
+  const getVisibleSlides = useCallback((): number => {
+    if (typeof window === 'undefined') return 2 // Default for SSR
     const width = window.innerWidth
-    if (width >= 1024) setVisibleSlides(4)
-    else if (width >= 768) setVisibleSlides(3)
-    else setVisibleSlides(2)
+    if (width >= 1024) return 4
+    else if (width >= 768) return 3
+    else return 2
   }, [])
 
-  const updateCarouselState = useCallback((): void => {
-    if (!emblaApi) return
-    const newIndex = emblaApi.selectedScrollSnap()
-    const newCanPrev = emblaApi.canScrollPrev()
-    const newCanNext = newIndex < visibleSpots.length - visibleSlides
-    setCanPrev(newCanPrev)
-    setCanNext(newCanNext)
-    setSelectedIndex(newIndex)
-  }, [emblaApi, visibleSpots.length, visibleSlides])
-
   const scrollPrev = useCallback((): void => {
-    if (emblaApi && emblaApi.canScrollPrev()) {
-      const prevIndex = Math.max(0, selectedIndex - 1)
-      emblaApi.scrollTo(prevIndex)
-      updateCarouselState()
-    }
-  }, [emblaApi, selectedIndex, updateCarouselState])
+    emblaApi?.scrollPrev()
+  }, [emblaApi])
 
   const scrollNext = useCallback((): void => {
-    if (emblaApi && canNext) {
-      const nextIndex = Math.min(visibleSpots.length - 1, selectedIndex + 1)
-      emblaApi.scrollTo(nextIndex)
-      updateCarouselState()
-    }
-  }, [
-    emblaApi,
-    canNext,
-    selectedIndex,
-    visibleSpots.length,
-    updateCarouselState,
-  ])
+    emblaApi?.scrollNext()
+  }, [emblaApi])
 
   const isAreaLoaded = useCallback((bounds: GeographicBounds): boolean => {
     return spotsCache.loadedRegions.some(
@@ -365,14 +289,15 @@ export function MapNavigator({
     )
   }, [])
 
-  const updateVisibleSpots = useCallback((): void => {
-    if (!mapInstance.current || !mapState.current.isMounted) return
+  // Helper function to get spots in current view
+  const getSpotsInView = useCallback((): SpotSummary[] => {
+    if (!mapInstance.current || !mapState.current.isMounted) return []
 
     const spots = Array.from(spotsCache.spots.values())
     const bounds = mapInstance.current.getBounds()
-    if (!bounds) return
+    if (!bounds) return []
 
-    const spotsInView = spots.filter((spot) => {
+    return spots.filter((spot) => {
       if (!spot.location?.lat || !spot.location?.long) return false
 
       return (
@@ -382,6 +307,10 @@ export function MapNavigator({
         spot.location.long >= bounds.getWest()
       )
     })
+  }, [])
+
+  const updateVisibleSpots = useCallback((): void => {
+    const spotsInView = getSpotsInView()
 
     // Recalculate distances based on actual user location (not map center)
     const spotsWithCorrectDistance = spotsInView.map((spot) => ({
@@ -404,25 +333,10 @@ export function MapNavigator({
       : spotsWithCorrectDistance.sort((a, b) => a.name.localeCompare(b.name))
 
     setVisibleSpots(sortedSpots)
-  }, [hasUserLocation, userData.latitude, userData.longitude])
+  }, [getSpotsInView, hasUserLocation, userData.latitude, userData.longitude])
 
   const updateMarkers = useCallback((): void => {
-    if (!mapInstance.current || !mapState.current.isMounted) return
-
-    const spots = Array.from(spotsCache.spots.values())
-    const bounds = mapInstance.current.getBounds()
-    if (!bounds) return
-
-    const spotsInView = spots.filter((spot) => {
-      if (!spot.location?.lat || !spot.location?.long) return false
-
-      return (
-        spot.location.lat <= bounds.getNorth() &&
-        spot.location.lat >= bounds.getSouth() &&
-        spot.location.long <= bounds.getEast() &&
-        spot.location.long >= bounds.getWest()
-      )
-    })
+    const spotsInView = getSpotsInView()
 
     spotsInView.forEach((spot) => {
       if (!spot.location?.lat || !spot.location?.long) return
@@ -464,7 +378,7 @@ export function MapNavigator({
 
     // Update visible spots for carousel
     updateVisibleSpots()
-  }, [updateVisibleSpots])
+  }, [getSpotsInView, updateVisibleSpots])
 
   const fetchSpots = useCallback(
     async (bounds: GeographicBounds): Promise<void> => {
@@ -499,24 +413,6 @@ export function MapNavigator({
     [isAreaLoaded, updateMarkers]
   )
 
-  // Carousel effects
-  React.useEffect(() => {
-    updateVisibleSlides()
-    window.addEventListener('resize', updateVisibleSlides)
-
-    if (!emblaApi) return
-
-    emblaApi.on('scroll', updateCarouselState)
-    emblaApi.on('reInit', updateCarouselState)
-    updateCarouselState()
-
-    return (): void => {
-      window.removeEventListener('resize', updateVisibleSlides)
-      emblaApi.off('scroll', updateCarouselState)
-      emblaApi.off('reInit', updateCarouselState)
-    }
-  }, [emblaApi, updateCarouselState, updateVisibleSlides])
-
   useLayoutEffect(() => {
     if (mapState.current.isInitialized || !mapContainer.current) return
 
@@ -535,10 +431,6 @@ export function MapNavigator({
       startPosition,
       initialZoom
     )
-
-    // Custom zoom functions will be handled by UI buttons
-
-    // Custom location control will be handled by UI button
 
     // Handle initial load
     const handleInitialLoad = async (): Promise<void> => {
@@ -599,15 +491,7 @@ export function MapNavigator({
           longitude: userData.longitude,
         }
 
-        // Create user location marker
-        const userMarker = new mapboxgl.Marker({
-          color: '#3b82f6', // Blue color
-          scale: 0.8,
-        })
-          .setLngLat([userLocation.longitude, userLocation.latitude])
-          .addTo(mapInstance.current!)
-
-        mapState.current.userLocationMarker = userMarker
+        createUserLocationMarker(userLocation)
 
         // Set up move handler for existing location
         setupMoveHandler(userLocation)
@@ -642,8 +526,6 @@ export function MapNavigator({
     })
     mapInstance.current.on('moveend', debouncedHandleMapMovement)
     mapInstance.current.on('zoomend', debouncedHandleMapMovement)
-
-    // Custom location control will be handled by UI button
 
     // Hide Mapbox logo
     const hideMapboxLogo = () => {
@@ -693,7 +575,8 @@ export function MapNavigator({
     userData.latitude,
     userData.longitude,
     viewportPadding,
-    requestLocation,
+    createUserLocationMarker,
+    setupMoveHandler,
   ])
 
   // Separate effect to handle initial location request
@@ -714,15 +597,7 @@ export function MapNavigator({
           'longitude' in result &&
           mapInstance.current
         ) {
-          // Create user location marker
-          const userMarker = new mapboxgl.Marker({
-            color: '#3b82f6', // Blue color
-            scale: 0.8,
-          })
-            .setLngLat([result.longitude, result.latitude])
-            .addTo(mapInstance.current)
-
-          mapState.current.userLocationMarker = userMarker
+          createUserLocationMarker(result)
 
           // Set up move handler
           setupMoveHandler(result)
@@ -779,6 +654,7 @@ export function MapNavigator({
     isAreaLoaded,
     fetchSpots,
     updateMarkers,
+    createUserLocationMarker,
   ])
 
   return (
@@ -825,9 +701,7 @@ export function MapNavigator({
           }
           className="bg-background shadow-md"
         >
-          {locationState === 'loading' && (
-            <Locate className="animate-spin-slow" />
-          )}
+          {locationState === 'loading' && <Locate className="animate-spin" />}
           {locationState === 'centered' && (
             <LocateFixed className="text-blue-500" />
           )}
@@ -861,13 +735,13 @@ export function MapNavigator({
             {visibleSpots.length} {visibleSpots.length === 1 ? 'spot' : 'spots'}{' '}
             in view
           </h3>
-          {visibleSpots.length > visibleSlides && (
+          {visibleSpots.length > getVisibleSlides() && (
             <div className="flex gap-2">
               <Button
                 variant="shadow"
                 size="icon"
                 onClick={scrollPrev}
-                disabled={!canPrev}
+                disabled={!emblaApi?.canScrollPrev()}
                 aria-label="Previous spots"
               >
                 <ChevronLeft className="size-4" />
@@ -876,7 +750,7 @@ export function MapNavigator({
                 variant="shadow"
                 size="icon"
                 onClick={scrollNext}
-                disabled={!canNext}
+                disabled={!emblaApi?.canScrollNext()}
                 aria-label="Next spots"
               >
                 <ChevronRight className="size-4" />
