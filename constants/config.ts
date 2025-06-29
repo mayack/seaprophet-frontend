@@ -92,6 +92,45 @@ export const CONFIG = {
     defaults: {
       center: [-9.356267, 39.368892] as [number, number],
       zoom: 11,
+      height: '500px',
+      initialRadius: 250, // km - initial radius for loading spots
+      viewportPadding: 100, // percentage - expand bounds when loading new spots
+    },
+    location: {
+      maxRetries: 3,
+      retryDelays: [2000, 5000, 10000], // ms - exponential backoff delays
+      alreadyAtLocationThreshold: 100, // meters - distance to consider "already at location"
+      timeouts: {
+        standard: 10000, // ms - standard location request timeout
+        highAccuracy: 15000, // ms - high accuracy location request timeout
+        maxAge: {
+          standard: 300000, // ms - 5 minutes
+          highAccuracy: 60000, // ms - 1 minute
+        },
+      },
+    },
+    interaction: {
+      debounce: {
+        mapMovement: 500, // ms - delay before loading spots after map movement
+        moveHandler: 300, // ms - delay for onMove callback
+      },
+    },
+    carousel: {
+      breakpoints: {
+        mobile: 768, // px
+        tablet: 1024, // px
+      },
+      visibleSlides: {
+        mobile: 2,
+        tablet: 3,
+        desktop: 4,
+      },
+    },
+    ui: {
+      loadingText: 'Scanning...',
+      loadingIcon: {
+        size: 16,
+      },
     },
   },
   mapbox: {

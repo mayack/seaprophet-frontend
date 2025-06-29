@@ -1,10 +1,9 @@
 'use client'
-import { useEffect } from 'react'
 import { SpotSummary } from '@/api/sargo/interfaces/spot'
 import { CONFIG } from '@/constants/config'
 import { GeographicBounds } from '@/types/map'
+import { calculateDistance } from '@/utils/location'
 import mapboxgl from 'mapbox-gl'
-import { useTheme } from 'next-themes'
 
 // Set Mapbox token
 if (process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN) {
@@ -16,11 +15,10 @@ if (process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN) {
   }
 }
 
-interface MapState {
-  center: [number, number]
-  zoom: number
-  timestamp: number
-}
+// Constants
+const METERS_PER_DEGREE = 111320 // Approximate meters per degree at equator
+
+
 
 interface CreateMapOptions {
   container: HTMLDivElement
@@ -97,28 +95,13 @@ export function createMap(options: CreateMapOptions): mapboxgl.Map {
   return map
 }
 
-// Initialize map (legacy function for backward compatibility)
-export function initializeMap(
-  container: HTMLDivElement,
-  center: [number, number],
-  zoom: number,
-  style: string = CONFIG.mapbox.styles.light,
-  attributionControl: boolean = false
-): mapboxgl.Map {
-  return new mapboxgl.Map({
-    container,
-    style,
-    center,
-    zoom,
-    attributionControl,
-  })
-}
+
 
 // Create marker element with theme support
 export function createMarkerElement(
   themeOrImageUrl: string = 'default',
-  width: string = '32px',
-  height: string = '40px',
+  width: string = '24px',
+  height: string = '24px',
   className: string = 'custom-marker',
   pointerEvents: string = 'auto'
 ): HTMLDivElement {
@@ -127,9 +110,9 @@ export function createMarkerElement(
   
   // Use inline SVG instead of loading from file
   el.innerHTML = `
-    <svg width="${width}" height="${height}" viewBox="0 0 32 40" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <path d="M16 0C7.16344 0 0 7.16344 0 16C0 24.8366 16 40 16 40C16 40 32 24.8366 32 16C32 7.16344 24.8366 0 16 0Z" fill="#3B82F6"/>
-      <circle cx="16" cy="16" r="6" fill="white"/>
+    <svg width="${width}" height="${height}" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M12 0C7.802 0 4 3.403 4 7.602C4 11.8 7.469 16.812 12 24C16.531 16.812 20 11.8 20 7.602C20 3.403 16.199 0 12 0Z" fill="black"/>
+      <path d="M12 11C10.343 11 9 9.657 9 8C9 6.343 10.343 5 12 5C13.657 5 15 6.343 15 8C15 9.657 13.657 11 12 11Z" fill="white"/>
     </svg>
   `
   
@@ -139,6 +122,37 @@ export function createMarkerElement(
   el.style.display = 'flex'
   el.style.alignItems = 'center'
   el.style.justifyContent = 'center'
+  return el
+}
+
+// Create theme-aware spot marker element
+export function createSpotMarkerElement(
+  isDark: boolean = false,
+  width: string = '24px',
+  height: string = '24px',
+  className: string = 'spot-marker'
+): HTMLDivElement {
+  const el = document.createElement('div')
+  el.className = className
+  
+  // Theme-aware colors: black pins for light mode, white pins for dark mode
+  const pinColor = isDark ? 'white' : 'black'
+  const dotColor = isDark ? 'black' : 'white'
+  
+  el.innerHTML = `
+    <svg width="${width}" height="${height}" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M12 0C7.802 0 4 3.403 4 7.602C4 11.8 7.469 16.812 12 24C16.531 16.812 20 11.8 20 7.602C20 3.403 16.199 0 12 0Z" fill="${pinColor}"/>
+      <path d="M12 11C10.343 11 9 9.657 9 8C9 6.343 10.343 5 12 5C13.657 5 15 6.343 15 8C15 9.657 13.657 11 12 11Z" fill="${dotColor}"/>
+    </svg>
+  `
+  
+  el.style.width = width
+  el.style.height = height
+  el.style.pointerEvents = 'auto'
+  el.style.display = 'flex'
+  el.style.alignItems = 'center'
+  el.style.justifyContent = 'center'
+  el.style.cursor = 'pointer'
   return el
 }
 
@@ -165,6 +179,157 @@ export function createMarker(
 }
 
 
+
+// Location utilities for maps
+export function calculateDistanceInMeters(
+  lat1: number,
+  lng1: number,
+  lat2: number,
+  lng2: number
+): number {
+  // Simple distance calculation using approximate conversion
+  const latDiff = (lat2 - lat1) * METERS_PER_DEGREE
+  const lngDiff = (lng2 - lng1) * METERS_PER_DEGREE
+  return Math.sqrt(latDiff * latDiff + lngDiff * lngDiff)
+}
+
+export function isUserCloseToLocation(
+  userLat: number,
+  userLng: number,
+  targetLat: number,
+  targetLng: number,
+  thresholdMeters: number = CONFIG.map.location.alreadyAtLocationThreshold
+): boolean {
+  const distance = calculateDistanceInMeters(userLat, userLng, targetLat, targetLng)
+  return distance < thresholdMeters
+}
+
+export function isUserPannedAway(
+  userLat: number,
+  userLng: number,
+  currentLat: number,
+  currentLng: number,
+  thresholdMeters: number = CONFIG.map.location.alreadyAtLocationThreshold / 2
+): boolean {
+  const distance = calculateDistanceInMeters(userLat, userLng, currentLat, currentLng)
+  return distance > thresholdMeters
+}
+
+// User location marker creation
+export function createUserLocationMarkerElement(): HTMLDivElement {
+  const markerElement = document.createElement('div')
+  markerElement.className = 'user-location-marker w-16 h-16 relative pointer-events-none bg-card rounded-full'
+  
+  // Create pulsating outer circle with Tailwind animation
+  const outerCircle = document.createElement('div')
+  outerCircle.className = 'absolute inset-0 w-16 h-16 bg-blue-500 rounded-full animate-ping'
+  
+  markerElement.appendChild(outerCircle)
+  
+  return markerElement
+}
+
+export function createUserLocationMarker(
+  map: mapboxgl.Map,
+  location: { latitude: number; longitude: number },
+  existingMarker?: mapboxgl.Marker | null
+): mapboxgl.Marker {
+  // Remove existing marker if provided
+  if (existingMarker) {
+    existingMarker.remove()
+  }
+
+  const markerElement = createUserLocationMarkerElement()
+  
+  // Create marker with center anchor
+  const userMarker = new mapboxgl.Marker({
+    element: markerElement,
+    anchor: 'center',
+  })
+    .setLngLat([location.longitude, location.latitude])
+    .addTo(map)
+
+  return userMarker
+}
+
+// Location button state utilities
+export type LocationState = 'idle' | 'loading' | 'centered' | 'off-center' | 'error' | 'permission-denied'
+
+export interface LocationButtonConfig {
+  state: LocationState
+  retryCount: number
+  maxRetries: number
+}
+
+
+
+export function getLocationButtonLabel(config: LocationButtonConfig): string {
+  const { state, retryCount, maxRetries } = config
+  
+  switch (state) {
+    case 'permission-denied':
+      return 'Location permission denied - click to try again'
+    case 'error':
+      return `Location error - click to retry${retryCount > 0 ? ` (attempt ${retryCount}/${maxRetries})` : ''}`
+    case 'off-center':
+      return 'Return to my location'
+    case 'centered':
+      return 'Currently at your location'
+    case 'loading':
+      return `Finding your location${retryCount > 0 ? ` (retry ${retryCount})` : ''}...`
+    default:
+      return 'Find my location'
+  }
+}
+
+export function getLocationButtonAction(state: LocationState): 'recenter' | 'request' | 'none' {
+  switch (state) {
+    case 'off-center':
+      return 'recenter'
+    case 'error':
+    case 'permission-denied':
+    case 'idle':
+      return 'request'
+    case 'loading':
+    case 'centered':
+      return 'none'
+    default:
+      return 'request'
+  }
+}
+
+// Spot sorting utilities
+export function sortSpotsByDistance(
+  spots: SpotSummary[],
+  userLocation?: { latitude: number; longitude: number }
+): SpotSummary[] {
+  if (!userLocation) {
+    return spots.sort((a, b) => a.name.localeCompare(b.name))
+  }
+
+  return spots.sort((a, b) => (a.distance || Infinity) - (b.distance || Infinity))
+}
+
+export function addDistanceToSpots(
+  spots: SpotSummary[],
+  userLocation?: { latitude: number; longitude: number }
+): SpotSummary[] {
+  if (!userLocation) {
+    return spots
+  }
+
+  return spots.map((spot) => ({
+    ...spot,
+    distance: spot.location?.lat && spot.location?.long
+      ? calculateDistance(
+          userLocation.latitude,
+          userLocation.longitude,
+          spot.location.lat,
+          spot.location.long
+        ) // Already returns properly rounded km value
+      : spot.distance,
+  }))
+}
 
 // Improved cache management
 // Simple spots cache - no complex class needed
@@ -221,43 +386,4 @@ export const spotsCache = {
   }
 }
 
-// Session storage utilities
-export function getStoredMapState(): MapState | null {
-  if (typeof window === 'undefined') return null
 
-  try {
-    const stored = window.sessionStorage.getItem(
-      CONFIG.api.tokens.geolocation.map_state_key
-    )
-    if (stored) {
-      const state = JSON.parse(stored) as MapState
-      if (Date.now() - state.timestamp < CONFIG.api.tokens.geolocation.maxAge) {
-        return state
-      }
-      window.sessionStorage.removeItem(
-        CONFIG.api.tokens.geolocation.map_state_key
-      )
-    }
-  } catch {
-    // Error silently handled
-  }
-  return null
-}
-
-export function storeMapState(center: [number, number], zoom: number): void {
-  if (typeof window === 'undefined') return
-
-  try {
-    const state: MapState = {
-      center,
-      zoom,
-      timestamp: Date.now(),
-    }
-    window.sessionStorage.setItem(
-      CONFIG.api.tokens.geolocation.map_state_key,
-      JSON.stringify(state)
-    )
-  } catch {
-    // Error silently handled
-  }
-}

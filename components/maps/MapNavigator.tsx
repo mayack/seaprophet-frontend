@@ -5,7 +5,15 @@ import 'mapbox-gl/dist/mapbox-gl.css'
 import { useUser } from '@/contexts/UserContext'
 import { getSpotsByBounds } from '@/api/sargo/actions/spot'
 import { useMapbox } from './useMapbox'
-import { spotsCache, debounce } from './utils'
+import {
+  spotsCache,
+  debounce,
+  addDistanceToSpots,
+  sortSpotsByDistance,
+  LocationButtonConfig,
+  getLocationButtonLabel,
+  getLocationButtonAction,
+} from './utils'
 import {
   Loader2,
   ChevronLeft,
@@ -22,13 +30,10 @@ import useEmblaCarousel from 'embla-carousel-react'
 import {
   calculateBounds,
   formatDistance,
-  calculateDistance,
 } from '@/utils/location'
 import { GeographicBounds } from '@/types/map'
 import { SpotSummary } from '@/api/sargo/interfaces/spot'
 import { CONFIG } from '@/constants/config'
-
-const DEFAULT_ZOOM = CONFIG.map.defaults.zoom
 
 interface MapNavigatorProps {
   className?: string
@@ -40,10 +45,10 @@ interface MapNavigatorProps {
 
 export function MapNavigator({
   className = '',
-  height = '500px',
-  initialRadius = 250,
-  viewportPadding = 100,
-  initialZoom = DEFAULT_ZOOM,
+  height = CONFIG.map.defaults.height,
+  initialRadius = CONFIG.map.defaults.initialRadius,
+  viewportPadding = CONFIG.map.defaults.viewportPadding,
+  initialZoom = CONFIG.map.defaults.zoom,
 }: MapNavigatorProps): React.JSX.Element {
   const [isLoading, setIsLoading] = useState(false)
   const [visibleSpots, setVisibleSpots] = useState<SpotSummary[]>([])
@@ -70,10 +75,8 @@ export function MapNavigator({
   // This prevents reinitialization when userData updates after location is found
   const initialCenter = useMemo((): [number, number] => {
     if (userData.latitude !== undefined && userData.longitude !== undefined) {
-      console.log('🗺️ MapNavigator: Using cached location as initial center:', userData.latitude, userData.longitude)
       return [userData.longitude, userData.latitude]
     } else {
-      console.log('🗺️ MapNavigator: Using default center (no cached location)')
       return CONFIG.map.defaults.center
     }
   }, []) // Empty deps - only use initial userData state
@@ -88,18 +91,27 @@ export function MapNavigator({
     locationState,
     requestUserLocation,
     recenterToUser,
+    retryCount,
+    retryLocation,
   } = useMapbox({
     center: initialCenter,
     zoom: initialZoom,
     showUserLocation: true,
   })
 
-  // Handle location button clicks
+  // Handle location button clicks with different behaviors for different states
   const handleLocationButtonClick = useCallback((): void => {
-    if (locationState === 'off-center') {
-      recenterToUser()
-    } else {
-      requestUserLocation()
+    const action = getLocationButtonAction(locationState)
+    
+    switch (action) {
+      case 'recenter':
+        recenterToUser()
+        break
+      case 'request':
+        requestUserLocation()
+        break
+      case 'none':
+        break
     }
   }, [locationState, recenterToUser, requestUserLocation])
 
@@ -110,11 +122,11 @@ export function MapNavigator({
   }, [visibleSpots.length, isLoading])
 
   const getVisibleSlides = useCallback((): number => {
-    if (typeof window === 'undefined') return 2 // Default for SSR
+    if (typeof window === 'undefined') return CONFIG.map.carousel.visibleSlides.mobile // Default for SSR
     const width = window.innerWidth
-    if (width >= 1024) return 4
-    else if (width >= 768) return 3
-    else return 2
+    if (width >= CONFIG.map.carousel.breakpoints.tablet) return CONFIG.map.carousel.visibleSlides.desktop
+    else if (width >= CONFIG.map.carousel.breakpoints.mobile) return CONFIG.map.carousel.visibleSlides.tablet
+    else return CONFIG.map.carousel.visibleSlides.mobile
   }, [])
 
   const scrollPrev = useCallback((): void => {
@@ -159,23 +171,14 @@ export function MapNavigator({
         addSpotMarkers(spotsInView)
 
         // Update visible spots for carousel
-        const spotsWithCorrectDistance = spotsInView.map((spot) => ({
-          ...spot,
-          distance: hasUserLocation
-            ? calculateDistance(
-                userData.latitude!,
-                userData.longitude!,
-                spot.location!.lat,
-                spot.location!.long
-              )
-            : spot.distance,
-        }))
-
-        const sortedSpots = hasUserLocation
-          ? spotsWithCorrectDistance.sort(
-              (a, b) => (a.distance || Infinity) - (b.distance || Infinity)
-            )
-          : spotsWithCorrectDistance.sort((a, b) => a.name.localeCompare(b.name))
+        const spotsWithDistance = addDistanceToSpots(
+          spotsInView,
+          hasUserLocation ? { latitude: userData.latitude!, longitude: userData.longitude! } : undefined
+        )
+        const sortedSpots = sortSpotsByDistance(
+          spotsWithDistance,
+          hasUserLocation ? { latitude: userData.latitude!, longitude: userData.longitude! } : undefined
+        )
 
         setVisibleSpots(sortedSpots)
       }
@@ -232,23 +235,14 @@ export function MapNavigator({
       addSpotMarkers(spotsInView)
 
       // Update visible spots for carousel
-      const spotsWithCorrectDistance = spotsInView.map((spot) => ({
-        ...spot,
-        distance: hasUserLocation
-          ? calculateDistance(
-              userData.latitude!,
-              userData.longitude!,
-              spot.location!.lat,
-              spot.location!.long
-            )
-          : spot.distance,
-      }))
-
-      const sortedSpots = hasUserLocation
-        ? spotsWithCorrectDistance.sort(
-            (a, b) => (a.distance || Infinity) - (b.distance || Infinity)
-          )
-        : spotsWithCorrectDistance.sort((a, b) => a.name.localeCompare(b.name))
+      const spotsWithDistance = addDistanceToSpots(
+        spotsInView,
+        hasUserLocation ? { latitude: userData.latitude!, longitude: userData.longitude! } : undefined
+      )
+      const sortedSpots = sortSpotsByDistance(
+        spotsWithDistance,
+        hasUserLocation ? { latitude: userData.latitude!, longitude: userData.longitude! } : undefined
+      )
 
       setVisibleSpots(sortedSpots)
 
@@ -290,7 +284,7 @@ export function MapNavigator({
       }
     }
 
-    const debouncedHandler = debounce(handleMapMovement, 500)
+    const debouncedHandler = debounce(handleMapMovement, CONFIG.map.interaction.debounce.mapMovement)
     map.on('moveend', debouncedHandler)
     map.on('zoomend', debouncedHandler)
 
@@ -335,16 +329,16 @@ export function MapNavigator({
           size="icon"
           onClick={handleLocationButtonClick}
           disabled={locationState === 'loading'}
-          aria-label={
-            locationState === 'permission-denied'
-              ? 'Enable location access'
-              : locationState === 'off-center'
-                ? 'Return to my location'
-                : 'Find my location'
-          }
+          aria-label={getLocationButtonLabel({
+            state: locationState,
+            retryCount,
+            maxRetries: CONFIG.map.location.maxRetries,
+          })}
           className="bg-background shadow-md"
         >
-          {locationState === 'loading' && <Locate className="animate-spin" />}
+          {locationState === 'loading' && (
+            <Locate className="animate-spin" />
+          )}
           {locationState === 'centered' && (
             <LocateFixed className="text-blue-500" />
           )}
@@ -362,8 +356,8 @@ export function MapNavigator({
       {/* Loading indicator */}
       {isLoading && (
         <div className="absolute bottom-10 left-1/2 flex -translate-x-1/2 items-center gap-2 rounded-full bg-foreground px-4 py-2 text-background">
-          <Loader2 className="animate-spin" size={16} />
-          <span className="text-sm font-medium">Scanning...</span>
+          <Loader2 className="animate-spin" size={CONFIG.map.ui.loadingIcon.size} />
+          <span className="text-sm font-medium">{CONFIG.map.ui.loadingText}</span>
         </div>
       )}
 
