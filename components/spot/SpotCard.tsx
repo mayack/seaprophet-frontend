@@ -25,7 +25,7 @@ export function SpotCard({
       href={`/spot/${id}`}
       onClick={onClick}
       className={`flex flex-col justify-center rounded-lg bg-card px-4 py-2 text-primary hover:bg-muted ${
-        variant === 'border' ? 'border border-border' : 'shadow-sm'
+        variant === 'border' ? 'border border-input' : 'shadow-map'
       } ${subtitle ? 'min-h-20' : 'min-h-14'}`}
     >
       <div className="flex items-center">

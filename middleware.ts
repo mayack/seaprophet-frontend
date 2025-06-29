@@ -23,7 +23,6 @@ export async function middleware(request: NextRequest) {
     // Primary auth is valid, let the request through
     // Polvo token refresh is handled in forecast actions when needed
     return NextResponse.next()
-
   } catch (error) {
     console.error('Middleware error:', error)
     // On any error, redirect to login for safety

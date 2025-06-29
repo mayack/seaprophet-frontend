@@ -15,12 +15,14 @@ export async function updateUsername(formData: FormData) {
     }
 
     const updatedUser = await sargoClient.updateUserProfile({
-      username: username.trim()
+      username: username.trim(),
     })
 
     // Update cached user options
     const cookieStore = await cookies()
-    const existingOptionsStr = cookieStore.get(CONFIG.api.tokens.sargoOptions.key)?.value
+    const existingOptionsStr = cookieStore.get(
+      CONFIG.api.tokens.sargoOptions.key
+    )?.value
 
     if (existingOptionsStr) {
       try {
@@ -29,7 +31,7 @@ export async function updateUsername(formData: FormData) {
           name: CONFIG.api.tokens.sargoOptions.key,
           value: JSON.stringify({
             ...existingOptions,
-            username: updatedUser.username
+            username: updatedUser.username,
           }),
           ...CONFIG.api.tokens.sargoOptions.options,
         })
@@ -44,7 +46,8 @@ export async function updateUsername(formData: FormData) {
     console.error('Failed to update username:', error)
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Failed to update username'
+      error:
+        error instanceof Error ? error.message : 'Failed to update username',
     }
   }
 }
@@ -70,7 +73,7 @@ export async function updatePassword(formData: FormData) {
     await sargoClient.changePassword({
       currentPassword,
       password: newPassword,
-      passwordConfirmation: confirmPassword
+      passwordConfirmation: confirmPassword,
     })
 
     return { success: true }
@@ -78,7 +81,8 @@ export async function updatePassword(formData: FormData) {
     console.error('Failed to update password:', error)
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Failed to update password'
+      error:
+        error instanceof Error ? error.message : 'Failed to update password',
     }
   }
 }
@@ -89,20 +93,29 @@ export async function updateUnits(formData: FormData) {
     if (!user) throw new Error('User not found')
 
     const units: UserSettings['units'] = {
-      wind_speed: (formData.get('units.wind_speed') as string || user.settings.units.wind_speed) as UserSettings['units']['wind_speed'],
-      surf_height: (formData.get('units.surf_height') as string || user.settings.units.surf_height) as UserSettings['units']['surf_height'],
-      swell_height: (formData.get('units.swell_height') as string || user.settings.units.swell_height) as UserSettings['units']['swell_height'],
-      tide_height: (formData.get('units.tide_height') as string || user.settings.units.tide_height) as UserSettings['units']['tide_height'],
-      temperature: (formData.get('units.temperature') as string || user.settings.units.temperature) as UserSettings['units']['temperature'],
+      wind_speed: ((formData.get('units.wind_speed') as string) ||
+        user.settings.units.wind_speed) as UserSettings['units']['wind_speed'],
+      surf_height: ((formData.get('units.surf_height') as string) ||
+        user.settings.units
+          .surf_height) as UserSettings['units']['surf_height'],
+      swell_height: ((formData.get('units.swell_height') as string) ||
+        user.settings.units
+          .swell_height) as UserSettings['units']['swell_height'],
+      tide_height: ((formData.get('units.tide_height') as string) ||
+        user.settings.units
+          .tide_height) as UserSettings['units']['tide_height'],
+      temperature: ((formData.get('units.temperature') as string) ||
+        user.settings.units
+          .temperature) as UserSettings['units']['temperature'],
     }
 
     const updatedSettings: UserSettings = {
       ...user.settings,
-      units: units
+      units: units,
     }
 
     const updatedUser = await sargoClient.updateUserProfile({
-      settings: updatedSettings
+      settings: updatedSettings,
     })
 
     // Update cached user options
@@ -121,13 +134,13 @@ export async function updateUnits(formData: FormData) {
     return {
       success: true,
       units: units,
-      user: updatedUser
+      user: updatedUser,
     }
   } catch (error) {
     console.error('Failed to update units:', error)
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Failed to update units'
+      error: error instanceof Error ? error.message : 'Failed to update units',
     }
   }
 }
@@ -140,24 +153,27 @@ export async function updateUserUnits(units: UserSettings['units']) {
 
     const updatedSettings: UserSettings = {
       ...user.settings,
-      units: units
+      units: units,
     }
 
     console.log('Updating user profile with settings:', updatedSettings)
 
     const updatedUser = await sargoClient.updateUserProfile({
-      settings: updatedSettings
+      settings: updatedSettings,
     })
 
     console.log('Updated user response:', updatedUser)
 
     // Check if the API call returned a valid user object
     if (!updatedUser || !updatedUser.username) {
-      console.error('Invalid user response from updateUserProfile:', updatedUser)
+      console.error(
+        'Invalid user response from updateUserProfile:',
+        updatedUser
+      )
       // Fall back to using the original user data with updated settings
       const fallbackUser = {
         ...user,
-        settings: updatedSettings
+        settings: updatedSettings,
       }
 
       // Update cached user options with fallback data
@@ -176,7 +192,7 @@ export async function updateUserUnits(units: UserSettings['units']) {
       return {
         success: true,
         units: units,
-        user: fallbackUser
+        user: fallbackUser,
       }
     }
 
@@ -196,13 +212,13 @@ export async function updateUserUnits(units: UserSettings['units']) {
     return {
       success: true,
       units: units,
-      user: updatedUser
+      user: updatedUser,
     }
   } catch (error) {
     console.error('Failed to update user units:', error)
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Failed to update units'
+      error: error instanceof Error ? error.message : 'Failed to update units',
     }
   }
 }

@@ -95,7 +95,10 @@ export const CONFIG = {
     },
   },
   mapbox: {
-    style: 'mapbox://styles/mayack/cm7a9jq2x002i01s87y377mrx',
+    styles: {
+      light: 'mapbox://styles/mayack/cmchapi2w007h01sba9v1edwl',
+      dark: 'mapbox://styles/mayack/cm7a9jq2x002i01s87y377mrx',
+    },
   },
 } as const
 

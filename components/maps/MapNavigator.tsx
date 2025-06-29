@@ -11,7 +11,7 @@ import mapboxgl from 'mapbox-gl'
 import 'mapbox-gl/dist/mapbox-gl.css'
 import { useUser } from '@/contexts/UserContext'
 import { getSpotsByBounds } from '@/api/sargo/actions/spot'
-import debounce from 'lodash/debounce'
+import { debounce } from './utils'
 import {
   Loader2,
   ChevronLeft,
@@ -280,33 +280,24 @@ export function MapNavigator({
   }, [emblaApi])
 
   const isAreaLoaded = useCallback((bounds: GeographicBounds): boolean => {
-    return spotsCache.loadedRegions.some(
-      (region) =>
-        bounds.north <= region.north &&
-        bounds.south >= region.south &&
-        bounds.east <= region.east &&
-        bounds.west >= region.west
-    )
+    return spotsCache.isRegionLoaded(bounds)
   }, [])
 
   // Helper function to get spots in current view
   const getSpotsInView = useCallback((): SpotSummary[] => {
     if (!mapInstance.current || !mapState.current.isMounted) return []
 
-    const spots = Array.from(spotsCache.spots.values())
     const bounds = mapInstance.current.getBounds()
     if (!bounds) return []
 
-    return spots.filter((spot) => {
-      if (!spot.location?.lat || !spot.location?.long) return false
+    const currentBounds = {
+      north: bounds.getNorth(),
+      south: bounds.getSouth(),
+      east: bounds.getEast(),
+      west: bounds.getWest()
+    }
 
-      return (
-        spot.location.lat <= bounds.getNorth() &&
-        spot.location.lat >= bounds.getSouth() &&
-        spot.location.long <= bounds.getEast() &&
-        spot.location.long >= bounds.getWest()
-      )
-    })
+    return spotsCache.getSpotsInBounds(currentBounds)
   }, [])
 
   const updateVisibleSpots = useCallback((): void => {
@@ -355,9 +346,9 @@ export function MapNavigator({
         `)
 
         const markerElement = createMarkerElement(
-          '/map-pin.svg',
+          'default',
           '32px',
-          '32px',
+          '40px',
           'spot-marker'
         )
         markerElement.style.cursor = 'pointer'
@@ -397,10 +388,10 @@ export function MapNavigator({
 
         if (response.data && !response.error) {
           response.data.forEach((spot) => {
-            spotsCache.spots.set(spot.id, spot)
+            spotsCache.addSpot(spot)
           })
 
-          spotsCache.loadedRegions.push(bounds)
+          spotsCache.addLoadedRegion(bounds)
           updateMarkers()
         }
       } catch {

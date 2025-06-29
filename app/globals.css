@@ -2,6 +2,15 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Hide Mapbox logo and attribution */
+.mapboxgl-ctrl-logo {
+  display: none !important;
+}
+
+.mapboxgl-ctrl-attrib {
+  display: none !important;
+}
+
 @layer base {
   :root {
     --background: 0 0% 100%;
@@ -122,10 +131,26 @@
   }
 
   .navigator-popup .mapboxgl-popup-content {
-    @apply rounded-sm px-3 py-2 text-black shadow-lg;
+    @apply rounded-md px-3 py-2 text-black shadow-lg;
   }
 
   .navigator-popup .mapboxgl-popup-tip {
     border-width: 6px !important;
+  }
+
+  .user-location-marker {
+    @apply cursor-pointer;
+  }
+
+  .user-location-marker .animate-ping {
+    animation: ping 2s cubic-bezier(0, 0, 0.2, 1) infinite;
+  }
+
+  @keyframes ping {
+    75%,
+    100% {
+      transform: scale(10);
+      opacity: 0;
+    }
   }
 }

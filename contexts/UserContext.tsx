@@ -195,7 +195,7 @@ export function UserProvider({
         console.error('Location error:', errorMessage)
         setLocationError(errorMessage)
         setIsLocating(false)
-        
+
         if (error instanceof GeolocationPositionError) {
           switch (error.code) {
             case error.PERMISSION_DENIED:
@@ -206,7 +206,7 @@ export function UserProvider({
               return { error: 'timeout' as const }
           }
         }
-        
+
         return { error: 'unavailable' as const }
       }
     },

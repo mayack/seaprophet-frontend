@@ -25,12 +25,16 @@ async function debugToken(token: string, context: string) {
     const timeToExpiry = decoded.exp ? decoded.exp - now : 0
 
     console.log(`🔍 Token Debug (${context}):`, {
-      issued: decoded.iat ? new Date(decoded.iat * 1000).toISOString() : 'unknown',
-      expires: decoded.exp ? new Date(decoded.exp * 1000).toISOString() : 'unknown',
+      issued: decoded.iat
+        ? new Date(decoded.iat * 1000).toISOString()
+        : 'unknown',
+      expires: decoded.exp
+        ? new Date(decoded.exp * 1000).toISOString()
+        : 'unknown',
       currentTime: new Date(now * 1000).toISOString(),
       isExpired,
       timeToExpiry: `${timeToExpiry} seconds`,
-      tokenPreview: token.substring(0, 50) + '...'
+      tokenPreview: token.substring(0, 50) + '...',
     })
 
     return { isExpired, timeToExpiry }
@@ -43,7 +47,10 @@ async function debugToken(token: string, context: string) {
 export async function getPolvoToken(): Promise<string | null> {
   try {
     // Check in-memory cache first
-    if (tokenCache && Date.now() - tokenCache.timestamp < TOKEN_CACHE_DURATION) {
+    if (
+      tokenCache &&
+      Date.now() - tokenCache.timestamp < TOKEN_CACHE_DURATION
+    ) {
       console.log('📦 Using cached Polvo token')
       await debugToken(tokenCache.token, 'CACHED')
       return tokenCache.token
@@ -58,7 +65,9 @@ export async function getPolvoToken(): Promise<string | null> {
       const debugResult = await debugToken(newToken, 'FRESH')
 
       if (debugResult.isExpired) {
-        console.error('🚨 CRITICAL: Polvo API returned an already-expired token!')
+        console.error(
+          '🚨 CRITICAL: Polvo API returned an already-expired token!'
+        )
         return null
       }
 
