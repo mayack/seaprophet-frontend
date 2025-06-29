@@ -142,75 +142,7 @@ export function createMarkerElement(
   return el
 }
 
-// Create user location marker with pulsating blue circle
-export function createUserLocationMarkerElement(): HTMLDivElement {
-  const el = document.createElement('div')
-  el.className = 'user-location-marker'
-  
-  // Set up the container - ensure it's visible
-  el.style.width = '40px'
-  el.style.height = '40px'
-  el.style.position = 'relative'
-  el.style.pointerEvents = 'none'
-  el.style.zIndex = '1000' // High z-index to ensure visibility
-  // Don't transform here - let Mapbox handle positioning with anchor: 'center'
-  
-  // Create the inner circle
-  const innerCircle = document.createElement('div')
-  innerCircle.style.width = '12px'
-  innerCircle.style.height = '12px'
-  innerCircle.style.backgroundColor = '#3b82f6'
-  innerCircle.style.borderRadius = '50%'
-  innerCircle.style.position = 'absolute'
-  innerCircle.style.top = '50%'
-  innerCircle.style.left = '50%'
-  innerCircle.style.transform = 'translate(-50%, -50%)'
-  innerCircle.style.zIndex = '2'
-  innerCircle.style.border = '2px solid white'
-  innerCircle.style.boxShadow = '0 2px 4px rgba(0,0,0,0.2)'
-  
-  // Create the pulsating outer circle
-  const outerCircle = document.createElement('div')
-  outerCircle.style.width = '40px'
-  outerCircle.style.height = '40px'
-  outerCircle.style.backgroundColor = 'rgba(59, 130, 246, 0.3)'
-  outerCircle.style.borderRadius = '50%'
-  outerCircle.style.position = 'absolute'
-  outerCircle.style.top = '0'
-  outerCircle.style.left = '0'
-  outerCircle.style.zIndex = '1'
-  
-  // Add pulsating animation
-  outerCircle.style.animation = 'user-location-pulse 2s infinite'
-  
-  // Add CSS animation keyframes to the document if not already added
-  if (!document.getElementById('user-location-styles')) {
-    const style = document.createElement('style')
-    style.id = 'user-location-styles'
-    style.textContent = `
-      @keyframes user-location-pulse {
-        0% {
-          transform: scale(0.5);
-          opacity: 1;
-        }
-        50% {
-          transform: scale(1);
-          opacity: 0.3;
-        }
-        100% {
-          transform: scale(1.2);
-          opacity: 0;
-        }
-      }
-    `
-    document.head.appendChild(style)
-  }
-  
-  el.appendChild(outerCircle)
-  el.appendChild(innerCircle)
-  
-  return el
-}
+
 
 // Create and add marker to map
 export function createMarker(
@@ -232,32 +164,7 @@ export function createMarker(
   return marker
 }
 
-// Hook for handling map theme changes
-export function useMapTheme(
-  mapRef: React.MutableRefObject<mapboxgl.Map | null>,
-  onThemeChange?: () => void
-): void {
-  const { resolvedTheme } = useTheme()
-  
-  useEffect(() => {
-    const map = mapRef.current
-    if (!map || !map.isStyleLoaded()) return
-    
-    const isDark = resolvedTheme === 'dark'
-    const newStyle = getMapStyle(isDark)
-    const currentStyle = map.getStyle()
-    
-    // Only change style if it's different
-    if (currentStyle?.sprite?.includes(isDark ? 'light' : 'dark')) {
-      map.setStyle(newStyle)
-      
-      // Call callback when style loads
-      if (onThemeChange) {
-        map.once('style.load', onThemeChange)
-      }
-    }
-  }, [resolvedTheme, mapRef, onThemeChange])
-}
+
 
 // Improved cache management
 // Simple spots cache - no complex class needed
@@ -313,9 +220,6 @@ export const spotsCache = {
     })
   }
 }
-
-// Export singleton cache instance
-
 
 // Session storage utilities
 export function getStoredMapState(): MapState | null {

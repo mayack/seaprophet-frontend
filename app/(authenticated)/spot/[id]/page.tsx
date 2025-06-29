@@ -2,7 +2,7 @@ export const revalidate = 900
 
 import { getForecast } from '@/api/polvo/actions/forecast'
 import { getSpot, getNearbySpots } from '@/api/sargo/actions/spot'
-import { SpotDetails } from '@/components/spot/SpotsDetails'
+import { SpotsDetails } from '@/components/spot/SpotsDetails'
 import { Forecast } from '@/components/forecast/Forecast'
 import { SpotsNearby } from '@/components/spot/SpotsNearby'
 import { getCurrentUser } from '@/api/sargo/actions/auth'
@@ -91,10 +91,9 @@ export default async function SpotPage({
     return (
       <div className="wrapper-spacing py-4 sm:py-6 xl:py-8">
         <div className="space-y-4 sm:space-y-6">
-          <SpotDetails
+          <SpotsDetails
             mapCenter={[spot.location_long, spot.location_lat]}
-            webcamConfig={spot.webcam}
-            spotName={spot.name}
+            webcam={spot.webcam}
           />
           <SpotsNearby
             spots={nearbySpots}

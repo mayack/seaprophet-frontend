@@ -4,8 +4,9 @@ import { useRef, useLayoutEffect, useEffect, useCallback, useState } from 'react
 import mapboxgl from 'mapbox-gl'
 import { useTheme } from 'next-themes'
 import { useUser } from '@/contexts/UserContext'
-import { createMap, createMarkerElement, createMarker, createUserLocationMarkerElement, debounce } from './utils'
+import { createMap, createMarkerElement, createMarker, debounce } from './utils'
 import { CONFIG } from '@/constants/config'
+import { SpotSummary } from '@/api/sargo/interfaces/spot'
 
 export interface UseMapboxOptions {
   center?: [number, number]
@@ -32,6 +33,9 @@ export interface UseMapboxReturn {
   ) => void
   removeMarker: (id: string) => void
   clearMarkers: () => void
+  addSpotMarkers: (spots: SpotSummary[]) => void
+  removeSpotMarker: (spotId: number) => void
+  clearSpotMarkers: () => void
   flyTo: (center: [number, number], zoom?: number) => void
   fitBounds: (bounds: [[number, number], [number, number]]) => void
   zoomIn: () => void
@@ -80,75 +84,31 @@ export function useMapbox(options: UseMapboxOptions = {}): UseMapboxReturn {
   // Helper to create user location marker
   const createUserLocationMarker = useCallback(
     (location: { latitude: number; longitude: number }) => {
-      console.log('createUserLocationMarker called with:', location)
       if (!mapInstance.current) {
-        console.log('No map instance available')
         return
       }
 
       try {
         // Remove existing user location marker
         if (userLocationMarker.current) {
-          console.log('Removing existing user location marker')
           userLocationMarker.current.remove()
         }
 
-        // Create user location marker directly - no utils
+        // Create user location marker with Tailwind classes
         const markerElement = document.createElement('div')
-        markerElement.className = 'user-location-marker'
-        markerElement.style.width = '40px'
-        markerElement.style.height = '40px'
-        markerElement.style.position = 'relative'
-        markerElement.style.pointerEvents = 'none'
+        markerElement.className = 'user-location-marker w-10 h-10 relative pointer-events-none'
         
-        // Create inner circle
-        const innerCircle = document.createElement('div')
-        innerCircle.style.width = '12px'
-        innerCircle.style.height = '12px'
-        innerCircle.style.backgroundColor = '#3b82f6'
-        innerCircle.style.borderRadius = '50%'
-        innerCircle.style.position = 'absolute'
-        innerCircle.style.top = '50%'
-        innerCircle.style.left = '50%'
-        innerCircle.style.transform = 'translate(-50%, -50%)'
-        innerCircle.style.border = '2px solid white'
-        innerCircle.style.boxShadow = '0 2px 4px rgba(0,0,0,0.2)'
-        innerCircle.style.zIndex = '2'
-        
-        // Create pulsating outer circle
+        // Create pulsating outer circle with Tailwind animation
         const outerCircle = document.createElement('div')
-        outerCircle.style.width = '40px'
-        outerCircle.style.height = '40px'
-        outerCircle.style.backgroundColor = 'rgba(59, 130, 246, 0.3)'
-        outerCircle.style.borderRadius = '50%'
-        outerCircle.style.position = 'absolute'
-        outerCircle.style.top = '0'
-        outerCircle.style.left = '0'
-        outerCircle.style.zIndex = '1'
+        outerCircle.className = 'absolute inset-0 w-10 h-10 bg-blue-500/30 rounded-full animate-ping'
         
-        // Add pulsing animation
-        outerCircle.style.animation = 'user-location-pulse 2s infinite'
-        
-        // Add animation styles if not present
-        if (!document.getElementById('user-location-styles')) {
-          const style = document.createElement('style')
-          style.id = 'user-location-styles'
-          style.textContent = `
-            @keyframes user-location-pulse {
-              0% { transform: scale(0.5); opacity: 1; }
-              50% { transform: scale(1); opacity: 0.3; }
-              100% { transform: scale(1.2); opacity: 0; }
-            }
-          `
-          document.head.appendChild(style)
-        }
+        // Create inner circle (precise location dot)
+        const innerCircle = document.createElement('div')
+        innerCircle.className = 'absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-3 h-3 bg-blue-500 rounded-full border-2 border-white shadow-lg z-10'
         
         markerElement.appendChild(outerCircle)
         markerElement.appendChild(innerCircle)
         
-        console.log('Created user location marker element:', markerElement)
-        console.log('Marker HTML:', markerElement.outerHTML)
-
         // Create marker with center anchor
         const userMarker = new mapboxgl.Marker({
           element: markerElement,
@@ -158,23 +118,6 @@ export function useMapbox(options: UseMapboxOptions = {}): UseMapboxReturn {
           .addTo(mapInstance.current)
 
         userLocationMarker.current = userMarker
-        console.log('User location marker added to map at:', [location.longitude, location.latitude])
-        
-        // Check if marker is actually visible on the map
-        setTimeout(() => {
-          const markerElements = document.querySelectorAll('.user-location-marker')
-          console.log('Found user location markers on page:', markerElements.length)
-          markerElements.forEach((el, index) => {
-            const rect = el.getBoundingClientRect()
-            console.log(`Marker ${index} bounds:`, rect)
-            console.log(`Marker ${index} computed styles:`, {
-              display: getComputedStyle(el).display,
-              visibility: getComputedStyle(el).visibility,
-              opacity: getComputedStyle(el).opacity,
-              zIndex: getComputedStyle(el).zIndex
-            })
-          })
-        }, 1000)
       } catch (error) {
         console.error('Error creating user location marker:', error)
         // Retry after a short delay if style isn't loaded
@@ -264,6 +207,63 @@ export function useMapbox(options: UseMapboxOptions = {}): UseMapboxReturn {
     markersRef.current = {}
   }, [])
 
+  // Spot-specific marker methods
+  const addSpotMarkers = useCallback((spots: SpotSummary[]) => {
+    if (!mapInstance.current) return
+
+    spots.forEach((spot) => {
+      if (!spot.location?.lat || !spot.location?.long) return
+      if (markersRef.current[`spot-${spot.id}`]) return
+
+      try {
+        // Create popup with spot information
+        const popup = new mapboxgl.Popup({
+          offset: 40,
+          closeButton: false,
+          className: 'navigator-popup',
+        }).setHTML(`
+          <a href="/spot/${spot.id}" class="inline-flex items-center gap-1 hover:underline outline-none focus:outline-none" onclick="(function(event) { event.preventDefault(); window.next.router.push('/spot/${spot.id}'); return false; })(event)">
+            <span class="text-base font-medium">${spot.name}</span>
+            ${spot.webcam ? '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="black" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="10" r="8"/><circle cx="12" cy="10" r="3"/><path d="M7 22h10"/><path d="M12 22v-4"/></svg>' : ''}
+          </a>
+        `)
+
+        // Create spot marker element
+        const markerElement = createMarkerElement('default', '32px', '40px', 'spot-marker')
+        markerElement.style.cursor = 'pointer'
+
+        // Create and add marker
+        const marker = createMarker(
+          mapInstance.current!,
+          [spot.location.long, spot.location.lat],
+          markerElement,
+          popup
+        )
+
+        markersRef.current[`spot-${spot.id}`] = marker
+      } catch {
+        // Error silently handled
+      }
+    })
+  }, [])
+
+  const removeSpotMarker = useCallback((spotId: number) => {
+    const markerKey = `spot-${spotId}`
+    if (markersRef.current[markerKey]) {
+      markersRef.current[markerKey].remove()
+      delete markersRef.current[markerKey]
+    }
+  }, [])
+
+  const clearSpotMarkers = useCallback(() => {
+    Object.keys(markersRef.current).forEach(key => {
+      if (key.startsWith('spot-')) {
+        markersRef.current[key].remove()
+        delete markersRef.current[key]
+      }
+    })
+  }, [])
+
   const flyTo = useCallback((center: [number, number], zoomLevel?: number) => {
     if (mapInstance.current) {
       mapInstance.current.flyTo({
@@ -303,17 +303,26 @@ export function useMapbox(options: UseMapboxOptions = {}): UseMapboxReturn {
   }, [])
 
   const requestUserLocation = useCallback(async () => {
-    if (!mapInstance.current) return
+    console.log('🔍 requestUserLocation called')
+    if (!mapInstance.current) {
+      console.log('❌ No map instance available')
+      return
+    }
 
+    console.log('🔍 Setting location state to loading...')
     setLocationState('loading')
+    console.log('🔍 Calling requestLocation...')
     const result = await requestLocation(false)
+    console.log('🔍 requestLocation result:', result)
 
     if ('latitude' in result && 'longitude' in result) {
+      console.log('✅ Location found, creating marker and flying to location')
       createUserLocationMarker(result)
       setupMoveHandler(result)
       flyTo([result.longitude, result.latitude])
       setLocationState('centered')
     } else {
+      console.log('❌ Location request failed:', result.error)
       switch (result.error) {
         case 'permission':
           setLocationState('permission-denied')
@@ -382,31 +391,69 @@ export function useMapbox(options: UseMapboxOptions = {}): UseMapboxReturn {
         }
 
         // Auto-request user location if enabled - after map is loaded
-        console.log('Map loaded, showUserLocation:', showUserLocation)
-        console.log('Current userData:', userData)
+        console.log('🗺️ Map loaded, showUserLocation:', showUserLocation)
+        console.log('🗺️ Current userData when map loads:', {
+          hasLatitude: userData.latitude !== undefined,
+          hasLongitude: userData.longitude !== undefined,
+          latitude: userData.latitude,
+          longitude: userData.longitude,
+          fullUserData: userData
+        })
+        console.log('🗺️ Map center at load:', mapInstance.current!.getCenter())
         if (showUserLocation) {
           // Small delay to ensure map is fully ready
           setTimeout(() => {
-            console.log('In timeout, checking user location...')
+            console.log('🗺️ In timeout, checking user location again...')
+            console.log('🗺️ userData in timeout:', {
+              hasLatitude: userData.latitude !== undefined,
+              hasLongitude: userData.longitude !== undefined,
+              latitude: userData.latitude,
+              longitude: userData.longitude
+            })
             if (userData.latitude && userData.longitude) {
-              console.log('Creating user location marker with cached location:', userData.latitude, userData.longitude)
-              createUserLocationMarker({
-                latitude: userData.latitude,
-                longitude: userData.longitude,
-              })
-              setupMoveHandler({
-                latitude: userData.latitude,
-                longitude: userData.longitude,
-              })
-              flyTo([userData.longitude, userData.latitude])
-              setLocationState('centered')
+              // Check if map was already initialized at user location
+              const mapCenter = mapInstance.current!.getCenter()
+              const distance = Math.sqrt(
+                Math.pow((mapCenter.lng - userData.longitude) * 111320, 2) +
+                Math.pow((mapCenter.lat - userData.latitude) * 111320, 2)
+              )
+              
+              console.log('🗺️ Distance between map center and user location:', distance, 'meters')
+              
+              if (distance < 100) {
+                // Map already initialized at user location - just create marker
+                console.log('✅ Map already at user location, creating marker without flyTo')
+                createUserLocationMarker({
+                  latitude: userData.latitude,
+                  longitude: userData.longitude,
+                })
+                setupMoveHandler({
+                  latitude: userData.latitude,
+                  longitude: userData.longitude,
+                })
+                setLocationState('centered')
+              } else {
+                // Map not at user location - flyTo required
+                console.log('🔄 Map not at user location, creating marker with flyTo')
+                createUserLocationMarker({
+                  latitude: userData.latitude,
+                  longitude: userData.longitude,
+                })
+                setupMoveHandler({
+                  latitude: userData.latitude,
+                  longitude: userData.longitude,
+                })
+                flyTo([userData.longitude, userData.latitude])
+                setLocationState('centered')
+              }
             } else {
-              console.log('No cached location, requesting user location permission')
+              // First-time user - request location and flyTo when found
+              console.log('❌ First-time user (no cached location), requesting location permission')
               requestUserLocation()
             }
           }, 100)
         } else {
-          console.log('showUserLocation is false, not requesting location')
+          console.log('🗺️ showUserLocation is false, not requesting location')
         }
       })
 
@@ -454,14 +501,12 @@ export function useMapbox(options: UseMapboxOptions = {}): UseMapboxReturn {
     onMapLoad,
     onMapError,
     onMove,
-    // Remove userData from dependencies to prevent map reinitialization
-    // userData.latitude,
-    // userData.longitude,
-    createUserLocationMarker,
-    setupMoveHandler,
-    requestUserLocation,
-    flyTo,
-    clearMarkers,
+    // Remove unstable callbacks to prevent map reinitialization
+    // createUserLocationMarker,
+    // setupMoveHandler,
+    // requestUserLocation,
+    // flyTo,
+    // clearMarkers,
   ])
 
   // Handle user location changes without reinitializing map
@@ -533,6 +578,9 @@ export function useMapbox(options: UseMapboxOptions = {}): UseMapboxReturn {
     addMarker,
     removeMarker,
     clearMarkers,
+    addSpotMarkers,
+    removeSpotMarker,
+    clearSpotMarkers,
     flyTo,
     fitBounds,
     zoomIn,
