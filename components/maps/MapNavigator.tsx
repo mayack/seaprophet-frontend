@@ -43,6 +43,8 @@ export function MapNavigator({
   const [visibleSpots, setVisibleSpots] = useState<SpotSummary[]>([])
   const [showCarousel, setShowCarousel] = useState(false)
   const [isFetching, setIsFetching] = useState(false)
+  const [canScrollPrev, setCanScrollPrev] = useState(false)
+  const [canScrollNext, setCanScrollNext] = useState(false)
 
   // Carousel setup
   const [emblaRef, emblaApi] = useEmblaCarousel({
@@ -88,6 +90,67 @@ export function MapNavigator({
     showUserLocation: true,
   })
 
+  const getVisibleSlides = useCallback((): number => {
+    if (typeof window === 'undefined')
+      return CONFIG.map.carousel.visibleSlides.mobile // Default for SSR
+    const width = window.innerWidth
+    if (width >= CONFIG.map.carousel.breakpoints.tablet)
+      return CONFIG.map.carousel.visibleSlides.desktop
+    else if (width >= CONFIG.map.carousel.breakpoints.mobile)
+      return CONFIG.map.carousel.visibleSlides.tablet
+    else return CONFIG.map.carousel.visibleSlides.mobile
+  }, [])
+
+  // Update carousel navigation states with viewport-aware logic
+  const updateScrollButtons = useCallback(() => {
+    if (!emblaApi) return
+
+    const selectedIndex = emblaApi.selectedScrollSnap()
+    const totalSlides = emblaApi.scrollSnapList().length
+    const visibleSlides = getVisibleSlides()
+
+    // Custom logic that considers viewport size
+    const canPrev = selectedIndex > 0
+    const canNext = selectedIndex + visibleSlides < totalSlides
+
+    setCanScrollPrev(canPrev)
+    setCanScrollNext(canNext)
+  }, [emblaApi, getVisibleSlides])
+
+  // Setup embla event listeners
+  useEffect(() => {
+    if (!emblaApi) return
+
+    updateScrollButtons()
+    emblaApi.on('select', updateScrollButtons)
+    emblaApi.on('reInit', updateScrollButtons)
+
+    return () => {
+      emblaApi.off('select', updateScrollButtons)
+      emblaApi.off('reInit', updateScrollButtons)
+    }
+  }, [emblaApi, updateScrollButtons])
+
+  // Update scroll buttons when visible spots change
+  useEffect(() => {
+    if (emblaApi) {
+      // Small delay to ensure DOM has updated
+      setTimeout(updateScrollButtons, 10)
+    }
+  }, [visibleSpots, emblaApi, updateScrollButtons])
+
+  // Handle window resize for responsive carousel
+  useEffect(() => {
+    const handleResize = () => {
+      if (emblaApi) {
+        updateScrollButtons()
+      }
+    }
+
+    window.addEventListener('resize', handleResize)
+    return () => window.removeEventListener('resize', handleResize)
+  }, [emblaApi, updateScrollButtons])
+
   // Handle location button clicks with different behaviors for different states
   const handleLocationButtonClick = useCallback((): void => {
     const action = getLocationButtonAction(locationState)
@@ -109,17 +172,6 @@ export function MapNavigator({
     const shouldShow = visibleSpots.length > 0 && !isLoading
     setShowCarousel(shouldShow)
   }, [visibleSpots.length, isLoading])
-
-  const getVisibleSlides = useCallback((): number => {
-    if (typeof window === 'undefined')
-      return CONFIG.map.carousel.visibleSlides.mobile // Default for SSR
-    const width = window.innerWidth
-    if (width >= CONFIG.map.carousel.breakpoints.tablet)
-      return CONFIG.map.carousel.visibleSlides.desktop
-    else if (width >= CONFIG.map.carousel.breakpoints.mobile)
-      return CONFIG.map.carousel.visibleSlides.tablet
-    else return CONFIG.map.carousel.visibleSlides.mobile
-  }, [])
 
   const scrollPrev = useCallback((): void => {
     emblaApi?.scrollPrev()
@@ -393,18 +445,18 @@ export function MapNavigator({
           showCarousel ? 'opacity-100' : 'opacity-0'
         } ${showCarousel ? 'pointer-events-auto' : 'pointer-events-none'}`}
       >
-        <div className="flex items-center justify-between px-4">
-          <h3 className="text-lg font-semibold">
+        <div className="hidden items-center justify-end px-4 md:flex">
+          {/* <h3 className="text-lg font-semibold">
             {visibleSpots.length} {visibleSpots.length === 1 ? 'spot' : 'spots'}{' '}
             in view
-          </h3>
+          </h3> */}
           {visibleSpots.length > getVisibleSlides() && (
             <div className="flex rounded-md shadow-map">
               <Button
                 variant="flat"
                 size="icon"
                 onClick={scrollPrev}
-                disabled={!emblaApi?.canScrollPrev()}
+                disabled={!canScrollPrev}
                 aria-label="Previous spots"
                 className="rounded-r-none"
               >
@@ -414,7 +466,7 @@ export function MapNavigator({
                 variant="flat"
                 size="icon"
                 onClick={scrollNext}
-                disabled={!emblaApi?.canScrollNext()}
+                disabled={!canScrollNext}
                 aria-label="Next spots"
                 className="rounded-l-none border-l border-input"
               >
@@ -424,11 +476,11 @@ export function MapNavigator({
           )}
         </div>
 
-        <div className="embla overflow-hidden p-4" ref={emblaRef}>
-          <div className="embla__container flex gap-3">
+        <div className="embla overflow-hidden p-4 pt-3" ref={emblaRef}>
+          <div className="embla__container flex gap-2 md:gap-3">
             {visibleSpots.map((spot) => (
               <div
-                className="embla__slide min-w-0 flex-[0_0_calc(50%-0.375rem)] md:flex-[0_0_calc(33.33%-0.5rem)] lg:flex-[0_0_calc(25%-0.5625rem)]"
+                className="embla__slide min-w-0 flex-[0_0_calc(50%-0.25rem)] md:flex-[0_0_calc(33.33%-0.5rem)] lg:flex-[0_0_calc(25%-0.5625rem)]"
                 key={spot.id}
               >
                 <SpotCard

@@ -293,8 +293,8 @@ export function createUserLocationMarkerElement(): HTMLDivElement {
   // Create pulsating blue circle using Tailwind classes
   el.innerHTML = `
     <div class="relative">
-      <div class="w-4 h-4 bg-blue-500 rounded-full border-2 border-white shadow-map"></div>
-      <div class="absolute top-0 left-0 w-4 h-4 bg-blue-500 rounded-full animate-ping"></div>
+      <div class="w-4 h-4 bg-blue-500 rounded-full border-2 border-white shadow-map z-10 relative"></div>
+      <div class="absolute inset-0 w-4 h-4 bg-blue-500 rounded-full animate-ping"></div>
     </div>
   `
 

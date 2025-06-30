@@ -112,24 +112,26 @@ export function SpotsNearby({
     return (
       <>
         <div className="wrapper mb-3 flex min-h-8 items-center justify-between">
-          <h2 className="font-style-h3">{title}</h2>
+          <h2 className="font-style-h3 grow">{title}</h2>
           {spots.length > 0 && !error && (
-            <div className="flex gap-2">
+            <div className="hidden rounded-md border border-input md:flex">
               <Button
-                variant="outline"
+                variant="flat"
                 size="icon"
                 onClick={scrollPrev}
                 disabled={!canPrev}
                 aria-label="Previous slide"
+                className="rounded-r-none"
               >
                 <ChevronLeft className="size-4" />
               </Button>
               <Button
-                variant="outline"
+                variant="flat"
                 size="icon"
                 onClick={scrollNext}
                 disabled={!canNext}
                 aria-label="Next slide"
+                className="rounded-l-none border-l border-input"
               >
                 <ChevronRight className="size-4" />
               </Button>
@@ -154,10 +156,10 @@ export function SpotsNearby({
               className="embla relative mx-auto w-full max-w-screen-2xl overflow-hidden px-4 pb-1 xl:px-6 2xl:px-8"
               ref={emblaRef}
             >
-              <div className="embla__container flex gap-3">
+              <div className="embla__container flex gap-2 md:gap-3">
                 {spots.map((spot) => (
                   <div
-                    className="embla__slide min-w-0 flex-[0_0_calc(50%-0.375rem)] md:flex-[0_0_calc(33.33%-0.5rem)] lg:flex-[0_0_calc(25%-0.5625rem)]"
+                    className="embla__slide min-w-0 flex-[0_0_calc(50%-0.25rem)] md:flex-[0_0_calc(33.33%-0.5rem)] lg:flex-[0_0_calc(25%-0.5625rem)]"
                     key={spot.id}
                   >
                     <SpotCard
@@ -174,8 +176,8 @@ export function SpotsNearby({
                 ))}
               </div>
               {/* Fade gradients */}
-              <div className="pointer-events-none absolute inset-y-0 left-0 w-4 bg-gradient-to-r from-background to-transparent xl:w-8 2xl:w-8" />
-              <div className="pointer-events-none absolute inset-y-0 right-0 w-4 bg-gradient-to-l from-background to-transparent xl:w-8 2xl:w-8" />
+              <div className="pointer-events-none absolute inset-y-0 left-0 hidden w-4 bg-gradient-to-r from-background to-transparent xl:block xl:w-8 2xl:w-8" />
+              <div className="pointer-events-none absolute inset-y-0 right-0 hidden w-4 bg-gradient-to-l from-background to-transparent xl:block xl:w-8 2xl:w-8" />
             </div>
           </div>
         )}

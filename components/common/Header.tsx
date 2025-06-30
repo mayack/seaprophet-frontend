@@ -20,13 +20,14 @@ export function Header({ user }: HeaderProps): React.JSX.Element {
   return (
     <header className="bg-background">
       <div className="wrapper">
-        <div className="flex h-16 items-center justify-between gap-4 sm:gap-6">
-          <div className="relative -top-px flex items-center gap-4 sm:gap-6">
-            <Link href="/" className="flex items-center text-xl font-bold">
-              <Waves className="size-6" />
-            </Link>
-          </div>
-          <div className="flex grow items-center gap-4">
+        <div className="flex h-16 items-center justify-between gap-4 xl:gap-6">
+          <Link
+            href="/"
+            className="relative -top-px flex items-center text-xl font-bold"
+          >
+            <Waves className="size-6" />
+          </Link>
+          <div className="flex grow items-center gap-3 xl:gap-4">
             <SearchSpots className="w-full" placeholder="Search for spots..." />
             <TooltipProvider>
               <Tooltip>
@@ -47,8 +48,8 @@ export function Header({ user }: HeaderProps): React.JSX.Element {
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>
+            <UserMenu user={user} />
           </div>
-          <UserMenu user={user} />
         </div>
       </div>
     </header>

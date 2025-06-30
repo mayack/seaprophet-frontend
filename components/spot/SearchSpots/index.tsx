@@ -147,47 +147,48 @@ export function SearchSpots({
       </div>
 
       {showDropdown && (
-        <div className="absolute inset-x-0 top-8 z-50 max-h-64 overflow-auto bg-popover p-4 text-popover-foreground shadow-xl md:top-[calc(100%+0.75rem)] md:rounded-3xl">
+        <div className="absolute inset-x-0 top-16 z-50 max-h-dvh overflow-auto bg-popover p-3 text-popover-foreground shadow-lg transition-all duration-300 md:rounded-2xl">
           {isLoading && (
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
               {[...Array(4)].map((_, i) => (
-                <Skeleton key={i} className="h-14 w-full rounded-lg" />
+                <Skeleton key={i} className="h-12 w-full rounded-lg" />
               ))}
             </div>
           )}
 
           {!isLoading && error && (
-            <div className="flex h-20 flex-col items-center justify-center gap-px rounded-lg bg-muted text-center">
+            <div className="flex h-12 flex-col items-center justify-center gap-px rounded-lg bg-muted text-center">
               <div className="mb-0.5 flex items-center gap-2 font-medium">
                 <SearchX className="size-4" strokeWidth="2" />
-                Search error
-              </div>
-              <div className="px-12 text-xs leading-tight text-muted-foreground xs:text-sm">
                 {error}
               </div>
+              {/* <div className="px-12 text-xs leading-tight text-muted-foreground xs:text-sm">
+                {error}
+              </div> */}
             </div>
           )}
 
           {!isLoading && !error && spots.length === 0 && (
-            <div className="flex h-20 flex-col items-center justify-center gap-px rounded-lg bg-muted text-center">
+            <div className="flex h-12 flex-col items-center justify-center gap-px rounded-lg bg-muted text-center">
               <div className="mb-0.5 flex items-center gap-2 font-medium">
                 <SearchX className="size-4" strokeWidth="2" />
                 No spots found
               </div>
-              <div className="px-12 text-xs leading-tight text-muted-foreground xs:text-sm">
+              {/* <div className="px-12 text-xs leading-tight text-muted-foreground xs:text-sm">
                 Try different search terms
-              </div>
+              </div> */}
             </div>
           )}
 
           {!isLoading && spots.length > 0 && (
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
               {spots.map((spot) => (
                 <SpotCard
                   key={spot.id}
                   id={spot.id}
                   name={spot.name}
                   webcam={spot.webcam}
+                  compact={true}
                   onClick={(e: React.MouseEvent) => {
                     e.preventDefault()
                     e.stopPropagation()
