@@ -41,7 +41,6 @@ export class SargoClient extends BaseApiClient {
         console.warn('Invalid or missing JWT in sargo token')
         return headers
       }
-      console.log('Using JWT:', sargoToken) // Debug
       return { ...headers, Authorization: `Bearer ${sargoToken}` }
     } catch (error) {
       console.error('Failed to parse sargo token:', error)

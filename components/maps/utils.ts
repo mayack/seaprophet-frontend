@@ -8,17 +8,10 @@ import mapboxgl from 'mapbox-gl'
 // Set Mapbox token
 if (process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN) {
   mapboxgl.accessToken = process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN
-} else {
-  if (process.env.NODE_ENV !== 'production') {
-    // eslint-disable-next-line no-console
-    console.error('Mapbox access token is missing')
-  }
 }
 
 // Constants
 const METERS_PER_DEGREE = 111320 // Approximate meters per degree at equator
-
-
 
 interface CreateMapOptions {
   container: HTMLDivElement
@@ -30,24 +23,24 @@ interface CreateMapOptions {
 }
 
 // Simple debounce utility - no lodash needed
-export function debounce<T extends (...args: any[]) => any>(
+export function debounce<T extends (...args: unknown[]) => unknown>(
   func: T,
   wait: number
 ): T & { cancel: () => void } {
   let timeout: NodeJS.Timeout | null = null
-  
+
   const debounced = (...args: Parameters<T>) => {
     if (timeout) clearTimeout(timeout)
     timeout = setTimeout(() => func(...args), wait)
   }
-  
+
   debounced.cancel = () => {
     if (timeout) {
       clearTimeout(timeout)
       timeout = null
     }
   }
-  
+
   return debounced as T & { cancel: () => void }
 }
 
@@ -66,11 +59,12 @@ export function getMapStyle(isDark?: boolean): string {
 
 // Create map with theme support
 export function createMap(options: CreateMapOptions): mapboxgl.Map {
-  const { container, center, zoom, theme, disablePanning, disableZooming } = options
-  
+  const { container, center, zoom, theme, disablePanning, disableZooming } =
+    options
+
   const isDark = theme === 'dark'
   const style = getMapStyle(isDark)
-  
+
   const map = new mapboxgl.Map({
     container,
     style,
@@ -84,7 +78,7 @@ export function createMap(options: CreateMapOptions): mapboxgl.Map {
     map.dragPan.disable()
     map.touchZoomRotate.disableRotation()
   }
-  
+
   if (disableZooming) {
     map.scrollZoom.disable()
     map.boxZoom.disable()
@@ -95,68 +89,59 @@ export function createMap(options: CreateMapOptions): mapboxgl.Map {
   return map
 }
 
-
-
-// Create marker element with theme support
+// Unified marker element creation with theme support
 export function createMarkerElement(
-  themeOrImageUrl: string = 'default',
-  width: string = '24px',
-  height: string = '24px',
-  className: string = 'custom-marker',
-  pointerEvents: string = 'auto'
+  options: {
+    isDark?: boolean
+    width?: string
+    height?: string
+    className?: string
+    pointerEvents?: string
+    cursor?: string
+  } = {}
 ): HTMLDivElement {
-  const el = document.createElement('div')
-  el.className = className
-  
-  // Use inline SVG instead of loading from file
-  el.innerHTML = `
-    <svg width="${width}" height="${height}" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <path d="M12 0C7.802 0 4 3.403 4 7.602C4 11.8 7.469 16.812 12 24C16.531 16.812 20 11.8 20 7.602C20 3.403 16.199 0 12 0Z" fill="black"/>
-      <path d="M12 11C10.343 11 9 9.657 9 8C9 6.343 10.343 5 12 5C13.657 5 15 6.343 15 8C15 9.657 13.657 11 12 11Z" fill="white"/>
-    </svg>
-  `
-  
-  el.style.width = width
-  el.style.height = height
-  el.style.pointerEvents = pointerEvents
-  el.style.display = 'flex'
-  el.style.alignItems = 'center'
-  el.style.justifyContent = 'center'
-  return el
-}
+  const {
+    isDark = false,
+    width = '32px',
+    height = '32px',
+    className = 'map-marker',
+    pointerEvents = 'auto',
+    cursor = 'pointer',
+  } = options
 
-// Create theme-aware spot marker element
-export function createSpotMarkerElement(
-  isDark: boolean = false,
-  width: string = '24px',
-  height: string = '24px',
-  className: string = 'spot-marker'
-): HTMLDivElement {
   const el = document.createElement('div')
   el.className = className
-  
+
   // Theme-aware colors: black pins for light mode, white pins for dark mode
   const pinColor = isDark ? 'white' : 'black'
   const dotColor = isDark ? 'black' : 'white'
-  
+
   el.innerHTML = `
     <svg width="${width}" height="${height}" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
       <path d="M12 0C7.802 0 4 3.403 4 7.602C4 11.8 7.469 16.812 12 24C16.531 16.812 20 11.8 20 7.602C20 3.403 16.199 0 12 0Z" fill="${pinColor}"/>
       <path d="M12 11C10.343 11 9 9.657 9 8C9 6.343 10.343 5 12 5C13.657 5 15 6.343 15 8C15 9.657 13.657 11 12 11Z" fill="${dotColor}"/>
     </svg>
   `
-  
+
   el.style.width = width
   el.style.height = height
-  el.style.pointerEvents = 'auto'
+  el.style.pointerEvents = pointerEvents
   el.style.display = 'flex'
   el.style.alignItems = 'center'
   el.style.justifyContent = 'center'
-  el.style.cursor = 'pointer'
+  el.style.cursor = cursor
   return el
 }
 
-
+// Legacy function for spot markers - now uses unified createMarkerElement
+export function createSpotMarkerElement(
+  isDark: boolean = false,
+  width: string = '32px',
+  height: string = '32px',
+  className: string = 'spot-marker'
+): HTMLDivElement {
+  return createMarkerElement({ isDark, width, height, className })
+}
 
 // Create and add marker to map
 export function createMarker(
@@ -167,7 +152,7 @@ export function createMarker(
 ): mapboxgl.Marker {
   const marker = new mapboxgl.Marker({
     element: element,
-    anchor: 'bottom',
+    anchor: 'center',
   }).setLngLat(position)
 
   if (popup) {
@@ -177,8 +162,6 @@ export function createMarker(
   marker.addTo(map)
   return marker
 }
-
-
 
 // Location utilities for maps
 export function calculateDistanceInMeters(
@@ -200,7 +183,12 @@ export function isUserCloseToLocation(
   targetLng: number,
   thresholdMeters: number = CONFIG.map.location.alreadyAtLocationThreshold
 ): boolean {
-  const distance = calculateDistanceInMeters(userLat, userLng, targetLat, targetLng)
+  const distance = calculateDistanceInMeters(
+    userLat,
+    userLng,
+    targetLat,
+    targetLng
+  )
   return distance < thresholdMeters
 }
 
@@ -211,22 +199,37 @@ export function isUserPannedAway(
   currentLng: number,
   thresholdMeters: number = CONFIG.map.location.alreadyAtLocationThreshold / 2
 ): boolean {
-  const distance = calculateDistanceInMeters(userLat, userLng, currentLat, currentLng)
+  const distance = calculateDistanceInMeters(
+    userLat,
+    userLng,
+    currentLat,
+    currentLng
+  )
   return distance > thresholdMeters
 }
 
 // User location marker creation
 export function createUserLocationMarkerElement(): HTMLDivElement {
-  const markerElement = document.createElement('div')
-  markerElement.className = 'user-location-marker w-16 h-16 relative pointer-events-none bg-card rounded-full'
-  
-  // Create pulsating outer circle with Tailwind animation
+  // Relative container
+  const relativeContainer = document.createElement('div')
+  relativeContainer.className =
+    'user-location-marker relative pointer-events-none size-4'
+
+  // Inner circle
+  const circle = document.createElement('div')
+  circle.className =
+    'size-full bg-blue-500 border-2 border-white rounded-full z-10 shadow-map'
+
+  // Outer circle (pulsating)
   const outerCircle = document.createElement('div')
-  outerCircle.className = 'absolute inset-0 w-16 h-16 bg-blue-500 rounded-full animate-ping'
-  
-  markerElement.appendChild(outerCircle)
-  
-  return markerElement
+  outerCircle.className =
+    'absolute inset-0 size-full bg-blue-500 rounded-full animate-ping z-0'
+
+  // Nest the structure: relative > circle > outerCircle
+  circle.appendChild(outerCircle)
+  relativeContainer.appendChild(circle)
+
+  return relativeContainer
 }
 
 export function createUserLocationMarker(
@@ -240,7 +243,7 @@ export function createUserLocationMarker(
   }
 
   const markerElement = createUserLocationMarkerElement()
-  
+
   // Create marker with center anchor
   const userMarker = new mapboxgl.Marker({
     element: markerElement,
@@ -253,7 +256,13 @@ export function createUserLocationMarker(
 }
 
 // Location button state utilities
-export type LocationState = 'idle' | 'loading' | 'centered' | 'off-center' | 'error' | 'permission-denied'
+export type LocationState =
+  | 'idle'
+  | 'loading'
+  | 'centered'
+  | 'off-center'
+  | 'error'
+  | 'permission-denied'
 
 export interface LocationButtonConfig {
   state: LocationState
@@ -261,11 +270,9 @@ export interface LocationButtonConfig {
   maxRetries: number
 }
 
-
-
 export function getLocationButtonLabel(config: LocationButtonConfig): string {
   const { state, retryCount, maxRetries } = config
-  
+
   switch (state) {
     case 'permission-denied':
       return 'Location permission denied - click to try again'
@@ -282,7 +289,9 @@ export function getLocationButtonLabel(config: LocationButtonConfig): string {
   }
 }
 
-export function getLocationButtonAction(state: LocationState): 'recenter' | 'request' | 'none' {
+export function getLocationButtonAction(
+  state: LocationState
+): 'recenter' | 'request' | 'none' {
   switch (state) {
     case 'off-center':
       return 'recenter'
@@ -307,7 +316,9 @@ export function sortSpotsByDistance(
     return spots.sort((a, b) => a.name.localeCompare(b.name))
   }
 
-  return spots.sort((a, b) => (a.distance || Infinity) - (b.distance || Infinity))
+  return spots.sort(
+    (a, b) => (a.distance || Infinity) - (b.distance || Infinity)
+  )
 }
 
 export function addDistanceToSpots(
@@ -320,14 +331,15 @@ export function addDistanceToSpots(
 
   return spots.map((spot) => ({
     ...spot,
-    distance: spot.location?.lat && spot.location?.long
-      ? calculateDistance(
-          userLocation.latitude,
-          userLocation.longitude,
-          spot.location.lat,
-          spot.location.long
-        ) // Already returns properly rounded km value
-      : spot.distance,
+    distance:
+      spot.location?.lat && spot.location?.long
+        ? calculateDistance(
+            userLocation.latitude,
+            userLocation.longitude,
+            spot.location.lat,
+            spot.location.long
+          ) // Already returns properly rounded km value
+        : spot.distance,
   }))
 }
 
@@ -375,7 +387,7 @@ export const spotsCache = {
   getSpotsInBounds(bounds: GeographicBounds): SpotSummary[] {
     return this.getAllSpots().filter((spot) => {
       if (!spot.location?.lat || !spot.location?.long) return false
-      
+
       return (
         spot.location.lat <= bounds.north &&
         spot.location.lat >= bounds.south &&
@@ -383,7 +395,5 @@ export const spotsCache = {
         spot.location.long >= bounds.west
       )
     })
-  }
+  },
 }
-
-

@@ -7,7 +7,7 @@ import { jwtDecode } from 'jwt-decode'
 interface TokenPayload {
   exp?: number
   iat?: number
-  [key: string]: any
+  [key: string]: unknown
 }
 
 // In-memory cache for the current server session
@@ -24,22 +24,8 @@ async function debugToken(token: string, context: string) {
     const isExpired = decoded.exp ? decoded.exp < now : false
     const timeToExpiry = decoded.exp ? decoded.exp - now : 0
 
-    console.log(`🔍 Token Debug (${context}):`, {
-      issued: decoded.iat
-        ? new Date(decoded.iat * 1000).toISOString()
-        : 'unknown',
-      expires: decoded.exp
-        ? new Date(decoded.exp * 1000).toISOString()
-        : 'unknown',
-      currentTime: new Date(now * 1000).toISOString(),
-      isExpired,
-      timeToExpiry: `${timeToExpiry} seconds`,
-      tokenPreview: token.substring(0, 50) + '...',
-    })
-
     return { isExpired, timeToExpiry }
   } catch (error) {
-    console.error(`❌ Failed to decode token (${context}):`, error)
     return { isExpired: true, timeToExpiry: 0 }
   }
 }
@@ -51,13 +37,11 @@ export async function getPolvoToken(): Promise<string | null> {
       tokenCache &&
       Date.now() - tokenCache.timestamp < TOKEN_CACHE_DURATION
     ) {
-      console.log('📦 Using cached Polvo token')
       await debugToken(tokenCache.token, 'CACHED')
       return tokenCache.token
     }
 
     // If no cached token or expired, fetch a new one
-    console.log('🔄 No cached Polvo token found, fetching new token...')
     const newToken = await polvoClient.getAuthToken()
 
     if (newToken) {
@@ -65,21 +49,16 @@ export async function getPolvoToken(): Promise<string | null> {
       const debugResult = await debugToken(newToken, 'FRESH')
 
       if (debugResult.isExpired) {
-        console.error(
-          '🚨 CRITICAL: Polvo API returned an already-expired token!'
-        )
         return null
       }
 
       // Cache in memory
       tokenCache = { token: newToken, timestamp: Date.now() }
-      console.log('✅ Fresh token cached successfully')
       return newToken
     }
 
     return null
   } catch (error) {
-    console.error('❌ Error getting Polvo token:', error)
     return null
   }
 }
@@ -87,49 +66,34 @@ export async function getPolvoToken(): Promise<string | null> {
 // Simple fetch function that caches the result
 export async function fetchPolvoToken(): Promise<string | null> {
   try {
-    console.log('🆕 Fetching completely fresh Polvo token (bypass cache)...')
     const newToken = await polvoClient.getAuthToken()
 
     if (newToken) {
       const debugResult = await debugToken(newToken, 'RETRY_FRESH')
 
       if (debugResult.isExpired) {
-        console.error('🚨 CRITICAL: Fresh retry token is also expired!')
-        console.error('🔧 Possible causes:')
-        console.error('   - Server clock sync issue')
-        console.error('   - Polvo API returning invalid tokens')
-        console.error('   - Network delay causing token expiry')
         return null
       }
 
       // Cache the new token
       tokenCache = { token: newToken, timestamp: Date.now() }
-      console.log('✅ Retry token cached successfully')
       return newToken
     }
 
     return null
   } catch (error) {
-    console.error('❌ Failed to fetch fresh Polvo token:', error)
     return null
   }
 }
 
 // Clear the token cache (for when tokens expire)
 export async function clearPolvoTokenCache() {
-  console.log('🗑️ Clearing expired Polvo token cache...')
-  if (tokenCache) {
-    const age = Math.floor((Date.now() - tokenCache.timestamp) / 1000)
-    console.log(`📊 Cached token was ${age} seconds old`)
-  }
   tokenCache = null
 }
 
 // Server action for manual refresh (mainly for debugging/admin purposes)
 export async function refreshPolvoTokenAction() {
   try {
-    console.log('🔄 Manually refreshing Polvo token...')
-
     // Clear existing cache first
     await clearPolvoTokenCache()
 
@@ -137,7 +101,6 @@ export async function refreshPolvoTokenAction() {
     const newToken = await fetchPolvoToken()
 
     if (!newToken) {
-      console.error('No token returned from fetchPolvoToken')
       return {
         success: false,
         error: 'Failed to refresh Polvo token: Empty token',
@@ -146,7 +109,6 @@ export async function refreshPolvoTokenAction() {
 
     return { success: true, token: newToken }
   } catch (error) {
-    console.error('Polvo token refresh failed:', error)
     return {
       success: false,
       error:

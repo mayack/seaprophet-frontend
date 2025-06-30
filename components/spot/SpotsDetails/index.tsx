@@ -5,19 +5,21 @@ import { SimpleMap } from '@/components/maps/SimpleMap'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { MapPin, Webcam, AlertCircle } from 'lucide-react'
 import { WebcamConfig } from '@/api/sargo/interfaces/webcam'
-import React, { useState } from 'react'
+import React from 'react'
 
 interface SpotsDetailsProps {
   mapCenter: [number, number]
   webcam?: WebcamConfig
+  spotName: string
+  spotId?: number
 }
 
 export function SpotsDetails({
   mapCenter,
   webcam,
+  spotName,
+  spotId,
 }: SpotsDetailsProps): React.JSX.Element {
-  const [activeTab, setActiveTab] = useState('webcam')
-
   const WebcamTabContent = (): React.JSX.Element => {
     if (!webcam) {
       return (
@@ -38,32 +40,47 @@ export function SpotsDetails({
     return <WebcamViewer config={webcam} />
   }
 
-  const MapTabContentComponent = (): React.JSX.Element => (
-    <div className="relative h-80 w-full overflow-hidden rounded-lg">
-      <SimpleMap center={mapCenter} />
-    </div>
-  )
-
   return (
-    <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-      <TabsList className="grid w-full grid-cols-2">
-        <TabsTrigger value="webcam" className="flex items-center gap-2">
-          <Webcam className="size-4" />
-          Webcam
-        </TabsTrigger>
-        <TabsTrigger value="map" className="flex items-center gap-2">
-          <MapPin className="size-4" />
-          Map
-        </TabsTrigger>
-      </TabsList>
-
-      <TabsContent value="webcam" className="mt-6">
-        <WebcamTabContent />
-      </TabsContent>
-
-      <TabsContent value="map" className="mt-6">
-        <MapTabContentComponent />
-      </TabsContent>
-    </Tabs>
+    <div>
+      <Tabs defaultValue={webcam ? 'webcam' : 'map'} className="w-full">
+        <div className="wrapper">
+          <div className="mb-4 flex items-end sm:mb-6">
+            <h1 className="font-style-h1 flex-1">{spotName}</h1>
+            <TabsList>
+              {webcam && (
+                <TabsTrigger value="webcam" className="flex items-center gap-2">
+                  <Webcam className="size-4" />
+                  <div className="hidden sm:block">Webcam</div>
+                </TabsTrigger>
+              )}
+              <TabsTrigger value="map" className="flex items-center gap-2">
+                <MapPin className="size-4" />
+                <div className="hidden sm:block">Map</div>
+              </TabsTrigger>
+            </TabsList>
+          </div>
+        </div>
+        {webcam && (
+          <TabsContent
+            value="webcam"
+            className="aspect-video md:aspect-auto md:h-[60vh]"
+          >
+            <WebcamTabContent />
+          </TabsContent>
+        )}
+        <TabsContent
+          value="map"
+          className="aspect-video md:aspect-auto md:h-[60vh]"
+        >
+          <SimpleMap
+            center={mapCenter}
+            zoom={13}
+            className="size-full"
+            spotId={spotId}
+            spotName={spotName}
+          />
+        </TabsContent>
+      </Tabs>
+    </div>
   )
 }

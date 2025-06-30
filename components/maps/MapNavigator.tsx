@@ -10,7 +10,6 @@ import {
   debounce,
   addDistanceToSpots,
   sortSpotsByDistance,
-  LocationButtonConfig,
   getLocationButtonLabel,
   getLocationButtonAction,
 } from './utils'
@@ -27,10 +26,7 @@ import {
 import { SpotCard } from '@/components/spot/SpotCard'
 import { Button } from '@/components/ui/button'
 import useEmblaCarousel from 'embla-carousel-react'
-import {
-  calculateBounds,
-  formatDistance,
-} from '@/utils/location'
+import { calculateBounds, formatDistance } from '@/utils/location'
 import { GeographicBounds } from '@/types/map'
 import { SpotSummary } from '@/api/sargo/interfaces/spot'
 import { CONFIG } from '@/constants/config'
@@ -86,13 +82,13 @@ export function MapNavigator({
     mapRef,
     map,
     addSpotMarkers,
+    clearSpotMarkers,
     zoomIn,
     zoomOut,
     locationState,
     requestUserLocation,
     recenterToUser,
     retryCount,
-    retryLocation,
   } = useMapbox({
     center: initialCenter,
     zoom: initialZoom,
@@ -102,7 +98,7 @@ export function MapNavigator({
   // Handle location button clicks with different behaviors for different states
   const handleLocationButtonClick = useCallback((): void => {
     const action = getLocationButtonAction(locationState)
-    
+
     switch (action) {
       case 'recenter':
         recenterToUser()
@@ -122,10 +118,13 @@ export function MapNavigator({
   }, [visibleSpots.length, isLoading])
 
   const getVisibleSlides = useCallback((): number => {
-    if (typeof window === 'undefined') return CONFIG.map.carousel.visibleSlides.mobile // Default for SSR
+    if (typeof window === 'undefined')
+      return CONFIG.map.carousel.visibleSlides.mobile // Default for SSR
     const width = window.innerWidth
-    if (width >= CONFIG.map.carousel.breakpoints.tablet) return CONFIG.map.carousel.visibleSlides.desktop
-    else if (width >= CONFIG.map.carousel.breakpoints.mobile) return CONFIG.map.carousel.visibleSlides.tablet
+    if (width >= CONFIG.map.carousel.breakpoints.tablet)
+      return CONFIG.map.carousel.visibleSlides.desktop
+    else if (width >= CONFIG.map.carousel.breakpoints.mobile)
+      return CONFIG.map.carousel.visibleSlides.tablet
     else return CONFIG.map.carousel.visibleSlides.mobile
   }, [])
 
@@ -166,18 +165,23 @@ export function MapNavigator({
       // Update markers and visible spots
       const updateMarkersAndSpots = () => {
         const spotsInView = getSpotsInView()
-        
-        // Add markers via centralized API
+
+        // Clear existing spot markers and add new ones
+        clearSpotMarkers()
         addSpotMarkers(spotsInView)
 
         // Update visible spots for carousel
         const spotsWithDistance = addDistanceToSpots(
           spotsInView,
-          hasUserLocation ? { latitude: userData.latitude!, longitude: userData.longitude! } : undefined
+          hasUserLocation
+            ? { latitude: userData.latitude!, longitude: userData.longitude! }
+            : undefined
         )
         const sortedSpots = sortSpotsByDistance(
           spotsWithDistance,
-          hasUserLocation ? { latitude: userData.latitude!, longitude: userData.longitude! } : undefined
+          hasUserLocation
+            ? { latitude: userData.latitude!, longitude: userData.longitude! }
+            : undefined
         )
 
         setVisibleSpots(sortedSpots)
@@ -209,7 +213,16 @@ export function MapNavigator({
     }
 
     loadInitialSpots()
-  }, [map, initialCenter, initialRadius, hasUserLocation, userData.latitude, userData.longitude, addSpotMarkers])
+  }, [
+    map,
+    initialCenter,
+    initialRadius,
+    hasUserLocation,
+    userData.latitude,
+    userData.longitude,
+    addSpotMarkers,
+    clearSpotMarkers,
+  ])
 
   // Handle map movement for loading new spots
   useEffect(() => {
@@ -231,17 +244,22 @@ export function MapNavigator({
       // Get spots currently in view
       const spotsInView = spotsCache.getSpotsInBounds(currentBounds)
 
-      // Add markers via centralized API
+      // Clear existing spot markers and add new ones
+      clearSpotMarkers()
       addSpotMarkers(spotsInView)
 
       // Update visible spots for carousel
       const spotsWithDistance = addDistanceToSpots(
         spotsInView,
-        hasUserLocation ? { latitude: userData.latitude!, longitude: userData.longitude! } : undefined
+        hasUserLocation
+          ? { latitude: userData.latitude!, longitude: userData.longitude! }
+          : undefined
       )
       const sortedSpots = sortSpotsByDistance(
         spotsWithDistance,
-        hasUserLocation ? { latitude: userData.latitude!, longitude: userData.longitude! } : undefined
+        hasUserLocation
+          ? { latitude: userData.latitude!, longitude: userData.longitude! }
+          : undefined
       )
 
       setVisibleSpots(sortedSpots)
@@ -271,9 +289,10 @@ export function MapNavigator({
             spotsCache.addSpot(spot)
           })
           spotsCache.addLoadedRegion(expandedBounds)
-          
+
           // Update markers after loading new spots
           const updatedSpotsInView = spotsCache.getSpotsInBounds(currentBounds)
+          clearSpotMarkers()
           addSpotMarkers(updatedSpotsInView)
         }
       } catch {
@@ -284,7 +303,10 @@ export function MapNavigator({
       }
     }
 
-    const debouncedHandler = debounce(handleMapMovement, CONFIG.map.interaction.debounce.mapMovement)
+    const debouncedHandler = debounce(
+      handleMapMovement,
+      CONFIG.map.interaction.debounce.mapMovement
+    )
     map.on('moveend', debouncedHandler)
     map.on('zoomend', debouncedHandler)
 
@@ -292,7 +314,15 @@ export function MapNavigator({
       map.off('moveend', debouncedHandler)
       map.off('zoomend', debouncedHandler)
     }
-  }, [map, hasUserLocation, userData.latitude, userData.longitude, addSpotMarkers, viewportPadding])
+  }, [
+    map,
+    hasUserLocation,
+    userData.latitude,
+    userData.longitude,
+    addSpotMarkers,
+    clearSpotMarkers,
+    viewportPadding,
+  ])
 
   return (
     <div style={{ height: height }} className="relative bg-muted">
@@ -304,28 +334,28 @@ export function MapNavigator({
 
       {/* Custom zoom controls */}
       <div className="absolute right-4 top-4 flex flex-col gap-2">
-        <div className="flex flex-col">
+        <div className="flex flex-col rounded-md shadow-map">
           <Button
-            variant="shadow"
+            variant="flat"
             size="icon"
             onClick={zoomIn}
             aria-label="Zoom in"
-            className="rounded-b-none bg-background shadow-md"
+            className="rounded-b-none"
           >
             <Plus />
           </Button>
           <Button
-            variant="shadow"
+            variant="flat"
             size="icon"
             onClick={zoomOut}
             aria-label="Zoom out"
-            className="rounded-t-none border-t border-border bg-background shadow-md"
+            className="rounded-t-none border-t border-input"
           >
             <Minus />
           </Button>
         </div>
         <Button
-          variant="shadow"
+          variant="flat"
           size="icon"
           onClick={handleLocationButtonClick}
           disabled={locationState === 'loading'}
@@ -334,11 +364,9 @@ export function MapNavigator({
             retryCount,
             maxRetries: CONFIG.map.location.maxRetries,
           })}
-          className="bg-background shadow-md"
+          className="shadow-map"
         >
-          {locationState === 'loading' && (
-            <Locate className="animate-spin" />
-          )}
+          {locationState === 'loading' && <Locate className="animate-spin" />}
           {locationState === 'centered' && (
             <LocateFixed className="text-blue-500" />
           )}
@@ -355,40 +383,47 @@ export function MapNavigator({
 
       {/* Loading indicator */}
       {isLoading && (
-        <div className="absolute bottom-10 left-1/2 flex -translate-x-1/2 items-center gap-2 rounded-full bg-foreground px-4 py-2 text-background">
-          <Loader2 className="animate-spin" size={CONFIG.map.ui.loadingIcon.size} />
-          <span className="text-sm font-medium">{CONFIG.map.ui.loadingText}</span>
+        <div className="absolute bottom-10 left-1/2 flex -translate-x-1/2 items-center gap-2 rounded-full bg-card px-4 py-2 text-card-foreground shadow-map">
+          <Loader2
+            className="animate-spin"
+            size={CONFIG.map.ui.loadingIcon.size}
+          />
+          <span className="text-sm font-medium">
+            {CONFIG.map.ui.loadingText}
+          </span>
         </div>
       )}
 
       {/* Spot carousel overlay */}
       <div
-        className={`absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/30 to-transparent transition-opacity duration-300 ${
+        className={`absolute inset-x-0 bottom-0 transition-opacity duration-300 ${
           showCarousel ? 'opacity-100' : 'opacity-0'
         } ${showCarousel ? 'pointer-events-auto' : 'pointer-events-none'}`}
       >
-        <div className="flex items-center justify-between px-4 pb-3">
+        <div className="flex items-center justify-between px-4">
           <h3 className="text-lg font-semibold">
             {visibleSpots.length} {visibleSpots.length === 1 ? 'spot' : 'spots'}{' '}
             in view
           </h3>
           {visibleSpots.length > getVisibleSlides() && (
-            <div className="flex gap-2">
+            <div className="flex rounded-md shadow-map">
               <Button
-                variant="shadow"
+                variant="flat"
                 size="icon"
                 onClick={scrollPrev}
                 disabled={!emblaApi?.canScrollPrev()}
                 aria-label="Previous spots"
+                className="rounded-r-none"
               >
                 <ChevronLeft className="size-4" />
               </Button>
               <Button
-                variant="shadow"
+                variant="flat"
                 size="icon"
                 onClick={scrollNext}
                 disabled={!emblaApi?.canScrollNext()}
                 aria-label="Next spots"
+                className="rounded-l-none border-l border-input"
               >
                 <ChevronRight className="size-4" />
               </Button>
@@ -396,7 +431,7 @@ export function MapNavigator({
           )}
         </div>
 
-        <div className="embla overflow-hidden p-4 pt-0" ref={emblaRef}>
+        <div className="embla overflow-hidden p-4" ref={emblaRef}>
           <div className="embla__container flex gap-3">
             {visibleSpots.map((spot) => (
               <div

@@ -1,27 +1,30 @@
 'use client'
 
-import { useRef, useLayoutEffect, useEffect, useCallback, useState } from 'react'
+import React, {
+  useRef,
+  useLayoutEffect,
+  useEffect,
+  useCallback,
+  useState,
+} from 'react'
 import mapboxgl from 'mapbox-gl'
 import { useTheme } from 'next-themes'
 import { useUser } from '@/contexts/UserContext'
-import { 
-  createMap, 
-  createMarkerElement, 
+import {
+  createMap,
+  createMarkerElement,
   createSpotMarkerElement,
-  createMarker, 
+  createMarker,
   debounce,
-  calculateDistanceInMeters,
   isUserCloseToLocation,
   isUserPannedAway,
   createUserLocationMarker,
   spotsCache,
-  LocationState,
-  LocationButtonConfig,
-  getLocationButtonLabel,
-  getLocationButtonAction
 } from './utils'
 import { CONFIG } from '@/constants/config'
 import { SpotSummary } from '@/api/sargo/interfaces/spot'
+import { renderToString } from 'react-dom/server'
+import { Webcam } from 'lucide-react'
 
 export interface UseMapboxOptions {
   center?: [number, number]
@@ -74,7 +77,6 @@ export function useMapbox(options: UseMapboxOptions = {}): UseMapboxReturn {
   const {
     center = CONFIG.map.defaults.center,
     zoom = CONFIG.map.defaults.zoom,
-    height = '500px',
     showUserLocation = false,
     disablePanning = false,
     disableZooming = false,
@@ -91,7 +93,10 @@ export function useMapbox(options: UseMapboxOptions = {}): UseMapboxReturn {
   const isInitialized = useRef(false)
   const retryTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const locationStateRef = useRef<UseMapboxReturn['locationState']>('idle')
-  const userLocationRef = useRef<{ latitude: number; longitude: number } | null>(null)
+  const userLocationRef = useRef<{
+    latitude: number
+    longitude: number
+  } | null>(null)
 
   const [isLoaded, setIsLoaded] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -151,15 +156,21 @@ export function useMapbox(options: UseMapboxOptions = {}): UseMapboxReturn {
         const currentCenter = mapInstance.current?.getCenter()
         const currentLocationState = locationStateRef.current
         const userLocation = userLocationRef.current
-        
-        if (currentCenter && currentLocationState === 'centered' && userLocation) {
+
+        if (
+          currentCenter &&
+          currentLocationState === 'centered' &&
+          userLocation
+        ) {
           // Check if user panned away from location
-          if (isUserPannedAway(
-            userLocation.latitude,
-            userLocation.longitude,
-            currentCenter.lat,
-            currentCenter.lng
-          )) {
+          if (
+            isUserPannedAway(
+              userLocation.latitude,
+              userLocation.longitude,
+              currentCenter.lat,
+              currentCenter.lng
+            )
+          ) {
             setLocationState('off-center')
           }
         }
@@ -172,25 +183,33 @@ export function useMapbox(options: UseMapboxOptions = {}): UseMapboxReturn {
   )
 
   // Public API functions
-  const addMarker = useCallback((
-    id: string, 
-    position: [number, number], 
-    element?: HTMLDivElement,
-    popup?: mapboxgl.Popup
-  ) => {
-    if (!mapInstance.current) {
-      return
-    }
+  const addMarker = useCallback(
+    (
+      id: string,
+      position: [number, number],
+      element?: HTMLDivElement,
+      popup?: mapboxgl.Popup
+    ) => {
+      if (!mapInstance.current) {
+        return
+      }
 
-    // Remove existing marker with same ID
-    if (markersRef.current[id]) {
-      markersRef.current[id].remove()
-    }
+      // Remove existing marker with same ID
+      if (markersRef.current[id]) {
+        markersRef.current[id].remove()
+      }
 
-    const markerElement = element || createMarkerElement()
-    const marker = createMarker(mapInstance.current, position, markerElement, popup)
-    markersRef.current[id] = marker
-  }, [])
+      const markerElement = element || createMarkerElement()
+      const marker = createMarker(
+        mapInstance.current,
+        position,
+        markerElement,
+        popup
+      )
+      markersRef.current[id] = marker
+    },
+    []
+  )
 
   const removeMarker = useCallback((id: string) => {
     if (markersRef.current[id]) {
@@ -200,49 +219,61 @@ export function useMapbox(options: UseMapboxOptions = {}): UseMapboxReturn {
   }, [])
 
   const clearMarkers = useCallback(() => {
-    Object.values(markersRef.current).forEach(marker => marker.remove())
+    Object.values(markersRef.current).forEach((marker) => marker.remove())
     markersRef.current = {}
   }, [])
 
   // Spot-specific marker methods
-  const addSpotMarkers = useCallback((spots: SpotSummary[]) => {
-    if (!mapInstance.current) return
+  const addSpotMarkers = useCallback(
+    (spots: SpotSummary[]) => {
+      if (!mapInstance.current) return
 
-    spots.forEach((spot) => {
-      if (!spot.location?.lat || !spot.location?.long) return
-      if (markersRef.current[`spot-${spot.id}`]) return
+      spots.forEach((spot) => {
+        if (!spot.location?.lat || !spot.location?.long) return
+        if (markersRef.current[`spot-${spot.id}`]) return
 
-      try {
-        // Create popup with spot information
-        const popup = new mapboxgl.Popup({
-          offset: 40,
-          closeButton: false,
-          className: 'navigator-popup',
-        }).setHTML(`
-          <a href="/spot/${spot.id}" class="inline-flex items-center gap-1 hover:underline outline-none focus:outline-none" onclick="(function(event) { event.preventDefault(); window.next.router.push('/spot/${spot.id}'); return false; })(event)">
-            <span class="text-base font-medium">${spot.name}</span>
-            ${spot.webcam ? '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="black" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="10" r="8"/><circle cx="12" cy="10" r="3"/><path d="M7 22h10"/><path d="M12 22v-4"/></svg>' : ''}
-          </a>
-        `)
+        try {
+          // Create spot marker element with theme awareness
+          const isDark = resolvedTheme === 'dark'
+          const markerElement = createSpotMarkerElement(isDark)
 
-        // Create spot marker element with theme awareness
-        const isDark = resolvedTheme === 'dark'
-        const markerElement = createSpotMarkerElement(isDark)
+          // Webcam icon HTML (Lucide Video)
+          const webcamIcon = spot.webcam
+            ? renderToString(
+                React.createElement(Webcam, {
+                  size: 16,
+                  className: 'ml-1 text-muted-foreground',
+                })
+              )
+            : ''
 
-        // Create and add marker
-        const marker = createMarker(
-          mapInstance.current!,
-          [spot.location.long, spot.location.lat],
-          markerElement,
-          popup
-        )
+          // Create Mapbox popup (much simpler!)
+          const popup = new mapboxgl.Popup({
+            offset: 25,
+            closeButton: false,
+            className: 'navigator-popup',
+          }).setHTML(`
+            <a href="/spot/${spot.id}" class="inline-flex items-center gap-1 hover:underline outline-none focus:outline-none text-base font-medium">
+              <span>${spot.name}</span>${webcamIcon}
+            </a>
+          `)
 
-        markersRef.current[`spot-${spot.id}`] = marker
-      } catch {
-        // Error silently handled
-      }
-    })
-  }, [resolvedTheme])
+          // Create and add marker with popup
+          const marker = createMarker(
+            mapInstance.current!,
+            [spot.location.long, spot.location.lat],
+            markerElement,
+            popup
+          )
+
+          markersRef.current[`spot-${spot.id}`] = marker
+        } catch {
+          // Error silently handled
+        }
+      })
+    },
+    [resolvedTheme]
+  )
 
   const removeSpotMarker = useCallback((spotId: number) => {
     const markerKey = `spot-${spotId}`
@@ -253,7 +284,7 @@ export function useMapbox(options: UseMapboxOptions = {}): UseMapboxReturn {
   }, [])
 
   const clearSpotMarkers = useCallback(() => {
-    Object.keys(markersRef.current).forEach(key => {
+    Object.keys(markersRef.current).forEach((key) => {
       if (key.startsWith('spot-')) {
         markersRef.current[key].remove()
         delete markersRef.current[key]
@@ -271,11 +302,14 @@ export function useMapbox(options: UseMapboxOptions = {}): UseMapboxReturn {
     }
   }, [])
 
-  const fitBounds = useCallback((bounds: [[number, number], [number, number]]) => {
-    if (mapInstance.current) {
-      mapInstance.current.fitBounds(bounds, { padding: 50 })
-    }
-  }, [])
+  const fitBounds = useCallback(
+    (bounds: [[number, number], [number, number]]) => {
+      if (mapInstance.current) {
+        mapInstance.current.fitBounds(bounds, { padding: 50 })
+      }
+    },
+    []
+  )
 
   const zoomIn = useCallback(() => {
     if (mapInstance.current) {
@@ -299,7 +333,7 @@ export function useMapbox(options: UseMapboxOptions = {}): UseMapboxReturn {
     return mapInstance.current?.getZoom() ?? null
   }, [])
 
-  const requestUserLocation = useCallback(async (isRetry: boolean = false) => {
+  const requestUserLocation = useCallback(async () => {
     if (!mapInstance.current) {
       return
     }
@@ -330,11 +364,12 @@ export function useMapbox(options: UseMapboxOptions = {}): UseMapboxReturn {
         case 'timeout':
           if (retryCount < MAX_RETRIES) {
             const nextRetryCount = retryCount + 1
-            const retryDelay = RETRY_DELAYS[retryCount] || RETRY_DELAYS[RETRY_DELAYS.length - 1]
-            
+            const retryDelay =
+              RETRY_DELAYS[retryCount] || RETRY_DELAYS[RETRY_DELAYS.length - 1]
+
             setRetryCount(nextRetryCount)
             setLocationState('loading') // Keep loading state during retry
-            
+
             retryTimeoutRef.current = setTimeout(() => {
               requestUserLocation(true)
             }, retryDelay)
@@ -349,7 +384,15 @@ export function useMapbox(options: UseMapboxOptions = {}): UseMapboxReturn {
           break
       }
     }
-  }, [retryCount, requestLocation, createUserLocationMarkerWrapper, setupMoveHandler, flyTo, MAX_RETRIES, RETRY_DELAYS])
+  }, [
+    retryCount,
+    requestLocation,
+    createUserLocationMarkerWrapper,
+    setupMoveHandler,
+    flyTo,
+    MAX_RETRIES,
+    RETRY_DELAYS,
+  ])
 
   const recenterToUser = useCallback(() => {
     if (!userLocationMarker.current) return
@@ -392,14 +435,13 @@ export function useMapbox(options: UseMapboxOptions = {}): UseMapboxReturn {
 
       // Map event handlers
       mapInstance.current.on('load', () => {
-        console.log('🗺️ Map load event fired!')
         setIsLoaded(true)
         onMapLoad?.(mapInstance.current!)
-        
+
         // Hide Mapbox logo
         const logo = mapRef.current?.querySelector('.mapboxgl-ctrl-logo')
         if (logo) {
-          (logo as HTMLElement).style.display = 'none'
+          ;(logo as HTMLElement).style.display = 'none'
         }
 
         // Auto-request user location if enabled - after map is loaded
@@ -409,13 +451,15 @@ export function useMapbox(options: UseMapboxOptions = {}): UseMapboxReturn {
             if (userData.latitude && userData.longitude) {
               // Check if map was already initialized at user location
               const mapCenter = mapInstance.current!.getCenter()
-              
-              if (isUserCloseToLocation(
-                userData.latitude,
-                userData.longitude,
-                mapCenter.lat,
-                mapCenter.lng
-              )) {
+
+              if (
+                isUserCloseToLocation(
+                  userData.latitude,
+                  userData.longitude,
+                  mapCenter.lat,
+                  mapCenter.lng
+                )
+              ) {
                 // Map already initialized at user location - just create marker
                 createUserLocationMarkerWrapper({
                   latitude: userData.latitude,
@@ -457,9 +501,9 @@ export function useMapbox(options: UseMapboxOptions = {}): UseMapboxReturn {
         mapInstance.current.on('moveend', debouncedMoveHandler)
         mapInstance.current.on('zoomend', debouncedMoveHandler)
       }
-
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Failed to initialize map'
+      const errorMessage =
+        err instanceof Error ? err.message : 'Failed to initialize map'
       setError(errorMessage)
       onMapError?.(errorMessage)
     }
@@ -477,20 +521,19 @@ export function useMapbox(options: UseMapboxOptions = {}): UseMapboxReturn {
         mapInstance.current.remove()
         mapInstance.current = null
       }
-      
+
       // Clear retry timeout
       if (retryTimeoutRef.current) {
         clearTimeout(retryTimeoutRef.current)
         retryTimeoutRef.current = null
       }
-      
+
       setIsLoaded(false)
       setError(null)
       setRetryCount(0)
       isInitialized.current = false
     }
   }, [
-    center,
     zoom,
     resolvedTheme,
     disablePanning,
@@ -501,24 +544,45 @@ export function useMapbox(options: UseMapboxOptions = {}): UseMapboxReturn {
     onMove,
   ])
 
+  // Update map center when center prop changes (without re-initializing)
+  useEffect(() => {
+    if (mapInstance.current && isLoaded) {
+      const currentCenter = mapInstance.current.getCenter()
+      const [newLng, newLat] = center
+
+      // Only update if center actually changed significantly (avoid micro-movements)
+      const distance = Math.sqrt(
+        Math.pow(currentCenter.lng - newLng, 2) +
+          Math.pow(currentCenter.lat - newLat, 2)
+      )
+
+      if (distance > 0.0001) {
+        // ~10 meters threshold
+        mapInstance.current.setCenter(center)
+      }
+    }
+  }, [center, isLoaded])
+
   // Handle theme changes for spot markers
   useEffect(() => {
     if (!isLoaded || !mapInstance.current) return
 
     // When theme changes, recreate all spot markers with new theme
-    const spotMarkerKeys = Object.keys(markersRef.current).filter(key => key.startsWith('spot-'))
+    const spotMarkerKeys = Object.keys(markersRef.current).filter((key) =>
+      key.startsWith('spot-')
+    )
     if (spotMarkerKeys.length > 0) {
       // Get all current spots data before clearing
       const currentSpots: SpotSummary[] = []
-      spotMarkerKeys.forEach(key => {
+      spotMarkerKeys.forEach((key) => {
         const spotId = parseInt(key.replace('spot-', ''))
         const spot = spotsCache.getSpot(spotId)
         if (spot) currentSpots.push(spot)
       })
-      
+
       // Clear existing spot markers
       clearSpotMarkers()
-      
+
       // Re-add with new theme
       addSpotMarkers(currentSpots)
     }
@@ -529,7 +593,11 @@ export function useMapbox(options: UseMapboxOptions = {}): UseMapboxReturn {
     if (!isLoaded || !mapInstance.current || !showUserLocation) return
 
     // If user location is available and no marker exists, create one
-    if (userData.latitude && userData.longitude && !userLocationMarker.current) {
+    if (
+      userData.latitude &&
+      userData.longitude &&
+      !userLocationMarker.current
+    ) {
       createUserLocationMarkerWrapper({
         latitude: userData.latitude,
         longitude: userData.longitude,
@@ -540,7 +608,14 @@ export function useMapbox(options: UseMapboxOptions = {}): UseMapboxReturn {
       })
       setLocationState('centered')
     }
-  }, [userData.latitude, userData.longitude, isLoaded, showUserLocation, createUserLocationMarkerWrapper, setupMoveHandler])
+  }, [
+    userData.latitude,
+    userData.longitude,
+    isLoaded,
+    showUserLocation,
+    createUserLocationMarkerWrapper,
+    setupMoveHandler,
+  ])
 
   // Handle theme changes
   useLayoutEffect(() => {
@@ -550,10 +625,12 @@ export function useMapbox(options: UseMapboxOptions = {}): UseMapboxReturn {
     if (!mapInstance.current.isStyleLoaded()) {
       const handleStyleLoad = () => {
         if (!mapInstance.current) return
-        
+
         const isDark = resolvedTheme === 'dark'
-        const newStyle = isDark ? CONFIG.mapbox.styles.dark : CONFIG.mapbox.styles.light
-        
+        const newStyle = isDark
+          ? CONFIG.mapbox.styles.dark
+          : CONFIG.mapbox.styles.light
+
         try {
           const currentStyle = mapInstance.current.getStyle()
           if (currentStyle?.sprite?.includes(isDark ? 'light' : 'dark')) {
@@ -562,17 +639,19 @@ export function useMapbox(options: UseMapboxOptions = {}): UseMapboxReturn {
         } catch (error) {
           // Error checking map style, ignoring silently
         }
-        
+
         mapInstance.current.off('styledata', handleStyleLoad)
       }
-      
+
       mapInstance.current.on('styledata', handleStyleLoad)
       return
     }
 
     const isDark = resolvedTheme === 'dark'
-    const newStyle = isDark ? CONFIG.mapbox.styles.dark : CONFIG.mapbox.styles.light
-    
+    const newStyle = isDark
+      ? CONFIG.mapbox.styles.dark
+      : CONFIG.mapbox.styles.light
+
     try {
       // Only change if different
       const currentStyle = mapInstance.current.getStyle()
@@ -607,4 +686,4 @@ export function useMapbox(options: UseMapboxOptions = {}): UseMapboxReturn {
     retryCount,
     retryLocation: requestUserLocation,
   }
-} 
+}

@@ -94,6 +94,8 @@ export default async function SpotPage({
           <SpotsDetails
             mapCenter={[spot.location_long, spot.location_lat]}
             webcam={spot.webcam}
+            spotName={spot.name}
+            spotId={spotId}
           />
           <SpotsNearby
             spots={nearbySpots}
