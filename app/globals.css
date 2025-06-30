@@ -2,6 +2,27 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Hide Mapbox logo and attribution */
+.mapboxgl-ctrl-logo {
+  display: none !important;
+}
+
+.mapboxgl-ctrl-attrib {
+  display: none !important;
+}
+
+.mapboxgl-popup .mapboxgl-popup-content {
+  @apply rounded-md bg-card px-3 py-2 text-black text-card-foreground shadow-lg;
+}
+
+.mapboxgl-popup.mapboxgl-popup-anchor-bottom .mapboxgl-popup-tip {
+  @apply border-t-card;
+}
+
+.mapboxgl-popup.mapboxgl-popup-anchor-top .mapboxgl-popup-tip {
+  @apply border-b-card;
+}
+
 @layer base {
   :root {
     --background: 0 0% 100%;
@@ -117,15 +138,15 @@
     @apply space-y-8 sm:space-y-10 xl:space-y-12;
   }
 
-  .navigator-popup {
-    color: red !important;
+  .user-location-marker .animate-ping {
+    animation: ping 2s cubic-bezier(0, 0, 0.2, 1) infinite;
   }
 
-  .navigator-popup .mapboxgl-popup-content {
-    @apply rounded-sm px-3 py-2 text-black shadow-lg;
-  }
-
-  .navigator-popup .mapboxgl-popup-tip {
-    border-width: 6px !important;
+  @keyframes ping {
+    75%,
+    100% {
+      transform: scale(10);
+      opacity: 0;
+    }
   }
 }

@@ -1,43 +1,23 @@
 import { Suspense } from 'react'
-import { UserLocationSpots } from '@/components/spot/SpotsNearby/UserLocationSpots'
 import React from 'react'
-import { SpotsNearbySkeleton } from '@/components/spot/SpotsNearby/Skeleton'
-import { Navigator } from '@/components/maps/Navigator'
+import { MapNavigator } from '@/components/maps/MapNavigator'
 
-async function SpotsContent(): Promise<React.JSX.Element> {
-  return (
-    <>
-      <UserLocationSpots maxDistance={30} className="py-4" />
-      <Navigator height="calc(100vh - 224px)" initialRadius={250} />
-    </>
-  )
-}
-
-export default async function Page(): Promise<React.JSX.Element> {
+export default function Page(): React.JSX.Element {
   try {
     return (
       <Suspense
         fallback={
-          <>
-            <div className="py-4">
-              <SpotsNearbySkeleton />
-            </div>
-            <div
-              className="bg-muted"
-              style={{ height: 'calc(100vh - 224px)' }}
-            ></div>
-          </>
+          <div className="bg-muted" style={{ height: 'calc(100vh - 64px)' }} />
         }
       >
-        <SpotsContent />
+        <MapNavigator height="calc(100vh - 64px)" initialRadius={250} />
       </Suspense>
     )
   } catch (error) {
     return (
       <div className="wrapper">
         <p className="text-red-500">
-          Error:{' '}
-          {error instanceof Error ? error.message : 'Failed to load spots'}
+          Error: {error instanceof Error ? error.message : 'Failed to load map'}
         </p>
       </div>
     )

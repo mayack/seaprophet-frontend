@@ -67,4 +67,3 @@ export function calculateBounds(
     west: lng - deltaLng,
   }
 }
-

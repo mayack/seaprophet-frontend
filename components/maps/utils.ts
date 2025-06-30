@@ -2,22 +2,114 @@
 import { SpotSummary } from '@/api/sargo/interfaces/spot'
 import { CONFIG } from '@/constants/config'
 import { GeographicBounds } from '@/types/map'
+import { calculateDistance } from '@/utils/location'
 import mapboxgl from 'mapbox-gl'
+import { useTheme } from 'next-themes'
+import { useEffect, useState } from 'react'
 
-// Set Mapbox token
+// Set Mapbox token once
 if (process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN) {
   mapboxgl.accessToken = process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN
-} else {
-  if (process.env.NODE_ENV !== 'production') {
-    // eslint-disable-next-line no-console
-    console.error('Mapbox access token is missing')
+}
+
+// Constants
+const METERS_PER_DEGREE = 111320 // Approximate meters per degree at equator
+
+// Unified theme management for maps
+export function useMapTheme() {
+  const { resolvedTheme } = useTheme()
+  const [currentStyle, setCurrentStyle] = useState<string>('')
+
+  const isDark = resolvedTheme === 'dark'
+  const mapStyle = isDark
+    ? CONFIG.mapbox.styles.dark
+    : CONFIG.mapbox.styles.light
+
+  useEffect(() => {
+    setCurrentStyle(mapStyle)
+  }, [mapStyle])
+
+  return {
+    isDark,
+    mapStyle,
+    currentStyle,
+    resolvedTheme,
   }
 }
 
-interface MapState {
-  center: [number, number]
-  zoom: number
-  timestamp: number
+// Unified map style switching
+export function switchMapStyle(
+  map: mapboxgl.Map,
+  newStyle: string,
+  safeMode: boolean = true
+) {
+  if (!map) return false
+
+  try {
+    if (safeMode) {
+      // Wait for style to be loaded before switching
+      if (!map.isStyleLoaded()) {
+        const handleStyleLoad = () => {
+          map.setStyle(newStyle)
+          map.off('styledata', handleStyleLoad)
+        }
+        map.on('styledata', handleStyleLoad)
+        return true
+      }
+    }
+
+    map.setStyle(newStyle)
+    return true
+  } catch {
+    return false
+  }
+}
+
+// Unified error handling for maps
+export interface MapError {
+  message: string
+  code?: string
+  type: 'initialization' | 'style' | 'token' | 'unknown'
+}
+
+export function createMapError(
+  error: unknown,
+  type: MapError['type'] = 'unknown'
+): MapError {
+  if (error instanceof Error) {
+    return {
+      message: error.message,
+      code: error.name,
+      type,
+    }
+  }
+
+  return {
+    message: typeof error === 'string' ? error : 'An unknown error occurred',
+    type,
+  }
+}
+
+// Simple debounce utility - no lodash needed
+export function debounce<T extends (...args: unknown[]) => unknown>(
+  func: T,
+  wait: number
+): T & { cancel: () => void } {
+  let timeout: NodeJS.Timeout | null = null
+
+  const debounced = (...args: Parameters<T>) => {
+    if (timeout) clearTimeout(timeout)
+    timeout = setTimeout(() => func(...args), wait)
+  }
+
+  debounced.cancel = () => {
+    if (timeout) {
+      clearTimeout(timeout)
+      timeout = null
+    }
+  }
+
+  return debounced as T & { cancel: () => void }
 }
 
 // Validate coordinates helper
@@ -27,41 +119,105 @@ export function isValidCoordinate(lng: number, lat: number): boolean {
   )
 }
 
-// Initialize map
-export function initializeMap(
-  container: HTMLDivElement,
-  center: [number, number],
-  zoom: number,
-  style: string = CONFIG.mapbox.style,
-  attributionControl: boolean = false
-): mapboxgl.Map {
-  return new mapboxgl.Map({
+// Get map style based on theme
+export function getMapStyle(isDark?: boolean): string {
+  const useDark = isDark ?? false
+  return useDark ? CONFIG.mapbox.styles.dark : CONFIG.mapbox.styles.light
+}
+
+interface CreateMapOptions {
+  container: HTMLDivElement
+  center: [number, number]
+  zoom: number
+  theme?: string | null
+  disablePanning?: boolean
+  disableZooming?: boolean
+}
+
+// Create map with theme support
+export function createMap(options: CreateMapOptions): mapboxgl.Map {
+  const { container, center, zoom, theme, disablePanning, disableZooming } =
+    options
+
+  const isDark = theme === 'dark'
+  const style = getMapStyle(isDark)
+
+  const map = new mapboxgl.Map({
     container,
     style,
     center,
     zoom,
-    attributionControl,
+    attributionControl: false,
+    interactive: !(disablePanning && disableZooming),
   })
+
+  if (disablePanning) {
+    map.dragPan.disable()
+    map.touchZoomRotate.disableRotation()
+  }
+
+  if (disableZooming) {
+    map.scrollZoom.disable()
+    map.boxZoom.disable()
+    map.doubleClickZoom.disable()
+    map.touchZoomRotate.disable()
+  }
+
+  return map
 }
 
-// Create marker element
+// Unified marker element creation with theme support
 export function createMarkerElement(
-  imageUrl: string = '/map-pin.svg',
-  width: string = '32px',
-  height: string = '32px',
-  className: string = 'custom-marker',
-  pointerEvents: string = 'auto'
+  options: {
+    isDark?: boolean
+    width?: string
+    height?: string
+    className?: string
+    pointerEvents?: string
+    cursor?: string
+  } = {}
 ): HTMLDivElement {
+  const {
+    isDark = false,
+    width = '32px',
+    height = '32px',
+    className = 'map-marker',
+    pointerEvents = 'auto',
+    cursor = 'pointer',
+  } = options
+
   const el = document.createElement('div')
   el.className = className
-  el.style.backgroundImage = `url(${imageUrl})`
+
+  // Theme-aware colors: black pins for light mode, white pins for dark mode
+  const pinColor = isDark ? 'white' : 'black'
+  const dotColor = isDark ? 'black' : 'white'
+
+  el.innerHTML = `
+    <svg width="${width}" height="${height}" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M12 0C7.802 0 4 3.403 4 7.602C4 11.8 7.469 16.812 12 24C16.531 16.812 20 11.8 20 7.602C20 3.403 16.199 0 12 0Z" fill="${pinColor}"/>
+      <path d="M12 11C10.343 11 9 9.657 9 8C9 6.343 10.343 5 12 5C13.657 5 15 6.343 15 8C15 9.657 13.657 11 12 11Z" fill="${dotColor}"/>
+    </svg>
+  `
+
   el.style.width = width
   el.style.height = height
-  el.style.backgroundSize = '100%'
-  el.style.backgroundRepeat = 'no-repeat'
-  el.style.backgroundPosition = 'center'
   el.style.pointerEvents = pointerEvents
+  el.style.display = 'flex'
+  el.style.alignItems = 'center'
+  el.style.justifyContent = 'center'
+  el.style.cursor = cursor
   return el
+}
+
+// Legacy function for spot markers - now uses unified createMarkerElement
+export function createSpotMarkerElement(
+  isDark: boolean = false,
+  width: string = '32px',
+  height: string = '32px',
+  className: string = 'spot-marker'
+): HTMLDivElement {
+  return createMarkerElement({ isDark, width, height, className })
 }
 
 // Create and add marker to map
@@ -84,48 +240,234 @@ export function createMarker(
   return marker
 }
 
-// Global cache for spots
-export const spotsCache = {
+// Location utilities for maps
+export function calculateDistanceInMeters(
+  lat1: number,
+  lng1: number,
+  lat2: number,
+  lng2: number
+): number {
+  // Simple distance calculation using approximate conversion
+  const latDiff = (lat2 - lat1) * METERS_PER_DEGREE
+  const lngDiff = (lng2 - lng1) * METERS_PER_DEGREE
+  return Math.sqrt(latDiff * latDiff + lngDiff * lngDiff)
+}
+
+export function isUserCloseToLocation(
+  userLat: number,
+  userLng: number,
+  targetLat: number,
+  targetLng: number,
+  thresholdMeters: number = CONFIG.map.location.alreadyAtLocationThreshold
+): boolean {
+  const distance = calculateDistanceInMeters(
+    userLat,
+    userLng,
+    targetLat,
+    targetLng
+  )
+  return distance < thresholdMeters
+}
+
+export function isUserPannedAway(
+  userLat: number,
+  userLng: number,
+  currentLat: number,
+  currentLng: number,
+  thresholdMeters: number = CONFIG.map.location.alreadyAtLocationThreshold / 2
+): boolean {
+  const distance = calculateDistanceInMeters(
+    userLat,
+    userLng,
+    currentLat,
+    currentLng
+  )
+  return distance > thresholdMeters
+}
+
+// User location marker creation
+export function createUserLocationMarkerElement(): HTMLDivElement {
+  const el = document.createElement('div')
+  el.className = 'user-location-marker'
+
+  // Create pulsating blue circle using Tailwind classes
+  el.innerHTML = `
+    <div class="relative">
+      <div class="w-4 h-4 bg-blue-500 rounded-full border-2 border-white shadow-map"></div>
+      <div class="absolute top-0 left-0 w-4 h-4 bg-blue-500 rounded-full animate-ping"></div>
+    </div>
+  `
+
+  el.style.display = 'flex'
+  el.style.alignItems = 'center'
+  el.style.justifyContent = 'center'
+  el.style.pointerEvents = 'none'
+
+  return el
+}
+
+export function createUserLocationMarker(
+  map: mapboxgl.Map,
+  location: { latitude: number; longitude: number },
+  existingMarker?: mapboxgl.Marker | null
+): mapboxgl.Marker {
+  // Remove existing marker if provided
+  if (existingMarker) {
+    existingMarker.remove()
+  }
+
+  // Create new marker
+  const markerElement = createUserLocationMarkerElement()
+  const marker = new mapboxgl.Marker({
+    element: markerElement,
+    anchor: 'center',
+  })
+    .setLngLat([location.longitude, location.latitude])
+    .addTo(map)
+
+  return marker
+}
+
+export type LocationState =
+  | 'idle'
+  | 'loading'
+  | 'centered'
+  | 'off-center'
+  | 'error'
+  | 'permission-denied'
+
+export interface LocationButtonConfig {
+  state: LocationState
+  retryCount: number
+  maxRetries: number
+}
+
+export function getLocationButtonLabel(config: LocationButtonConfig): string {
+  const { state, retryCount, maxRetries } = config
+
+  switch (state) {
+    case 'loading':
+      return retryCount > 0
+        ? `Locating... (attempt ${retryCount}/${maxRetries})`
+        : 'Locating...'
+    case 'centered':
+      return 'You are centered on the map'
+    case 'off-center':
+      return 'Center on your location'
+    case 'error':
+      return retryCount >= maxRetries
+        ? 'Location failed - no more retries'
+        : 'Location failed - click to retry'
+    case 'permission-denied':
+      return 'Location access denied'
+    default:
+      return 'Show your location'
+  }
+}
+
+export function getLocationButtonAction(
+  state: LocationState
+): 'recenter' | 'request' | 'none' {
+  switch (state) {
+    case 'off-center':
+      return 'recenter'
+    case 'idle':
+    case 'error':
+      return 'request'
+    case 'loading':
+    case 'centered':
+    case 'permission-denied':
+    default:
+      return 'none'
+  }
+}
+
+export function sortSpotsByDistance(
+  spots: SpotSummary[],
+  userLocation?: { latitude: number; longitude: number }
+): SpotSummary[] {
+  if (!userLocation) {
+    return [...spots]
+  }
+
+  return [...spots].sort((a, b) => {
+    const distanceA = a.distance ?? Infinity
+    const distanceB = b.distance ?? Infinity
+    return distanceA - distanceB
+  })
+}
+
+export function addDistanceToSpots(
+  spots: SpotSummary[],
+  userLocation?: { latitude: number; longitude: number }
+): SpotSummary[] {
+  if (!userLocation) {
+    return spots
+  }
+
+  return spots.map((spot) => ({
+    ...spot,
+    distance:
+      spot.location?.lat && spot.location?.long
+        ? calculateDistance(
+            userLocation.latitude,
+            userLocation.longitude,
+            spot.location.lat,
+            spot.location.long
+          )
+        : undefined,
+  }))
+}
+
+// Simple spots cache implementation
+const spotsCache = {
   spots: new Map<number, SpotSummary>(),
   loadedRegions: [] as GeographicBounds[],
-}
 
-export function getStoredMapState(): MapState | null {
-  if (typeof window === 'undefined') return null
+  addSpot(spot: SpotSummary): void {
+    this.spots.set(spot.id, spot)
+  },
 
-  try {
-    const stored = window.sessionStorage.getItem(
-      CONFIG.api.tokens.geolocation.map_state_key
-    )
-    if (stored) {
-      const state = JSON.parse(stored) as MapState
-      if (Date.now() - state.timestamp < CONFIG.api.tokens.geolocation.maxAge) {
-        return state
-      }
-      window.sessionStorage.removeItem(
-        CONFIG.api.tokens.geolocation.map_state_key
+  getSpot(id: number): SpotSummary | undefined {
+    return this.spots.get(id)
+  },
+
+  getAllSpots(): SpotSummary[] {
+    return Array.from(this.spots.values())
+  },
+
+  addLoadedRegion(region: GeographicBounds): void {
+    this.loadedRegions.push(region)
+  },
+
+  isRegionLoaded(bounds: GeographicBounds): boolean {
+    return this.loadedRegions.some((region) => {
+      return (
+        region.north >= bounds.north &&
+        region.south <= bounds.south &&
+        region.east >= bounds.east &&
+        region.west <= bounds.west
       )
-    }
-  } catch {
-    // Error silently handled
-  }
-  return null
+    })
+  },
+
+  clear(): void {
+    this.spots.clear()
+    this.loadedRegions = []
+  },
+
+  getSpotsInBounds(bounds: GeographicBounds): SpotSummary[] {
+    return Array.from(this.spots.values()).filter((spot) => {
+      if (!spot.location?.lat || !spot.location?.long) return false
+
+      return (
+        spot.location.lat >= bounds.south &&
+        spot.location.lat <= bounds.north &&
+        spot.location.long >= bounds.west &&
+        spot.location.long <= bounds.east
+      )
+    })
+  },
 }
 
-export function storeMapState(center: [number, number], zoom: number): void {
-  if (typeof window === 'undefined') return
-
-  try {
-    const state: MapState = {
-      center,
-      zoom,
-      timestamp: Date.now(),
-    }
-    window.sessionStorage.setItem(
-      CONFIG.api.tokens.geolocation.map_state_key,
-      JSON.stringify(state)
-    )
-  } catch {
-    // Error silently handled
-  }
-}
+export { spotsCache }

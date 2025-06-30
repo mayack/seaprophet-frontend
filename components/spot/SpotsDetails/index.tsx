@@ -1,29 +1,53 @@
+'use client'
+
 import { WebcamViewer } from '@/components/common/WebcamViewer'
-import { Map } from '@/components/maps/Map'
+import { SimpleMap } from '@/components/maps/SimpleMap'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
-import { MapPin, Webcam } from 'lucide-react'
+import { MapPin, Webcam, AlertCircle } from 'lucide-react'
 import { WebcamConfig } from '@/api/sargo/interfaces/webcam'
 import React from 'react'
 
-interface SpotDetailsProps {
+interface SpotsDetailsProps {
   mapCenter: [number, number]
-  webcamConfig?: WebcamConfig
-  spotName?: string
+  webcam?: WebcamConfig
+  spotName: string
+  spotId?: number
 }
 
-export function SpotDetails({
+export function SpotsDetails({
   mapCenter,
-  webcamConfig,
+  webcam,
   spotName,
-}: SpotDetailsProps): React.JSX.Element {
+  spotId,
+}: SpotsDetailsProps): React.JSX.Element {
+  const WebcamTabContent = (): React.JSX.Element => {
+    if (!webcam) {
+      return (
+        <div className="flex size-full flex-col items-center justify-center space-y-4 rounded-lg bg-muted p-8">
+          <AlertCircle className="size-8 text-muted-foreground" />
+          <div className="text-center">
+            <p className="font-medium text-muted-foreground">
+              No webcam available
+            </p>
+            <p className="text-sm text-muted-foreground">
+              This spot doesn&apos;t have webcam data available
+            </p>
+          </div>
+        </div>
+      )
+    }
+
+    return <WebcamViewer config={webcam} />
+  }
+
   return (
     <div>
-      <Tabs defaultValue={webcamConfig ? 'webcam' : 'map'} className="w-full">
+      <Tabs defaultValue={webcam ? 'webcam' : 'map'} className="w-full">
         <div className="wrapper">
           <div className="mb-4 flex items-end sm:mb-6">
             <h1 className="font-style-h1 flex-1">{spotName}</h1>
             <TabsList>
-              {webcamConfig && (
+              {webcam && (
                 <TabsTrigger value="webcam" className="flex items-center gap-2">
                   <Webcam className="size-4" />
                   <div className="hidden sm:block">Webcam</div>
@@ -36,19 +60,25 @@ export function SpotDetails({
             </TabsList>
           </div>
         </div>
-        {webcamConfig && (
+        {webcam && (
           <TabsContent
             value="webcam"
             className="aspect-video md:aspect-auto md:h-[60vh]"
           >
-            <WebcamViewer config={webcamConfig} />
+            <WebcamTabContent />
           </TabsContent>
         )}
         <TabsContent
           value="map"
           className="aspect-video md:aspect-auto md:h-[60vh]"
         >
-          <Map center={mapCenter} zoom={12} width="100%" height="100%" />
+          <SimpleMap
+            center={mapCenter}
+            zoom={13}
+            className="size-full"
+            spotId={spotId}
+            spotName={spotName}
+          />
         </TabsContent>
       </Tabs>
     </div>

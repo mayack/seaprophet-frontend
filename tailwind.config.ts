@@ -56,12 +56,16 @@ export default {
         md: 'calc(var(--radius) - 2px)',
         sm: 'calc(var(--radius) - 4px)',
       },
+      boxShadow: {
+        map: '0 0 1px 1px rgba(0,0,0,0.05), 0 1px 10px rgba(0, 0, 0, 0.15)',
+      },
       fontSize: {
         '2xs': '0.625rem', // 10px
       },
       // Add custom animation
       animation: {
         'fade-in': 'fadeIn 0.5s ease-in', // Custom fade-in animation
+        'spin-slow': 'spin 2s linear infinite', // Slower spin animation
       },
       keyframes: {
         fadeIn: {

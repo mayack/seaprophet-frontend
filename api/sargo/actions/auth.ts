@@ -94,7 +94,9 @@ export async function getCurrentUser(): Promise<User | null> {
 
   if (!jwt) return null
 
-  const optionsCookie = cookieStore.get(CONFIG.api.tokens.sargoOptions.key)?.value
+  const optionsCookie = cookieStore.get(
+    CONFIG.api.tokens.sargoOptions.key
+  )?.value
   if (optionsCookie) {
     try {
       const userOptions = JSON.parse(optionsCookie) as User

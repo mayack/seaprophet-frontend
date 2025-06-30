@@ -36,6 +36,12 @@ export default [
       eqeqeq: ['error', 'always'], // Require === and !==
       'no-var': 'error', // Disallow var, use let/const
       'prefer-const': 'error', // Prefer const over let when possible
+      'tailwindcss/no-custom-classname': [
+        'warn',
+        {
+          whitelist: ['embla', 'embla__container', 'embla__slide'],
+        },
+      ], // Allow Embla carousel classes
     },
   },
 ]

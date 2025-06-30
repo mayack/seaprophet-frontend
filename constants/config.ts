@@ -1,5 +1,16 @@
+import type {
+  MapConfig,
+  MapDefaults,
+  MapLocationConfig,
+  MapInteractionConfig,
+  MapCarouselConfig,
+  MapUIConfig,
+  MapboxStylesConfig,
+  Coordinates,
+} from '@/types/map'
+
 export const CONFIG = {
-  version: '0.4.2',
+  version: '0.4.3',
   defaultTheme: 'system',
   api: {
     urls: {
@@ -88,14 +99,58 @@ export const CONFIG = {
   webcam: {
     afk_timer: 120 * 1000, // 2 minutes in milliseconds
   },
+  // Enhanced map configuration with proper typing
   map: {
     defaults: {
-      center: [-9.356267, 39.368892] as [number, number],
+      center: [-9.356267, 39.368892] as Coordinates, // Portugal
       zoom: 11,
-    },
-  },
+      height: '100%',
+      initialRadius: 250, // km - initial radius for loading spots
+      viewportPadding: 100, // percentage - expand bounds when loading new spots
+    } satisfies MapDefaults,
+    location: {
+      maxRetries: 3,
+      retryDelays: [3000, 3000, 3000], // ms - equal delays for consistent retry timing
+      alreadyAtLocationThreshold: 100, // meters - distance to consider "already at location"
+      timeouts: {
+        standard: 10000, // ms - standard location request timeout
+        highAccuracy: 15000, // ms - high accuracy location request timeout
+        maxAge: {
+          standard: 300000, // ms - 5 minutes
+          highAccuracy: 60000, // ms - 1 minute
+        },
+      },
+    } satisfies MapLocationConfig,
+    interaction: {
+      debounce: {
+        mapMovement: 500, // ms - delay before loading spots after map movement
+        moveHandler: 300, // ms - delay for onMove callback
+      },
+    } satisfies MapInteractionConfig,
+    carousel: {
+      breakpoints: {
+        mobile: 768, // px
+        tablet: 1024, // px
+      },
+      visibleSlides: {
+        mobile: 2,
+        tablet: 3,
+        desktop: 4,
+      },
+    } satisfies MapCarouselConfig,
+    ui: {
+      loadingText: 'Scanning...',
+      loadingIcon: {
+        size: 16,
+      },
+    } satisfies MapUIConfig,
+  } satisfies MapConfig,
+  // Enhanced Mapbox configuration
   mapbox: {
-    style: 'mapbox://styles/mayack/cm7a9jq2x002i01s87y377mrx',
+    styles: {
+      light: 'mapbox://styles/mayack/cmchapi2w007h01sba9v1edwl',
+      dark: 'mapbox://styles/mayack/cm7a9jq2x002i01s87y377mrx',
+    } satisfies MapboxStylesConfig,
   },
 } as const
 

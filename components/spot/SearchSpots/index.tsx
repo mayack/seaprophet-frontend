@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button'
 import { SpotCard } from '../SpotCard'
 import { searchSpots } from '@/api/sargo/actions/spot'
 import { SpotSummary } from '@/api/sargo/interfaces/spot'
-import debounce from 'lodash/debounce'
+import { debounce } from '@/components/maps/utils'
 import { Skeleton } from '@/components/ui/skeleton'
 import { usePathname, useRouter } from 'next/navigation'
 import React from 'react'
@@ -147,7 +147,7 @@ export function SearchSpots({
       </div>
 
       {showDropdown && (
-        <div className="absolute inset-x-0 top-16 z-50 max-h-64 overflow-auto bg-popover p-4 text-popover-foreground shadow-lg md:top-[calc(100%+0.75rem)] md:rounded-md md:border">
+        <div className="absolute inset-x-0 top-8 z-50 max-h-64 overflow-auto bg-popover p-4 text-popover-foreground shadow-xl md:top-[calc(100%+0.75rem)] md:rounded-3xl">
           {isLoading && (
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
               {[...Array(4)].map((_, i) => (
