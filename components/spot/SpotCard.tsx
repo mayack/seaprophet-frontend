@@ -9,7 +9,7 @@ interface SpotCardProps {
   subtitle?: string
   webcam?: WebcamConfig
   onClick?: (e: React.MouseEvent) => void
-  variant?: 'border' | 'shadow'
+  variant?: 'default' | 'shadow'
   compact?: boolean
 }
 
@@ -19,17 +19,17 @@ export function SpotCard({
   subtitle,
   webcam,
   onClick,
-  variant = 'border',
+  variant = 'default',
   compact = false,
 }: SpotCardProps): React.JSX.Element {
   return (
     <Link
       href={`/spot/${id}`}
       onClick={onClick}
-      className={`flex flex-col justify-center bg-card text-card-foreground hover:bg-muted ${
+      className={`flex flex-col justify-center text-card-foreground ${
         compact ? 'rounded-sm px-3 py-1' : 'rounded-lg px-4 py-2'
       } ${
-        variant === 'border' ? 'border border-input' : 'shadow-map'
+        variant === 'default' ? 'bg-muted' : 'bg-card shadow-map'
       } ${subtitle ? 'min-h-20' : 'min-h-12'}`}
     >
       <div className="flex items-center">

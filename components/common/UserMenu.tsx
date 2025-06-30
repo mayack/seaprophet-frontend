@@ -53,12 +53,17 @@ export function UserMenu({ user }: UserMenuProps): React.JSX.Element | null {
               {user.username.charAt(0).toUpperCase()}
             </AvatarFallback>
           </Avatar>
-          <ChevronDown size={12} strokeWidth={3} />
+          {/* <ChevronDown size={12} strokeWidth={3} /> */}
         </div>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-56">
+      <DropdownMenuContent
+        align="end"
+        sideOffset={16}
+        alignOffset={-10}
+        className="w-56"
+      >
         <div className="flex items-center gap-3 px-2 py-1.5">
-          <Avatar className="size-8">
+          <Avatar className="size-8 font-semibold">
             <AvatarFallback>
               {user.username.charAt(0).toUpperCase()}
             </AvatarFallback>
