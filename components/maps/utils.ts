@@ -91,13 +91,13 @@ export function createMapError(
 }
 
 // Simple debounce utility - no lodash needed
-export function debounce<T extends (...args: unknown[]) => unknown>(
-  func: T,
+export function debounce<Args extends unknown[]>(
+  func: (...args: Args) => void | Promise<void>,
   wait: number
-): T & { cancel: () => void } {
+): ((...args: Args) => void) & { cancel: () => void } {
   let timeout: NodeJS.Timeout | null = null
 
-  const debounced = (...args: Parameters<T>) => {
+  const debounced = (...args: Args) => {
     if (timeout) clearTimeout(timeout)
     timeout = setTimeout(() => func(...args), wait)
   }
@@ -109,7 +109,7 @@ export function debounce<T extends (...args: unknown[]) => unknown>(
     }
   }
 
-  return debounced as T & { cancel: () => void }
+  return debounced as ((...args: Args) => void) & { cancel: () => void }
 }
 
 // Validate coordinates helper
