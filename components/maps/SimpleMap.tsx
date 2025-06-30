@@ -3,34 +3,32 @@
 import React, { useEffect, useRef } from 'react'
 import mapboxgl from 'mapbox-gl'
 import 'mapbox-gl/dist/mapbox-gl.css'
-import { useTheme } from 'next-themes'
 import { CONFIG } from '@/constants/config'
 import { Spinner } from '@/components/ui/spinner'
-import { createMarkerElement } from './utils'
-
-interface SimpleMapProps {
-  center: [number, number]
-  zoom?: number
-  className?: string
-  showMarker?: boolean
-  spotId?: number
-  spotName?: string
-}
+import type { SimpleMapProps } from '@/types/map'
+import {
+  useMapTheme,
+  createMarkerElement,
+  createMapError,
+  switchMapStyle,
+  type MapError,
+} from './utils'
 
 export function SimpleMap({
   center,
-  zoom = 12,
+  zoom = CONFIG.map.defaults.zoom,
   className = '',
   showMarker = true,
   spotId,
   spotName,
+  height = CONFIG.map.defaults.height,
 }: SimpleMapProps): React.JSX.Element {
   const mapContainer = useRef<HTMLDivElement>(null)
   const map = useRef<mapboxgl.Map | null>(null)
   const marker = useRef<mapboxgl.Marker | null>(null)
   const [isLoaded, setIsLoaded] = React.useState(false)
-  const [error, setError] = React.useState<string | null>(null)
-  const { resolvedTheme } = useTheme()
+  const [error, setError] = React.useState<MapError | null>(null)
+  const { isDark, mapStyle } = useMapTheme()
 
   useEffect(() => {
     if (map.current) return // Initialize map only once
@@ -41,23 +39,15 @@ export function SimpleMap({
 
     const initializeMap = (): void => {
       try {
-        // Set Mapbox access token
-        const accessToken = process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN
-
-        if (!accessToken) {
-          setError('Mapbox access token not configured')
+        // Access token is set globally in utils.ts, but check if available
+        if (!process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN) {
+          setError(
+            createMapError('Mapbox access token not configured', 'token')
+          )
           return
         }
 
-        mapboxgl.accessToken = accessToken
-
-        // Get theme-aware style
-        const isDark = resolvedTheme === 'dark'
-        const mapStyle = isDark
-          ? CONFIG.mapbox.styles.dark
-          : CONFIG.mapbox.styles.light
-
-        // Create map
+        // Create map with theme-aware style
         map.current = new mapboxgl.Map({
           container: mapContainer.current!,
           style: mapStyle,
@@ -76,50 +66,36 @@ export function SimpleMap({
           clearTimeout(timeoutId)
           setIsLoaded(true)
 
-          // Hide Mapbox logo
-          const logo = mapContainer.current?.querySelector(
-            '.mapboxgl-ctrl-logo'
-          )
-          if (logo) {
-            ;(logo as HTMLElement).style.display = 'none'
-          }
-
           // Add marker if requested
           if (showMarker && map.current) {
             // Create custom marker element with theme awareness
             const markerElement = createMarkerElement({
-              isDark: resolvedTheme === 'dark',
+              isDark,
               cursor: 'default', // No pointer cursor since SimpleMap has no popups
             })
 
             // Create marker with custom element
             marker.current = new mapboxgl.Marker({
               element: markerElement,
-              anchor: 'center',
+              anchor: 'bottom',
             })
               .setLngLat(center)
               .addTo(map.current)
-
-            // Add popup if we have spot info
-            if (spotId && spotName) {
-              const popup = new mapboxgl.Popup({ offset: 25 }).setHTML(
-                `<a href="/spot/${spotId}" style="text-decoration: none; color: inherit; font-weight: 500;">${spotName}</a>`
-              )
-
-              marker.current.setPopup(popup)
-            }
           }
         })
 
         map.current.on('error', (e) => {
           clearTimeout(timeoutId)
-          setError(e.error?.message || 'Map failed to load')
+          setError(
+            createMapError(
+              e.error?.message || 'Map failed to load',
+              'initialization'
+            )
+          )
         })
       } catch (err) {
         clearTimeout(timeoutId)
-        setError(
-          err instanceof Error ? err.message : 'Failed to initialize map'
-        )
+        setError(createMapError(err, 'initialization'))
       }
     }
 
@@ -145,18 +121,8 @@ export function SimpleMap({
   useEffect(() => {
     if (!map.current || !isLoaded) return
 
-    const isDark = resolvedTheme === 'dark'
-    const newStyle = isDark
-      ? CONFIG.mapbox.styles.dark
-      : CONFIG.mapbox.styles.light
-
-    try {
-      // Simply set the new style - Mapbox will handle the transition
-      map.current.setStyle(newStyle)
-    } catch {
-      // Error handling theme change, ignoring silently
-    }
-  }, [resolvedTheme, isLoaded])
+    switchMapStyle(map.current, mapStyle, true)
+  }, [mapStyle, isLoaded])
 
   // Update marker when theme or center changes
   useEffect(() => {
@@ -166,30 +132,24 @@ export function SimpleMap({
 
       // Create new marker with updated theme
       const markerElement = createMarkerElement({
-        isDark: resolvedTheme === 'dark',
+        isDark,
         cursor: 'default',
       })
 
       marker.current = new mapboxgl.Marker({
         element: markerElement,
-        anchor: 'center',
+        anchor: 'bottom',
       })
         .setLngLat(center)
         .addTo(map.current)
-
-      // Re-add popup if we have spot info
-      if (spotId && spotName) {
-        const popup = new mapboxgl.Popup({ offset: 25 }).setHTML(
-          `<a href="/spot/${spotId}" style="text-decoration: none; color: inherit; font-weight: 500;">${spotName}</a>`
-        )
-
-        marker.current.setPopup(popup)
-      }
     }
-  }, [center, showMarker, resolvedTheme, spotId, spotName])
+  }, [center, showMarker, isDark, spotId, spotName])
 
   return (
-    <div className={`relative size-full bg-muted ${className}`}>
+    <div
+      className={`relative size-full bg-muted ${className}`}
+      style={{ height }}
+    >
       <div
         ref={mapContainer}
         className="size-full"
@@ -199,7 +159,7 @@ export function SimpleMap({
       {error && (
         <div className="absolute inset-0 z-10 flex items-center justify-center bg-muted">
           <div className="text-center text-muted-foreground">
-            <p className="text-sm">Map failed to load</p>
+            <p className="text-sm">{error.message}</p>
             <p className="text-xs">Please refresh the page</p>
           </div>
         </div>

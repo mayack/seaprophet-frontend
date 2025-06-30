@@ -4,8 +4,10 @@ import { CONFIG } from '@/constants/config'
 import { GeographicBounds } from '@/types/map'
 import { calculateDistance } from '@/utils/location'
 import mapboxgl from 'mapbox-gl'
+import { useTheme } from 'next-themes'
+import { useEffect, useState } from 'react'
 
-// Set Mapbox token
+// Set Mapbox token once
 if (process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN) {
   mapboxgl.accessToken = process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN
 }
@@ -13,13 +15,79 @@ if (process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN) {
 // Constants
 const METERS_PER_DEGREE = 111320 // Approximate meters per degree at equator
 
-interface CreateMapOptions {
-  container: HTMLDivElement
-  center: [number, number]
-  zoom: number
-  theme?: string | null
-  disablePanning?: boolean
-  disableZooming?: boolean
+// Unified theme management for maps
+export function useMapTheme() {
+  const { resolvedTheme } = useTheme()
+  const [currentStyle, setCurrentStyle] = useState<string>('')
+
+  const isDark = resolvedTheme === 'dark'
+  const mapStyle = isDark
+    ? CONFIG.mapbox.styles.dark
+    : CONFIG.mapbox.styles.light
+
+  useEffect(() => {
+    setCurrentStyle(mapStyle)
+  }, [mapStyle])
+
+  return {
+    isDark,
+    mapStyle,
+    currentStyle,
+    resolvedTheme,
+  }
+}
+
+// Unified map style switching
+export function switchMapStyle(
+  map: mapboxgl.Map,
+  newStyle: string,
+  safeMode: boolean = true
+) {
+  if (!map) return false
+
+  try {
+    if (safeMode) {
+      // Wait for style to be loaded before switching
+      if (!map.isStyleLoaded()) {
+        const handleStyleLoad = () => {
+          map.setStyle(newStyle)
+          map.off('styledata', handleStyleLoad)
+        }
+        map.on('styledata', handleStyleLoad)
+        return true
+      }
+    }
+
+    map.setStyle(newStyle)
+    return true
+  } catch {
+    return false
+  }
+}
+
+// Unified error handling for maps
+export interface MapError {
+  message: string
+  code?: string
+  type: 'initialization' | 'style' | 'token' | 'unknown'
+}
+
+export function createMapError(
+  error: unknown,
+  type: MapError['type'] = 'unknown'
+): MapError {
+  if (error instanceof Error) {
+    return {
+      message: error.message,
+      code: error.name,
+      type,
+    }
+  }
+
+  return {
+    message: typeof error === 'string' ? error : 'An unknown error occurred',
+    type,
+  }
 }
 
 // Simple debounce utility - no lodash needed
@@ -55,6 +123,15 @@ export function isValidCoordinate(lng: number, lat: number): boolean {
 export function getMapStyle(isDark?: boolean): string {
   const useDark = isDark ?? false
   return useDark ? CONFIG.mapbox.styles.dark : CONFIG.mapbox.styles.light
+}
+
+interface CreateMapOptions {
+  container: HTMLDivElement
+  center: [number, number]
+  zoom: number
+  theme?: string | null
+  disablePanning?: boolean
+  disableZooming?: boolean
 }
 
 // Create map with theme support
@@ -152,7 +229,7 @@ export function createMarker(
 ): mapboxgl.Marker {
   const marker = new mapboxgl.Marker({
     element: element,
-    anchor: 'center',
+    anchor: 'bottom',
   }).setLngLat(position)
 
   if (popup) {
@@ -210,26 +287,23 @@ export function isUserPannedAway(
 
 // User location marker creation
 export function createUserLocationMarkerElement(): HTMLDivElement {
-  // Relative container
-  const relativeContainer = document.createElement('div')
-  relativeContainer.className =
-    'user-location-marker relative pointer-events-none size-4'
+  const el = document.createElement('div')
+  el.className = 'user-location-marker'
 
-  // Inner circle
-  const circle = document.createElement('div')
-  circle.className =
-    'size-full bg-blue-500 border-2 border-white rounded-full z-10 shadow-map'
+  // Create pulsating blue circle using Tailwind classes
+  el.innerHTML = `
+    <div class="relative">
+      <div class="w-4 h-4 bg-blue-500 rounded-full border-2 border-white shadow-map"></div>
+      <div class="absolute top-0 left-0 w-4 h-4 bg-blue-500 rounded-full animate-ping"></div>
+    </div>
+  `
 
-  // Outer circle (pulsating)
-  const outerCircle = document.createElement('div')
-  outerCircle.className =
-    'absolute inset-0 size-full bg-blue-500 rounded-full animate-ping z-0'
+  el.style.display = 'flex'
+  el.style.alignItems = 'center'
+  el.style.justifyContent = 'center'
+  el.style.pointerEvents = 'none'
 
-  // Nest the structure: relative > circle > outerCircle
-  circle.appendChild(outerCircle)
-  relativeContainer.appendChild(circle)
-
-  return relativeContainer
+  return el
 }
 
 export function createUserLocationMarker(
@@ -242,20 +316,18 @@ export function createUserLocationMarker(
     existingMarker.remove()
   }
 
+  // Create new marker
   const markerElement = createUserLocationMarkerElement()
-
-  // Create marker with center anchor
-  const userMarker = new mapboxgl.Marker({
+  const marker = new mapboxgl.Marker({
     element: markerElement,
     anchor: 'center',
   })
     .setLngLat([location.longitude, location.latitude])
     .addTo(map)
 
-  return userMarker
+  return marker
 }
 
-// Location button state utilities
 export type LocationState =
   | 'idle'
   | 'loading'
@@ -274,18 +346,22 @@ export function getLocationButtonLabel(config: LocationButtonConfig): string {
   const { state, retryCount, maxRetries } = config
 
   switch (state) {
-    case 'permission-denied':
-      return 'Location permission denied - click to try again'
-    case 'error':
-      return `Location error - click to retry${retryCount > 0 ? ` (attempt ${retryCount}/${maxRetries})` : ''}`
-    case 'off-center':
-      return 'Return to my location'
-    case 'centered':
-      return 'Currently at your location'
     case 'loading':
-      return `Finding your location${retryCount > 0 ? ` (retry ${retryCount})` : ''}...`
+      return retryCount > 0
+        ? `Locating... (attempt ${retryCount}/${maxRetries})`
+        : 'Locating...'
+    case 'centered':
+      return 'You are centered on the map'
+    case 'off-center':
+      return 'Center on your location'
+    case 'error':
+      return retryCount >= maxRetries
+        ? 'Location failed - no more retries'
+        : 'Location failed - click to retry'
+    case 'permission-denied':
+      return 'Location access denied'
     default:
-      return 'Find my location'
+      return 'Show your location'
   }
 }
 
@@ -295,30 +371,30 @@ export function getLocationButtonAction(
   switch (state) {
     case 'off-center':
       return 'recenter'
-    case 'error':
-    case 'permission-denied':
     case 'idle':
+    case 'error':
       return 'request'
     case 'loading':
     case 'centered':
-      return 'none'
+    case 'permission-denied':
     default:
-      return 'request'
+      return 'none'
   }
 }
 
-// Spot sorting utilities
 export function sortSpotsByDistance(
   spots: SpotSummary[],
   userLocation?: { latitude: number; longitude: number }
 ): SpotSummary[] {
   if (!userLocation) {
-    return spots.sort((a, b) => a.name.localeCompare(b.name))
+    return [...spots]
   }
 
-  return spots.sort(
-    (a, b) => (a.distance || Infinity) - (b.distance || Infinity)
-  )
+  return [...spots].sort((a, b) => {
+    const distanceA = a.distance ?? Infinity
+    const distanceB = b.distance ?? Infinity
+    return distanceA - distanceB
+  })
 }
 
 export function addDistanceToSpots(
@@ -338,17 +414,15 @@ export function addDistanceToSpots(
             userLocation.longitude,
             spot.location.lat,
             spot.location.long
-          ) // Already returns properly rounded km value
-        : spot.distance,
+          )
+        : undefined,
   }))
 }
 
-// Improved cache management
-// Simple spots cache - no complex class needed
-export const spotsCache = {
+// Simple spots cache implementation
+const spotsCache = {
   spots: new Map<number, SpotSummary>(),
   loadedRegions: [] as GeographicBounds[],
-  maxRegions: 10,
 
   addSpot(spot: SpotSummary): void {
     this.spots.set(spot.id, spot)
@@ -364,19 +438,17 @@ export const spotsCache = {
 
   addLoadedRegion(region: GeographicBounds): void {
     this.loadedRegions.push(region)
-    if (this.loadedRegions.length > this.maxRegions) {
-      this.loadedRegions = this.loadedRegions.slice(-this.maxRegions)
-    }
   },
 
   isRegionLoaded(bounds: GeographicBounds): boolean {
-    return this.loadedRegions.some(
-      (region) =>
-        bounds.north <= region.north &&
-        bounds.south >= region.south &&
-        bounds.east <= region.east &&
-        bounds.west >= region.west
-    )
+    return this.loadedRegions.some((region) => {
+      return (
+        region.north >= bounds.north &&
+        region.south <= bounds.south &&
+        region.east >= bounds.east &&
+        region.west <= bounds.west
+      )
+    })
   },
 
   clear(): void {
@@ -385,15 +457,17 @@ export const spotsCache = {
   },
 
   getSpotsInBounds(bounds: GeographicBounds): SpotSummary[] {
-    return this.getAllSpots().filter((spot) => {
+    return Array.from(this.spots.values()).filter((spot) => {
       if (!spot.location?.lat || !spot.location?.long) return false
 
       return (
-        spot.location.lat <= bounds.north &&
         spot.location.lat >= bounds.south &&
-        spot.location.long <= bounds.east &&
-        spot.location.long >= bounds.west
+        spot.location.lat <= bounds.north &&
+        spot.location.long >= bounds.west &&
+        spot.location.long <= bounds.east
       )
     })
   },
 }
+
+export { spotsCache }

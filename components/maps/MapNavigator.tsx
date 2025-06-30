@@ -22,7 +22,7 @@ import {
   Locate,
   LocateFixed,
   LocateOff,
-} from 'lucide-react'
+} from './icons'
 import { SpotCard } from '@/components/spot/SpotCard'
 import { Button } from '@/components/ui/button'
 import useEmblaCarousel from 'embla-carousel-react'
@@ -30,14 +30,7 @@ import { calculateBounds, formatDistance } from '@/utils/location'
 import { GeographicBounds } from '@/types/map'
 import { SpotSummary } from '@/api/sargo/interfaces/spot'
 import { CONFIG } from '@/constants/config'
-
-interface MapNavigatorProps {
-  className?: string
-  height?: string
-  initialRadius?: number
-  viewportPadding?: number
-  initialZoom?: number
-}
+import type { MapNavigatorProps } from '@/types/map'
 
 export function MapNavigator({
   className = '',
