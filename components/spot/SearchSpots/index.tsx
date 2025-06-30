@@ -147,7 +147,7 @@ export function SearchSpots({
       </div>
 
       {showDropdown && (
-        <div className="absolute inset-x-0 top-16 z-50 max-h-[calc(100dvh-64px)] overflow-auto bg-foreground p-3 text-foreground shadow-lg transition-all duration-300 md:rounded-2xl">
+        <div className="absolute inset-x-0 top-16 z-50 max-h-[calc(100dvh-64px)] overflow-auto bg-background p-3 text-foreground shadow-lg transition-all duration-300 md:rounded-2xl">
           {isLoading && (
             <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
               {[...Array(4)].map((_, i) => (

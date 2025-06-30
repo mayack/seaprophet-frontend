@@ -27,7 +27,7 @@ export function Header({ user }: HeaderProps): React.JSX.Element {
           >
             <Waves className="size-6" />
           </Link>
-          <div className="flex grow items-center gap-3 xl:gap-4">
+          <div className="flex grow items-center gap-2 xl:gap-4">
             <SearchSpots className="w-full" placeholder="Search for spots..." />
             <TooltipProvider>
               <Tooltip>
