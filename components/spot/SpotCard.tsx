@@ -26,10 +26,10 @@ export function SpotCard({
     <Link
       href={`/spot/${id}`}
       onClick={onClick}
-      className={`flex flex-col justify-center text-card-foreground ${
+      className={`flex flex-col justify-center bg-card text-card-foreground ${
         compact ? 'rounded-sm px-3 py-1' : 'rounded-lg px-4 py-2'
       } ${
-        variant === 'default' ? 'bg-muted' : 'bg-card shadow-map'
+        variant === 'default' ? 'border border-input' : 'shadow-map'
       } ${subtitle ? 'min-h-20' : 'min-h-12'}`}
     >
       <div className="flex items-center">
