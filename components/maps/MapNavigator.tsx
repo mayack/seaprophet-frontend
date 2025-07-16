@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useEffect, useState, useCallback, useMemo } from 'react'
+import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react'
 import 'mapbox-gl/dist/mapbox-gl.css'
 import { useUser } from '@/contexts/UserContext'
 import { getSpotsByBounds } from '@/api/sargo/actions/spot'
@@ -62,6 +62,11 @@ export function MapNavigator({
   const hasUserLocation =
     userData.latitude !== undefined && userData.longitude !== undefined
 
+  // Simple function to clear spots when flyTo starts
+  const handleFlyStart = useCallback(() => {
+    setVisibleSpots([])
+  }, [])
+
   // Capture initial user location state and keep it stable
   // This prevents reinitialization when userData updates after location is found
   const initialCenter = useMemo((): [number, number] => {
@@ -88,6 +93,7 @@ export function MapNavigator({
     center: initialCenter,
     zoom: initialZoom,
     showUserLocation: true,
+    onFlyStart: handleFlyStart,
   })
 
   const getVisibleSlides = useCallback((): number => {
@@ -339,6 +345,28 @@ export function MapNavigator({
           const updatedSpotsInView = spotsCache.getSpotsInBounds(currentBounds)
           clearSpotMarkers()
           addSpotMarkers(updatedSpotsInView)
+
+          // Update spots with distance calculation and validation
+          const updatedSpotsWithDistance = addDistanceToSpots(
+            updatedSpotsInView,
+            hasUserLocation
+              ? {
+                  latitude: userData.latitude!,
+                  longitude: userData.longitude!,
+                }
+              : undefined
+          )
+          const updatedSortedSpots = sortSpotsByDistance(
+            updatedSpotsWithDistance,
+            hasUserLocation
+              ? {
+                  latitude: userData.latitude!,
+                  longitude: userData.longitude!,
+                }
+              : undefined
+          )
+
+          setVisibleSpots(updatedSortedSpots)
         }
       } catch {
         // Error silently handled
@@ -367,6 +395,7 @@ export function MapNavigator({
     addSpotMarkers,
     clearSpotMarkers,
     viewportPadding,
+    handleFlyStart,
   ])
 
   return (
