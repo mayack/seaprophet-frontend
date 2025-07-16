@@ -44,6 +44,7 @@ export function useMapbox(options: UseMapboxOptions = {}): UseMapboxReturn {
     onMapLoad,
     onMapError,
     onMove,
+    onFlyStart,
   } = options
 
   const mapRef = useRef<HTMLDivElement>(null)
@@ -250,15 +251,21 @@ export function useMapbox(options: UseMapboxOptions = {}): UseMapboxReturn {
     })
   }, [])
 
-  const flyTo = useCallback((center: [number, number], zoomLevel?: number) => {
-    if (mapInstance.current) {
-      mapInstance.current.flyTo({
-        center,
-        zoom: zoomLevel || mapInstance.current.getZoom(),
-        duration: 1000,
-      })
-    }
-  }, [])
+  const flyTo = useCallback(
+    (center: [number, number], zoomLevel?: number) => {
+      if (mapInstance.current) {
+        // Notify that flyTo is starting
+        onFlyStart?.()
+
+        mapInstance.current.flyTo({
+          center,
+          zoom: zoomLevel || mapInstance.current.getZoom(),
+          duration: 1000,
+        })
+      }
+    },
+    [onFlyStart]
+  )
 
   const fitBounds = useCallback(
     (bounds: [[number, number], [number, number]]) => {

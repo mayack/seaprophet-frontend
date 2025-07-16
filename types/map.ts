@@ -67,6 +67,8 @@ export interface MapCallbackProps {
   onMapError?: (error: string) => void
   /** Callback when map is moved or zoomed */
   onMove?: (center: Coordinates, zoom: number) => void
+  /** Callback when flyTo operation starts */
+  onFlyStart?: () => void
 }
 
 // Marker and popup interfaces
