@@ -93,7 +93,7 @@ export class SargoClient extends BaseApiClient {
       CONFIG.api.endpoints.sargo.user.update
     )
 
-    const response = await this.fetch<{ data: User }>(
+    const response = await this.fetch<User>(
       CONFIG.api.endpoints.sargo.user.update,
       {
         init: {
@@ -107,7 +107,7 @@ export class SargoClient extends BaseApiClient {
         },
       }
     )
-    return response.data
+    return response
   }
 
   async changePassword(data: {

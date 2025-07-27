@@ -10,7 +10,7 @@ import type {
 } from '@/types/map'
 
 export const CONFIG = {
-  version: '0.4.5',
+  version: '0.4.6',
   defaultTheme: 'system',
   api: {
     urls: {
@@ -63,7 +63,7 @@ export const CONFIG = {
           secure: process.env.NODE_ENV === 'production',
           sameSite: 'lax' as const,
           path: '/',
-          maxAge: 5 * 60, // 5 minutes
+          maxAge: 30 * 60, // 30 minutes - increased from 5 minutes to prevent edge function issues
         },
       },
       // Simplified: only cache duration for in-memory storage
