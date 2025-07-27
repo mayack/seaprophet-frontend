@@ -166,10 +166,7 @@ export async function updateUserUnits(units: UserSettings['units']) {
 
     // Check if the API call returned a valid user object
     if (!updatedUser || !updatedUser.username) {
-      console.error(
-        'Invalid user response from updateUserProfile:',
-        updatedUser
-      )
+      console.warn('API returned incomplete user data, using fallback approach')
       // Fall back to using the original user data with updated settings
       const fallbackUser = {
         ...user,
@@ -218,7 +215,8 @@ export async function updateUserUnits(units: UserSettings['units']) {
     console.error('Failed to update user units:', error)
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Failed to update units',
+      error:
+        error instanceof Error ? error.message : 'Failed to update user units',
     }
   }
 }
