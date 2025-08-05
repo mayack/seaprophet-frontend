@@ -28,7 +28,7 @@ export default async function AuthenticatedLayout({
 
   return (
     <UserProvider initialUserData={user}>
-      <div className="flex min-h-full flex-col bg-background">
+      <div className="flex min-h-dvh flex-col bg-background">
         <Header user={user} />
         <main className="flex flex-1 flex-col justify-center">{children}</main>
       </div>
