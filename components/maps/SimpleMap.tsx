@@ -115,7 +115,7 @@ export function SimpleMap({
         map.current = null
       }
     }
-  }, []) // Empty dependency array - initialize only once
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps -- intentionally initialize only once
 
   // Handle theme changes for map style
   useEffect(() => {

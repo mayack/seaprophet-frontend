@@ -11,7 +11,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { Settings, LogOut, ChevronDown } from 'lucide-react'
+import { Settings, LogOut } from 'lucide-react'
 import { User } from '@/api/sargo/interfaces/user'
 import React from 'react'
 import ThemeSwitcher from './ThemeSwitcher'

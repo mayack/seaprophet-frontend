@@ -9,7 +9,7 @@ interface SimpleMapSuspenseProps extends SimpleMapProps {
   fallback?: React.ReactNode
 }
 
-function SimpleMapSkeleton({ height }: { height?: string }) {
+function SimpleMapSkeleton({ height }: { height?: string }): React.JSX.Element {
   return (
     <div className="relative bg-muted" style={{ height: height || '200px' }}>
       <Skeleton className="size-full" />
@@ -25,7 +25,7 @@ export function SimpleMapWithSuspense({
   fallback,
   height,
   ...props
-}: SimpleMapSuspenseProps) {
+}: SimpleMapSuspenseProps): React.JSX.Element {
   return (
     <Suspense fallback={fallback || <SimpleMapSkeleton height={height} />}>
       <SimpleMap height={height} {...props} />

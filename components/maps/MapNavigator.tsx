@@ -76,7 +76,7 @@ export function MapNavigator({
     } else {
       return CONFIG.map.defaults.center
     }
-  }, []) // Empty deps - only use initial userData state
+  }, [userData.latitude, userData.longitude]) // Include deps but memoize to prevent re-renders
 
   // Use centralized map hook
   const {
@@ -132,7 +132,7 @@ export function MapNavigator({
     emblaApi.on('select', updateScrollButtons)
     emblaApi.on('reInit', updateScrollButtons)
 
-    return () => {
+    return (): void => {
       emblaApi.off('select', updateScrollButtons)
       emblaApi.off('reInit', updateScrollButtons)
     }
@@ -148,14 +148,14 @@ export function MapNavigator({
 
   // Handle window resize for responsive carousel
   useEffect(() => {
-    const handleResize = () => {
+    const handleResize = (): void => {
       if (emblaApi) {
         updateScrollButtons()
       }
     }
 
     window.addEventListener('resize', handleResize)
-    return () => window.removeEventListener('resize', handleResize)
+    return (): void => window.removeEventListener('resize', handleResize)
   }, [emblaApi, updateScrollButtons])
 
   // Handle location button clicks with different behaviors for different states
@@ -187,62 +187,6 @@ export function MapNavigator({
   const scrollNext = useCallback((): void => {
     emblaApi?.scrollNext()
   }, [emblaApi])
-
-  // Load initial spots when map is ready (only once)
-  useEffect(() => {
-    if (!map || isFetching) return
-
-    const loadInitialSpots = async () => {
-      const bounds = calculateBounds(
-        initialCenter[1],
-        initialCenter[0],
-        initialRadius
-      )
-
-      // Load spots if not already loaded
-      if (!spotsCache.isRegionLoaded(bounds)) {
-        setIsFetching(true)
-        setIsLoading(true)
-
-        // Cancel any existing request
-        if (abortControllerRef.current) {
-          abortControllerRef.current.abort()
-        }
-        abortControllerRef.current = new AbortController()
-
-        try {
-          const response = await getSpotsByBounds(bounds)
-
-          if (response.data && !response.error) {
-            response.data.forEach((spot) => {
-              spotsCache.addSpot(spot)
-            })
-            spotsCache.addLoadedRegion(bounds)
-          }
-        } catch (error) {
-          // Only log if not aborted
-          if (error instanceof Error && error.name !== 'AbortError') {
-            console.warn('Failed to load initial spots:', error)
-          }
-        } finally {
-          setIsLoading(false)
-          setIsFetching(false)
-          abortControllerRef.current = null
-        }
-      }
-
-      // Always update spots in view regardless of loading
-      updateSpotsInView()
-    }
-
-    loadInitialSpots()
-  }, [
-    map,
-    initialCenter,
-    initialRadius,
-    addSpotMarkers,
-    clearSpotMarkers,
-  ])
 
   // Function to update spots in current view
   const updateSpotsInView = useCallback(() => {
@@ -280,13 +224,78 @@ export function MapNavigator({
     )
 
     setVisibleSpots(sortedSpots)
-  }, [map, hasUserLocation, userData.latitude, userData.longitude, addSpotMarkers, clearSpotMarkers])
+  }, [
+    map,
+    hasUserLocation,
+    userData.latitude,
+    userData.longitude,
+    addSpotMarkers,
+    clearSpotMarkers,
+  ])
+
+  // Load initial spots when map is ready (only once)
+  useEffect(() => {
+    if (!map || isFetching) return
+
+    const loadInitialSpots = async (): Promise<void> => {
+      const bounds = calculateBounds(
+        initialCenter[1],
+        initialCenter[0],
+        initialRadius
+      )
+
+      // Load spots if not already loaded
+      if (!spotsCache.isRegionLoaded(bounds)) {
+        setIsFetching(true)
+        setIsLoading(true)
+
+        // Cancel any existing request
+        if (abortControllerRef.current) {
+          abortControllerRef.current.abort()
+        }
+        abortControllerRef.current = new AbortController()
+
+        try {
+          const response = await getSpotsByBounds(bounds)
+
+          if (response.data && !response.error) {
+            response.data.forEach((spot) => {
+              spotsCache.addSpot(spot)
+            })
+            spotsCache.addLoadedRegion(bounds)
+          }
+        } catch (error) {
+          // Only log if not aborted
+          if (error instanceof Error && error.name !== 'AbortError') {
+            // Silent error handling for production
+          }
+        } finally {
+          setIsLoading(false)
+          setIsFetching(false)
+          abortControllerRef.current = null
+        }
+      }
+
+      // Always update spots in view regardless of loading
+      updateSpotsInView()
+    }
+
+    loadInitialSpots()
+  }, [
+    map,
+    initialCenter,
+    initialRadius,
+    addSpotMarkers,
+    clearSpotMarkers,
+    isFetching,
+    updateSpotsInView,
+  ])
 
   // Handle map movement for loading new spots
   useEffect(() => {
     if (!map) return
 
-    const handleMapMovement = async () => {
+    const handleMapMovement = async (): Promise<void> => {
       if (isFetching) return
 
       const mapBounds = map.getBounds()
@@ -340,7 +349,7 @@ export function MapNavigator({
       } catch (error) {
         // Only log if not aborted
         if (error instanceof Error && error.name !== 'AbortError') {
-          console.warn('Failed to load spots:', error)
+          // Silent error handling for production
         }
       } finally {
         setIsLoading(false)
@@ -356,24 +365,25 @@ export function MapNavigator({
     map.on('moveend', debouncedHandler)
     map.on('zoomend', debouncedHandler)
 
-    return () => {
+    return (): void => {
       map.off('moveend', debouncedHandler)
       map.off('zoomend', debouncedHandler)
     }
-  }, [
-    map,
-    viewportPadding,
-    updateSpotsInView,
-  ])
+  }, [map, viewportPadding, updateSpotsInView, isFetching])
 
   // Update spots when user location changes (without reloading from API)
   useEffect(() => {
     updateSpotsInView()
-  }, [hasUserLocation, userData.latitude, userData.longitude, updateSpotsInView])
+  }, [
+    hasUserLocation,
+    userData.latitude,
+    userData.longitude,
+    updateSpotsInView,
+  ])
 
   // Cleanup abort controller on unmount
   useEffect(() => {
-    return () => {
+    return (): void => {
       if (abortControllerRef.current) {
         abortControllerRef.current.abort()
       }

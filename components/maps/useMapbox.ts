@@ -96,7 +96,7 @@ export function useMapbox(options: UseMapboxOptions = {}): UseMapboxReturn {
           location,
           userLocationMarker.current
         )
-      } catch (error) {
+      } catch {
         // Retry after a short delay if style isn't loaded
         setTimeout(() => {
           createUserLocationMarkerWrapper(location)
@@ -119,7 +119,7 @@ export function useMapbox(options: UseMapboxOptions = {}): UseMapboxReturn {
         mapInstance.current.off('moveend', moveHandlerRef.current)
       }
 
-      const handleMove = () => {
+      const handleMove = (): void => {
         const currentCenter = mapInstance.current?.getCenter()
         const currentLocationState = locationStateRef.current
         const userLocation = userLocationRef.current
@@ -226,7 +226,7 @@ export function useMapbox(options: UseMapboxOptions = {}): UseMapboxReturn {
           )
 
           markersRef.current[`spot-${spot.id}`] = marker
-        } catch (error) {
+        } catch {
           // Error adding spot marker, skip this spot
         }
       })
@@ -482,7 +482,7 @@ export function useMapbox(options: UseMapboxOptions = {}): UseMapboxReturn {
     }
 
     // Cleanup function
-    return () => {
+    return (): void => {
       if (mapInstance.current) {
         clearMarkers()
         if (userLocationMarker.current) {
@@ -507,6 +507,7 @@ export function useMapbox(options: UseMapboxOptions = {}): UseMapboxReturn {
       isInitialized.current = false
     }
   }, [
+    center,
     zoom,
     isDark,
     disablePanning,
@@ -515,6 +516,13 @@ export function useMapbox(options: UseMapboxOptions = {}): UseMapboxReturn {
     onMapLoad,
     onMapError,
     onMove,
+    clearMarkers,
+    createUserLocationMarkerWrapper,
+    flyTo,
+    requestUserLocation,
+    setupMoveHandler,
+    userData.latitude,
+    userData.longitude,
   ])
 
   // Update map center when center prop changes (without re-initializing)

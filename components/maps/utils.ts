@@ -16,7 +16,12 @@ if (process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN) {
 const METERS_PER_DEGREE = 111320 // Approximate meters per degree at equator
 
 // Unified theme management for maps
-export function useMapTheme() {
+export function useMapTheme(): {
+  isDark: boolean
+  mapStyle: string
+  currentStyle: string
+  resolvedTheme: string | undefined
+} {
   const { resolvedTheme } = useTheme()
   const [currentStyle, setCurrentStyle] = useState<string>('')
 
@@ -42,14 +47,14 @@ export function switchMapStyle(
   map: mapboxgl.Map,
   newStyle: string,
   safeMode: boolean = true
-) {
+): boolean {
   if (!map) return false
 
   try {
     if (safeMode) {
       // Wait for style to be loaded before switching
       if (!map.isStyleLoaded()) {
-        const handleStyleLoad = () => {
+        const handleStyleLoad = (): void => {
           map.setStyle(newStyle)
           map.off('styledata', handleStyleLoad)
         }
@@ -97,12 +102,12 @@ export function debounce<Args extends unknown[]>(
 ): ((...args: Args) => void) & { cancel: () => void } {
   let timeout: NodeJS.Timeout | null = null
 
-  const debounced = (...args: Args) => {
+  const debounced = (...args: Args): void => {
     if (timeout) clearTimeout(timeout)
     timeout = setTimeout(() => func(...args), wait)
   }
 
-  debounced.cancel = () => {
+  debounced.cancel = (): void => {
     if (timeout) {
       clearTimeout(timeout)
       timeout = null
@@ -458,15 +463,17 @@ const spotsCache = {
       const overlapSouth = Math.max(region.south, bounds.south)
       const overlapEast = Math.min(region.east, bounds.east)
       const overlapWest = Math.max(region.west, bounds.west)
-      
+
       // Calculate overlap area vs requested area
       if (overlapNorth <= overlapSouth || overlapEast <= overlapWest) {
         return false // No overlap
       }
-      
-      const overlapArea = (overlapNorth - overlapSouth) * (overlapEast - overlapWest)
-      const requestedArea = (bounds.north - bounds.south) * (bounds.east - bounds.west)
-      
+
+      const overlapArea =
+        (overlapNorth - overlapSouth) * (overlapEast - overlapWest)
+      const requestedArea =
+        (bounds.north - bounds.south) * (bounds.east - bounds.west)
+
       return overlapArea / requestedArea >= 0.8 // 80% coverage threshold
     })
   },
