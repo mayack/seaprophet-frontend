@@ -17,7 +17,7 @@ export default async function SpotsPage(): Promise<React.JSX.Element> {
   }
 
   return (
-    <div className="wrapper py-4 sm:py-6 xl:py-8">
+    <div className="wrapper mobile-safe-bottom py-4 sm:py-6 xl:py-8">
       <Suspense fallback={<SpotsBrowseSkeleton />}>
         <SpotsBrowse spotsByCountry={spotsByCountry} />
       </Suspense>

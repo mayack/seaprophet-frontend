@@ -14,6 +14,12 @@ export const metadata: Metadata = {
   title: 'Sea Prophet',
 }
 
+export const viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  viewportFit: 'cover', // Support for safe areas on mobile
+}
+
 export default function RootLayout({
   children,
 }: {

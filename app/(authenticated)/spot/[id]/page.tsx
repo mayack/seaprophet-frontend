@@ -89,7 +89,7 @@ export default async function SpotPage({
         : []
 
     return (
-      <div className="wrapper-spacing py-4 sm:py-6 xl:py-8">
+      <div className="wrapper-spacing mobile-safe-bottom py-4 sm:py-6 xl:py-8">
         <div className="space-y-4 sm:space-y-6">
           <SpotsDetails
             mapCenter={[spot.location_long, spot.location_lat]}

@@ -101,6 +101,9 @@
   html,
   body {
     @apply h-full min-h-full;
+    /* Support for dynamic viewport height on mobile */
+    min-height: 100vh;
+    min-height: 100dvh; /* Dynamic viewport height */
   }
 
   body {
@@ -139,6 +142,25 @@
 
   .wrapper-spacing {
     @apply space-y-8 sm:space-y-10 xl:space-y-12;
+  }
+
+  /* Mobile browser safe area support */
+  .safe-area-bottom {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+
+  /* Mobile viewport fix for dynamic browser UI */
+  .mobile-safe-bottom {
+    @apply pb-4 sm:pb-6 xl:pb-8;
+    /* Add extra padding on mobile to account for dynamic browser UI */
+    padding-bottom: max(1rem, env(safe-area-inset-bottom));
+  }
+
+  @media (max-width: 768px) {
+    .mobile-safe-bottom {
+      /* Extra bottom padding on mobile to prevent content being covered */
+      padding-bottom: max(4rem, env(safe-area-inset-bottom));
+    }
   }
 
   .user-location-marker .animate-ping {
