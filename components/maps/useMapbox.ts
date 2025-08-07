@@ -518,8 +518,10 @@ export function useMapbox(options: UseMapboxOptions = {}): UseMapboxReturn {
   ])
 
   // Update map center when center prop changes (without re-initializing)
+  // Only update on initial load, not on subsequent center changes to prevent feedback loops
+  const hasSetInitialCenter = useRef(false)
   useEffect(() => {
-    if (mapInstance.current && isLoaded) {
+    if (mapInstance.current && isLoaded && !hasSetInitialCenter.current) {
       const currentCenter = mapInstance.current.getCenter()
       const [newLng, newLat] = center
 
@@ -533,6 +535,7 @@ export function useMapbox(options: UseMapboxOptions = {}): UseMapboxReturn {
         // ~10 meters threshold
         mapInstance.current.setCenter(center)
       }
+      hasSetInitialCenter.current = true
     }
   }, [center, isLoaded])
 

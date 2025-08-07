@@ -45,6 +45,7 @@ export function MapNavigator({
   const [isFetching, setIsFetching] = useState(false)
   const [canScrollPrev, setCanScrollPrev] = useState(false)
   const [canScrollNext, setCanScrollNext] = useState(false)
+  const abortControllerRef = useRef<AbortController | null>(null)
 
   // Carousel setup
   const [emblaRef, emblaApi] = useEmblaCarousel({
@@ -187,7 +188,7 @@ export function MapNavigator({
     emblaApi?.scrollNext()
   }, [emblaApi])
 
-  // Load initial spots when map is ready
+  // Load initial spots when map is ready (only once)
   useEffect(() => {
     if (!map || isFetching) return
 
@@ -198,50 +199,16 @@ export function MapNavigator({
         initialRadius
       )
 
-      // Get spots currently in view
-      const getSpotsInView = (): SpotSummary[] => {
-        const mapBounds = map.getBounds()
-        if (!mapBounds) return []
-
-        const currentBounds = {
-          north: mapBounds.getNorth(),
-          south: mapBounds.getSouth(),
-          east: mapBounds.getEast(),
-          west: mapBounds.getWest(),
-        }
-
-        return spotsCache.getSpotsInBounds(currentBounds)
-      }
-
-      // Update markers and visible spots
-      const updateMarkersAndSpots = () => {
-        const spotsInView = getSpotsInView()
-
-        // Clear existing spot markers and add new ones
-        clearSpotMarkers()
-        addSpotMarkers(spotsInView)
-
-        // Update visible spots for carousel
-        const spotsWithDistance = addDistanceToSpots(
-          spotsInView,
-          hasUserLocation
-            ? { latitude: userData.latitude!, longitude: userData.longitude! }
-            : undefined
-        )
-        const sortedSpots = sortSpotsByDistance(
-          spotsWithDistance,
-          hasUserLocation
-            ? { latitude: userData.latitude!, longitude: userData.longitude! }
-            : undefined
-        )
-
-        setVisibleSpots(sortedSpots)
-      }
-
       // Load spots if not already loaded
       if (!spotsCache.isRegionLoaded(bounds)) {
         setIsFetching(true)
         setIsLoading(true)
+
+        // Cancel any existing request
+        if (abortControllerRef.current) {
+          abortControllerRef.current.abort()
+        }
+        abortControllerRef.current = new AbortController()
 
         try {
           const response = await getSpotsByBounds(bounds)
@@ -252,15 +219,20 @@ export function MapNavigator({
             })
             spotsCache.addLoadedRegion(bounds)
           }
-        } catch {
-          // Error silently handled
+        } catch (error) {
+          // Only log if not aborted
+          if (error instanceof Error && error.name !== 'AbortError') {
+            console.warn('Failed to load initial spots:', error)
+          }
         } finally {
           setIsLoading(false)
           setIsFetching(false)
+          abortControllerRef.current = null
         }
       }
 
-      updateMarkersAndSpots()
+      // Always update spots in view regardless of loading
+      updateSpotsInView()
     }
 
     loadInitialSpots()
@@ -268,12 +240,47 @@ export function MapNavigator({
     map,
     initialCenter,
     initialRadius,
-    hasUserLocation,
-    userData.latitude,
-    userData.longitude,
     addSpotMarkers,
     clearSpotMarkers,
   ])
+
+  // Function to update spots in current view
+  const updateSpotsInView = useCallback(() => {
+    if (!map) return
+
+    const mapBounds = map.getBounds()
+    if (!mapBounds) return
+
+    const currentBounds: GeographicBounds = {
+      north: mapBounds.getNorth(),
+      south: mapBounds.getSouth(),
+      east: mapBounds.getEast(),
+      west: mapBounds.getWest(),
+    }
+
+    // Get spots currently in view
+    const spotsInView = spotsCache.getSpotsInBounds(currentBounds)
+
+    // Clear existing spot markers and add new ones
+    clearSpotMarkers()
+    addSpotMarkers(spotsInView)
+
+    // Update visible spots for carousel
+    const spotsWithDistance = addDistanceToSpots(
+      spotsInView,
+      hasUserLocation
+        ? { latitude: userData.latitude!, longitude: userData.longitude! }
+        : undefined
+    )
+    const sortedSpots = sortSpotsByDistance(
+      spotsWithDistance,
+      hasUserLocation
+        ? { latitude: userData.latitude!, longitude: userData.longitude! }
+        : undefined
+    )
+
+    setVisibleSpots(sortedSpots)
+  }, [map, hasUserLocation, userData.latitude, userData.longitude, addSpotMarkers, clearSpotMarkers])
 
   // Handle map movement for loading new spots
   useEffect(() => {
@@ -292,31 +299,11 @@ export function MapNavigator({
         west: mapBounds.getWest(),
       }
 
-      // Get spots currently in view
-      const spotsInView = spotsCache.getSpotsInBounds(currentBounds)
+      // Always update spots in view first
+      updateSpotsInView()
 
-      // Clear existing spot markers and add new ones
-      clearSpotMarkers()
-      addSpotMarkers(spotsInView)
-
-      // Update visible spots for carousel
-      const spotsWithDistance = addDistanceToSpots(
-        spotsInView,
-        hasUserLocation
-          ? { latitude: userData.latitude!, longitude: userData.longitude! }
-          : undefined
-      )
-      const sortedSpots = sortSpotsByDistance(
-        spotsWithDistance,
-        hasUserLocation
-          ? { latitude: userData.latitude!, longitude: userData.longitude! }
-          : undefined
-      )
-
-      setVisibleSpots(sortedSpots)
-
-      // Load new spots if needed
-      if (spotsCache.isRegionLoaded(currentBounds)) return
+      // Check if we need to load new spots (improved cache check)
+      if (spotsCache.hasAdequateCoverage(currentBounds)) return
 
       const latPadding =
         (currentBounds.north - currentBounds.south) * (viewportPadding / 100)
@@ -333,6 +320,12 @@ export function MapNavigator({
       setIsFetching(true)
       setIsLoading(true)
 
+      // Cancel any existing request
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort()
+      }
+      abortControllerRef.current = new AbortController()
+
       try {
         const response = await getSpotsByBounds(expandedBounds)
         if (response.data && !response.error) {
@@ -341,38 +334,18 @@ export function MapNavigator({
           })
           spotsCache.addLoadedRegion(expandedBounds)
 
-          // Update markers after loading new spots
-          const updatedSpotsInView = spotsCache.getSpotsInBounds(currentBounds)
-          clearSpotMarkers()
-          addSpotMarkers(updatedSpotsInView)
-
-          // Update spots with distance calculation and validation
-          const updatedSpotsWithDistance = addDistanceToSpots(
-            updatedSpotsInView,
-            hasUserLocation
-              ? {
-                  latitude: userData.latitude!,
-                  longitude: userData.longitude!,
-                }
-              : undefined
-          )
-          const updatedSortedSpots = sortSpotsByDistance(
-            updatedSpotsWithDistance,
-            hasUserLocation
-              ? {
-                  latitude: userData.latitude!,
-                  longitude: userData.longitude!,
-                }
-              : undefined
-          )
-
-          setVisibleSpots(updatedSortedSpots)
+          // Update spots in view after loading new data
+          updateSpotsInView()
         }
-      } catch {
-        // Error silently handled
+      } catch (error) {
+        // Only log if not aborted
+        if (error instanceof Error && error.name !== 'AbortError') {
+          console.warn('Failed to load spots:', error)
+        }
       } finally {
         setIsLoading(false)
         setIsFetching(false)
+        abortControllerRef.current = null
       }
     }
 
@@ -389,14 +362,23 @@ export function MapNavigator({
     }
   }, [
     map,
-    hasUserLocation,
-    userData.latitude,
-    userData.longitude,
-    addSpotMarkers,
-    clearSpotMarkers,
     viewportPadding,
-    handleFlyStart,
+    updateSpotsInView,
   ])
+
+  // Update spots when user location changes (without reloading from API)
+  useEffect(() => {
+    updateSpotsInView()
+  }, [hasUserLocation, userData.latitude, userData.longitude, updateSpotsInView])
+
+  // Cleanup abort controller on unmount
+  useEffect(() => {
+    return () => {
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort()
+      }
+    }
+  }, [])
 
   return (
     <div style={{ height: height }} className="relative bg-muted">

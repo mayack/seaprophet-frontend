@@ -451,6 +451,26 @@ const spotsCache = {
     })
   },
 
+  hasAdequateCoverage(bounds: GeographicBounds): boolean {
+    // Check if we have good coverage (80% overlap) with any loaded region
+    return this.loadedRegions.some((region) => {
+      const overlapNorth = Math.min(region.north, bounds.north)
+      const overlapSouth = Math.max(region.south, bounds.south)
+      const overlapEast = Math.min(region.east, bounds.east)
+      const overlapWest = Math.max(region.west, bounds.west)
+      
+      // Calculate overlap area vs requested area
+      if (overlapNorth <= overlapSouth || overlapEast <= overlapWest) {
+        return false // No overlap
+      }
+      
+      const overlapArea = (overlapNorth - overlapSouth) * (overlapEast - overlapWest)
+      const requestedArea = (bounds.north - bounds.south) * (bounds.east - bounds.west)
+      
+      return overlapArea / requestedArea >= 0.8 // 80% coverage threshold
+    })
+  },
+
   clear(): void {
     this.spots.clear()
     this.loadedRegions = []
