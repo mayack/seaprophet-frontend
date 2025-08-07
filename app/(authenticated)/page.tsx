@@ -7,10 +7,10 @@ export default function Page(): React.JSX.Element {
     return (
       <Suspense
         fallback={
-          <div className="bg-muted" style={{ height: 'calc(100vh - 64px)' }} />
+          <div className="bg-muted" style={{ height: 'calc(100dvh - 64px)' }} />
         }
       >
-        <MapNavigator height="calc(100vh - 64px)" initialRadius={250} />
+        <MapNavigator height="calc(100dvh - 64px)" initialRadius={250} />
       </Suspense>
     )
   } catch (error) {
