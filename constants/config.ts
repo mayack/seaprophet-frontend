@@ -14,8 +14,8 @@ export const CONFIG = {
   defaultTheme: 'system',
   api: {
     urls: {
-      sargo: process.env.NEXT_PUBLIC_SARGO_API_URL,
-      polvo: process.env.NEXT_PUBLIC_POLVO_API_URL,
+      sargo: process.env.NEXT_PUBLIC_SARGO_API_URL || '',
+      polvo: process.env.NEXT_PUBLIC_POLVO_API_URL || '',
     },
     endpoints: {
       sargo: {

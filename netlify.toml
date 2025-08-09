@@ -4,7 +4,21 @@ publish = ".next"
 [[plugins]]
 package = "@netlify/plugin-nextjs"
 
+[functions]
+node_bundler = "esbuild"
+
+[[edge_functions]]
+function = "middleware"
+path = "/*"
+
 [[headers]]
 for = "/*"
 [headers.values]
 Permissions-Policy = "geolocation=(self)"
+
+# Environment variables for edge functions
+[context.production.environment]
+NODE_ENV = "production"
+
+[context.deploy-preview.environment]
+NODE_ENV = "development"
