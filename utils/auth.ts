@@ -44,13 +44,13 @@ export async function isTokenValid(token: string): Promise<boolean> {
 
     // Check expiration
     const currentTime = Math.floor(Date.now() / 1000)
-    const isExpired = decoded.exp !== undefined && decoded.exp > currentTime
+    const isValid = decoded.exp !== undefined && decoded.exp > currentTime
     
-    if (!isExpired) {
+    if (!isValid) {
       console.log('Token validation: Token has expired')
     }
     
-    return isExpired
+    return isValid
   } catch (error) {
     console.error('Token decode error:', error instanceof Error ? error.message : 'Unknown error')
     return false

@@ -10,7 +10,7 @@ import type {
 } from '@/types/map'
 
 export const CONFIG = {
-  version: '0.4.6',
+  version: '0.4.7',
   defaultTheme: 'system',
   api: {
     urls: {
@@ -53,7 +53,7 @@ export const CONFIG = {
           secure: process.env.NODE_ENV === 'production',
           sameSite: 'lax' as const,
           path: '/',
-          maxAge: 7 * 24 * 60 * 60, // 7 days
+          maxAge: 30 * 24 * 60 * 60, // 30 days - matches JWT expiration
         },
       },
       sargoOptions: {
