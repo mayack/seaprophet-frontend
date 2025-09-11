@@ -60,6 +60,7 @@ export default {
         map: '0 0 1px 1px rgba(0,0,0,0.1), 0 1px 10px rgba(0, 0, 0, 0.15)',
       },
       fontSize: {
+        '3xs': '0.5rem', // 8px
         '2xs': '0.625rem', // 10px
       },
       // Add custom animation

@@ -58,6 +58,7 @@ export interface HourlyForecast {
   pressure: string
   visibility: string
   windRating: number
+  waveEnergy: number
 }
 
 export interface Tide {

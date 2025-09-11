@@ -35,7 +35,7 @@ export async function isTokenValid(token: string): Promise<boolean> {
 
     // Attempt to decode the token
     const decoded: JwtPayload = jwtDecode<JwtPayload>(token)
-    
+
     // Validate decoded payload structure
     if (!decoded || typeof decoded !== 'object') {
       console.error('Token validation: Invalid decoded payload')
@@ -45,14 +45,17 @@ export async function isTokenValid(token: string): Promise<boolean> {
     // Check expiration
     const currentTime = Math.floor(Date.now() / 1000)
     const isValid = decoded.exp !== undefined && decoded.exp > currentTime
-    
+
     if (!isValid) {
       console.log('Token validation: Token has expired')
     }
-    
+
     return isValid
   } catch (error) {
-    console.error('Token decode error:', error instanceof Error ? error.message : 'Unknown error')
+    console.error(
+      'Token decode error:',
+      error instanceof Error ? error.message : 'Unknown error'
+    )
     return false
   }
 }
@@ -94,13 +97,13 @@ export async function clearTokensAndRedirect(request: NextRequest) {
     }
 
     const response = NextResponse.redirect(redirectUrl)
-    
+
     // Safe token clearing with individual error handling
     const tokensToDelete = [
       CONFIG.api.tokens.sargo.key,
       CONFIG.api.tokens.sargoOptions.key,
     ]
-    
+
     for (const tokenName of tokensToDelete) {
       try {
         response.cookies.set({
@@ -118,7 +121,7 @@ export async function clearTokensAndRedirect(request: NextRequest) {
         // Continue with other cookies even if one fails
       }
     }
-    
+
     return response
   } catch (error) {
     console.error('Critical error in clearTokensAndRedirect:', error)
