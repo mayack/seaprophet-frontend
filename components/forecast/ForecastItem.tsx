@@ -48,37 +48,38 @@ export function ForecastItem({
             key={hour}
             className="flex items-center justify-between border-t py-2.5"
           >
-            <div className="w-9 text-xs">{hour}</div>
+            <div className="w-9 text-2xs xs:text-xs">{hour}</div>
             <WaveItem
-              className="w-26 xl:w-32"
+              className="w-36 xl:w-40"
               height={forecast.waveHeight}
               period={forecast.wavePeriod}
               direction={forecast.waveDirection}
               unit={units.surf_height}
+              energy={forecast.waveEnergy}
             />
             <SwellItem
-              className="hidden w-20 sm:flex xl:w-24"
+              className="hidden w-20 sm:flex"
               height={forecast.swellHeight}
               period={forecast.swellPeriod}
               direction={forecast.swellDirection}
               unit={units.swell_height}
             />
             <SwellItem
-              className="hidden w-20 sm:flex xl:w-24"
+              className="hidden w-20 sm:flex"
               height={forecast.secondarySwellHeight}
               period={forecast.secondarySwellPeriod}
               direction={forecast.secondarySwellDirection}
               unit={units.swell_height}
             />
             <SwellItem
-              className="hidden w-20 md:flex xl:w-24"
+              className="hidden w-20 md:flex"
               height={forecast.windWaveHeight}
               period={forecast.windWavePeriod}
               direction={forecast.windWaveDirection}
               unit={units.swell_height}
             />
             <WindItem
-              className="w-24"
+              className="w-20"
               speed={forecast.windSpeed}
               gust={forecast.gust}
               direction={forecast.windDirection}
@@ -86,7 +87,7 @@ export function ForecastItem({
               windRating={forecast.windRating}
             />
             <TemperatureItem
-              className="w-16"
+              className="w-12 xl:w-16"
               airTemp={forecast.airTemperature}
               weatherType={forecast.weatherType}
               unit={units.temperature}
