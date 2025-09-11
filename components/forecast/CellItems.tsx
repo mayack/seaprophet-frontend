@@ -1,6 +1,10 @@
 import { IconDirection } from './IconDirection'
 import { WeatherIcon } from '../common/WeatherIcon'
-import { formatValueWithUnit, formatUnit } from '@/lib/units'
+import {
+  formatValueWithUnit,
+  formatValueWithUnitSeparated,
+  formatUnit,
+} from '@/lib/units'
 import { WeatherType } from '@/api/polvo/interfaces/forecast'
 import { cn } from '@/lib/utils'
 import React from 'react'
@@ -27,18 +31,13 @@ export function WaveItem({
         'inline-flex items-center gap-1.5 whitespace-nowrap rounded bg-muted px-2 py-1 xl:gap-2'
       )}
     >
-      <div className="flex min-w-9 items-baseline gap-px font-medium xl:min-w-10">
-        <div className="text-sm xl:text-base">{height}</div>
-        <div className="text-xs">{formatUnit(unit)}</div>
-      </div>
-      <div className="flex min-w-5 items-baseline gap-px xl:min-w-6">
-        <div className="text-xs xl:text-sm">{period}</div>
-        <div className="text-xs">s</div>
-      </div>
-      <div className="flex flex-1 items-baseline gap-px">
-        <div className="text-xs xl:text-sm">{energy}</div>
-        <div className="text-xs">kJ</div>
-      </div>
+      {formatValueWithUnitSeparated(
+        height,
+        unit,
+        'min-w-8 xl:min-w-9 font-medium'
+      )}
+      {formatValueWithUnitSeparated(period, 'seconds', 'min-w-5 xl:min-w-6')}
+      {formatValueWithUnitSeparated(energy, 'kilojoules', 'flex-1')}
       <IconDirection degrees={direction} isWind={false} size="small" />
     </div>
   )
@@ -61,8 +60,8 @@ export function SwellItem({
 
   return (
     <div className={cn(className, 'items-center gap-1.5 text-xs xl:text-sm')}>
-      <div className="font-medium">{formatValueWithUnit(height, unit)}</div>
-      <div>{period}s</div>
+      {formatValueWithUnitSeparated(height, unit)}
+      {formatValueWithUnitSeparated(period, 'seconds')}
       <IconDirection degrees={direction} isWind={false} size="small" />
     </div>
   )
@@ -95,7 +94,7 @@ export function WindItem({
       <div className="flex items-center gap-1">
         <div className="min-w-7 text-center text-sm xl:text-base">{speed}</div>
         <div className="flex min-w-4 flex-col">
-          <div className="text-2xs leading-none">{gust}</div>
+          <div className="text-3xs leading-none">{gust}</div>
           <div className="mt-px text-3xs leading-none">{formatUnit(unit)}</div>
         </div>
       </div>
