@@ -23,8 +23,6 @@ export const WEATHER_ICONS: Record<
   'clear-night': Moon,
   'partly-cloudy-day': CloudSun,
   'partly-cloudy-night': CloudMoon,
-  'twilight-dawn': Moon,
-  'twilight-dusk': Moon,
   'mostly-cloudy-day': Cloud,
   'mostly-cloudy-night': Cloud,
   'stormy-day': CloudRainWind,
