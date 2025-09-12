@@ -8,6 +8,7 @@ import type {
   SpotActionResponse,
   SpotsByCountry,
 } from '../interfaces/spot'
+import type { LocationInfo } from '../interfaces/spot'
 import { organizeSpotsByCountry } from '../utils/organizeSpotsByCountry'
 import { GeographicBounds } from '@/types/map'
 
@@ -15,8 +16,24 @@ export async function getSpot(id: number): Promise<SpotActionResponse<Spot>> {
   const timestamp = new Date().toISOString()
   try {
     const response = await sargoClient.getSpot(id, true)
+    // Attach a flattened locationInfo for easier consumption
+    const spot = response.spot
+    if (spot?.attributes) {
+      const m = spot.attributes.municipality?.data?.attributes
+      const d = m?.district?.data?.attributes
+      const r = d?.region?.data?.attributes
+      const c = r?.country?.data?.attributes
+      const locationInfo: LocationInfo = {
+        municipality: m?.name || '',
+        district: d?.name || '',
+        region: r?.name || '',
+        country: c?.name || '',
+        countryEmoji: c?.emoji || '',
+      }
+      spot.attributes.locationInfo = locationInfo
+    }
     return {
-      data: response.spot,
+      data: spot,
       error: null,
       meta: {
         timestamp,

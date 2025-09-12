@@ -151,22 +151,25 @@ export class SargoClient extends BaseApiClient {
   // Spot Endpoints (Longer Caching)
   async getSpot(id: number, isPublic = true): Promise<SpotResponse> {
     try {
-      const headers = await this.getHeaders(
-        CONFIG.api.endpoints.sargo.spots.detail(id),
-        isPublic
-      )
+      const queryParams = new URLSearchParams({
+        'populate[municipality][populate][district][populate][region][populate][country]':
+          'true',
+        'populate[webcam]': 'true',
+      }).toString()
 
-      const response = await this.fetch<{ data: Spot }>(
-        CONFIG.api.endpoints.sargo.spots.detail(id),
-        {
-          init: {
-            headers,
-            next: {
-              revalidate: 3600,
-            },
+      const configured = CONFIG.api.endpoints.sargo.spots.detail(id)
+      const base = configured.split('?')[0]
+      const endpoint = `${base}?${queryParams}`
+      const headers = await this.getHeaders(endpoint, isPublic)
+
+      const response = await this.fetch<{ data: Spot }>(endpoint, {
+        init: {
+          headers,
+          next: {
+            revalidate: 3600,
           },
-        }
-      )
+        },
+      })
       return { spot: response.data, error: null }
     } catch (error) {
       return {
