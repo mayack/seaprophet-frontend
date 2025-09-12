@@ -3,6 +3,14 @@
 import { WebcamViewer } from '@/components/common/WebcamViewer'
 import { SimpleMap } from '@/components/maps/SimpleMap'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
+import {
+  Breadcrumb,
+  BreadcrumbList,
+  BreadcrumbItem,
+  BreadcrumbSeparator,
+  BreadcrumbLink,
+  BreadcrumbPage,
+} from '@/components/ui/breadcrumb'
 import { MapPin, Webcam, AlertCircle } from 'lucide-react'
 import { WebcamConfig } from '@/api/sargo/interfaces/webcam'
 import React from 'react'
@@ -12,6 +20,12 @@ interface SpotsDetailsProps {
   webcam?: WebcamConfig
   spotName: string
   spotId?: number
+  locationPath?: {
+    country?: string
+    region?: string
+    district?: string
+    municipality?: string
+  }
 }
 
 export function SpotsDetails({
@@ -19,6 +33,7 @@ export function SpotsDetails({
   webcam,
   spotName,
   spotId,
+  locationPath,
 }: SpotsDetailsProps): React.JSX.Element {
   const WebcamTabContent = (): React.JSX.Element => {
     if (!webcam) {
@@ -44,20 +59,62 @@ export function SpotsDetails({
     <div>
       <Tabs defaultValue={webcam ? 'webcam' : 'map'} className="w-full">
         <div className="wrapper">
-          <div className="mb-4 flex items-end sm:mb-6">
-            <h1 className="font-style-h1 flex-1">{spotName}</h1>
-            <TabsList>
-              {webcam && (
-                <TabsTrigger value="webcam" className="flex items-center gap-2">
-                  <Webcam className="size-4" />
-                  <div className="hidden sm:block">Webcam</div>
+          <div className="mb-4 flex w-full flex-col sm:mb-6">
+            {locationPath && (
+              <Breadcrumb className="mb-3">
+                <BreadcrumbList>
+                  {locationPath.country && (
+                    <>
+                      <BreadcrumbItem>
+                        <BreadcrumbLink>{locationPath.country}</BreadcrumbLink>
+                      </BreadcrumbItem>
+                      <BreadcrumbSeparator />
+                    </>
+                  )}
+                  {locationPath.region && (
+                    <>
+                      <BreadcrumbItem>
+                        <BreadcrumbLink>{locationPath.region}</BreadcrumbLink>
+                      </BreadcrumbItem>
+                      <BreadcrumbSeparator />
+                    </>
+                  )}
+                  {locationPath.district && (
+                    <>
+                      <BreadcrumbItem>
+                        <BreadcrumbLink>{locationPath.district}</BreadcrumbLink>
+                      </BreadcrumbItem>
+                      <BreadcrumbSeparator />
+                    </>
+                  )}
+                  {locationPath.municipality && (
+                    <BreadcrumbItem>
+                      <BreadcrumbPage>
+                        {locationPath.municipality}
+                      </BreadcrumbPage>
+                    </BreadcrumbItem>
+                  )}
+                </BreadcrumbList>
+              </Breadcrumb>
+            )}
+            <div className="flex items-end">
+              <h1 className="font-style-h1 flex-1">{spotName}</h1>
+              <TabsList>
+                {webcam && (
+                  <TabsTrigger
+                    value="webcam"
+                    className="flex items-center gap-2"
+                  >
+                    <Webcam className="size-4" />
+                    <div className="hidden sm:block">Webcam</div>
+                  </TabsTrigger>
+                )}
+                <TabsTrigger value="map" className="flex items-center gap-2">
+                  <MapPin className="size-4" />
+                  <div className="hidden sm:block">Map</div>
                 </TabsTrigger>
-              )}
-              <TabsTrigger value="map" className="flex items-center gap-2">
-                <MapPin className="size-4" />
-                <div className="hidden sm:block">Map</div>
-              </TabsTrigger>
-            </TabsList>
+              </TabsList>
+            </div>
           </div>
         </div>
         {webcam && (

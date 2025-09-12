@@ -100,7 +100,7 @@ export function WindItem({
       </div>
       <div
         className={cn(
-          'flex size-[1.25rem] items-center justify-center rounded-full xl:size-6',
+          'flex size-5 items-center justify-center rounded-full xs:size-6',
           ratingBackgrounds[windRating as keyof typeof ratingBackgrounds] ||
             'bg-muted'
         )}

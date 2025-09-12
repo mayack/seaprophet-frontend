@@ -30,7 +30,7 @@ export default async function SpotPage({
     const spotResponse = await getSpot(spotId)
     const spot = spotResponse?.data?.attributes
 
-    if (!spot) return <div>Spot not found.</div>
+    if (!spot) return <div className="text-center">Spot not found.</div>
 
     const [forecastResponse, nearbySpotsResponse] = await Promise.all([
       getForecast({
@@ -96,6 +96,7 @@ export default async function SpotPage({
             webcam={spot.webcam}
             spotName={spot.name}
             spotId={spotId}
+            locationPath={spot.locationInfo}
           />
           <SpotsNearby
             spots={nearbySpots}
