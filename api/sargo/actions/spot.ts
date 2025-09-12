@@ -1,5 +1,6 @@
 'use server'
 import { calculateDistance } from '@/utils/location'
+import { createBroadSearchTerms, matchesSearch } from '@/utils/textNormalization'
 import { sargoClient } from '../client'
 import type {
   SpotSummary,
@@ -177,29 +178,54 @@ export async function searchSpots(
   }
 
   try {
-    const response = await sargoClient.searchSpots(query, isPublic)
+    // Generate a small set of diacritic-aware terms and merge results
+    const terms = createBroadSearchTerms(query)
+    const unique = new Map<number, SpotSummary>()
 
-    const spots: SpotSummary[] = response.data
-      .map((spot) => ({
-        id: spot.id,
-        name: spot.attributes.name,
-        location: {
-          lat: spot.attributes.location_lat,
-          long: spot.attributes.location_long,
-        },
-        webcam: spot.attributes.webcam || null,
-      }))
-      .sort((a, b) =>
-        a.name.localeCompare(b.name, undefined, {
-          sensitivity: 'base',
-          numeric: true,
+    const queries = terms.length > 0 ? terms : [query]
+    for (const term of queries) {
+      try {
+        const response = await sargoClient.searchSpots(term, isPublic)
+        response.data.forEach((spot) => {
+          unique.set(spot.id, {
+            id: spot.id,
+            name: spot.attributes.name,
+            location: {
+              lat: spot.attributes.location_lat,
+              long: spot.attributes.location_long,
+            },
+            webcam: spot.attributes.webcam || null,
+          })
         })
-      )
+      } catch (e) {
+        // continue other terms
+      }
+    }
+
+    let spots = Array.from(unique.values())
+
+    // Final client-side diacritics-insensitive filtering for the original query
+    const trimmed = query.trim()
+    if (trimmed.length > 0) {
+      spots = spots.filter((spot) => matchesSearch(spot.name, trimmed))
+    }
+
+    spots.sort((a, b) =>
+      a.name.localeCompare(b.name, undefined, {
+        sensitivity: 'base',
+        numeric: true,
+        ignorePunctuation: true,
+      })
+    )
 
     return {
       data: spots,
       error: null,
-      meta: { timestamp, source: 'search', success: true },
+      meta: {
+        timestamp,
+        source: `search-diacritics-${queries.length}-terms`,
+        success: true,
+      },
     }
   } catch (error) {
     console.error('Search spots error:', error)

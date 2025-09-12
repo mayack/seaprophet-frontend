@@ -244,7 +244,7 @@ export class SargoClient extends BaseApiClient {
       'populate[municipality]': 'true',
       'populate[webcam]': 'true',
       'pagination[page]': '1',
-      'pagination[pageSize]': '10',
+      'pagination[pageSize]': '12',
     }).toString()
 
     const headers = await this.getHeaders(
@@ -311,7 +311,7 @@ export class SargoClient extends BaseApiClient {
       'fields[1]': 'location_lat',
       'fields[2]': 'location_long',
       'populate[webcam]': 'true',
-      'pagination[pageSize]': '10',
+      'pagination[pageSize]': '12',
     }).toString()
 
     const headers = await this.getHeaders(

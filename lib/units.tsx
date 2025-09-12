@@ -25,14 +25,12 @@ export function formatValueWithUnitSeparated(
   unit: string,
   className?: string
 ): React.JSX.Element {
-  return React.createElement(
-    'div',
-    { className: `flex items-baseline gap-px ${className || ''}` },
-    React.createElement('div', { className: 'text-xs xl:text-sm' }, value),
-    React.createElement(
-      'div',
-      { className: 'text-2xs xl:text-xs' },
-      formatUnit(unit)
-    )
+  return (
+    <div className={`flex items-baseline gap-px ${className || ''}`}>
+      <div className="text-xs xl:text-sm">{value}</div>
+      <div className="text-2xs xl:text-xs">{formatUnit(unit)}</div>
+    </div>
   )
 }
+
+
