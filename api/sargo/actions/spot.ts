@@ -1,5 +1,6 @@
 'use server'
 import { calculateDistance } from '@/utils/location'
+// text normalization no longer needed client-side for querying
 import { sargoClient } from '../client'
 import type {
   SpotSummary,
@@ -177,29 +178,36 @@ export async function searchSpots(
   }
 
   try {
+    // Single backend search; server rewrites to name_normalized for accent-insensitive matching
     const response = await sargoClient.searchSpots(query, isPublic)
+    const spots: SpotSummary[] = response.data.map((spot) => ({
+      id: spot.id,
+      name: spot.attributes.name,
+      location: {
+        lat: spot.attributes.location_lat,
+        long: spot.attributes.location_long,
+      },
+      webcam: spot.attributes.webcam || null,
+    }))
 
-    const spots: SpotSummary[] = response.data
-      .map((spot) => ({
-        id: spot.id,
-        name: spot.attributes.name,
-        location: {
-          lat: spot.attributes.location_lat,
-          long: spot.attributes.location_long,
-        },
-        webcam: spot.attributes.webcam || null,
-      }))
-      .sort((a, b) =>
-        a.name.localeCompare(b.name, undefined, {
-          sensitivity: 'base',
-          numeric: true,
-        })
-      )
+    // No client-side diacritics filtering needed; server handles accent-insensitive search
+
+    spots.sort((a, b) =>
+      a.name.localeCompare(b.name, undefined, {
+        sensitivity: 'base',
+        numeric: true,
+        ignorePunctuation: true,
+      })
+    )
 
     return {
       data: spots,
       error: null,
-      meta: { timestamp, source: 'search', success: true },
+      meta: {
+        timestamp,
+        source: 'search-server-normalized',
+        success: true,
+      },
     }
   } catch (error) {
     console.error('Search spots error:', error)

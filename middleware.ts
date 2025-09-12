@@ -35,31 +35,8 @@ export async function middleware(request: NextRequest): Promise<NextResponse> {
       return clearTokensAndRedirect(request)
     }
 
-    // Enhanced token validation with comprehensive error handling
-    let isValid = false
-    try {
-      // Validate token format before attempting decode
-      if (typeof sargoToken !== 'string' || sargoToken.length === 0) {
-        throw new Error('Invalid token format')
-      }
-
-      // Check for basic JWT structure (three parts separated by dots)
-      const tokenParts = sargoToken.split('.')
-      if (tokenParts.length !== 3) {
-        throw new Error('Malformed JWT token')
-      }
-
-      isValid = await isTokenValid(sargoToken)
-    } catch (tokenError) {
-      console.error(
-        '[Next.js Middleware Handler] Token validation error:',
-        tokenError instanceof Error ? tokenError.message : 'Unknown error'
-      )
-      console.log(
-        '[Next.js Middleware Handler] Sargo token invalid or missing, redirecting to login...'
-      )
-      return clearTokensAndRedirect(request)
-    }
+    // Token validation (single source of truth)
+    const isValid = await isTokenValid(sargoToken)
 
     if (!isValid) {
       console.log(

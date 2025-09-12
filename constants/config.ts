@@ -10,7 +10,7 @@ import type {
 } from '@/types/map'
 
 export const CONFIG = {
-  version: '0.5.0',
+  version: '0.5.1',
   defaultTheme: 'system',
   api: {
     urls: {

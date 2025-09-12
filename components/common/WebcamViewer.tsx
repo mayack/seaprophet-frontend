@@ -306,6 +306,33 @@ export function WebcamViewer({ config }: WebcamViewerProps): React.JSX.Element {
     }
   }, [initStream, handleMouseMove, destroyStream, isAfk, startAfkTimer])
 
+  // Hotkey: toggle fullscreen with "F" when player is active and visible
+  useEffect(() => {
+    if (isLoading || !!hasError || isAfk) return
+
+    const handleKeyDown = (event: KeyboardEvent): void => {
+      if (event.defaultPrevented) return
+
+      const target = event.target as (HTMLElement | null)
+      if (target) {
+        const tag = target.tagName?.toLowerCase()
+        if (tag === 'input' || tag === 'textarea' || tag === 'select' || target.isContentEditable) {
+          return
+        }
+      }
+
+      if (event.key === 'f' || event.key === 'F') {
+        event.preventDefault()
+        toggleFullscreen()
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+    return (): void => {
+      window.removeEventListener('keydown', handleKeyDown)
+    }
+  }, [isLoading, hasError, isAfk, toggleFullscreen])
+
   return (
     <div
       ref={containerRef}
@@ -345,19 +372,21 @@ export function WebcamViewer({ config }: WebcamViewerProps): React.JSX.Element {
         </div>
       )}
 
-      <Button
-        onClick={toggleFullscreen}
-        size="icon"
-        variant="white"
-        className={`absolute bottom-4 right-4 ${isAfk ? 'hidden' : ''}`}
-        aria-label={isFullscreen ? 'Exit fullscreen' : 'Enter fullscreen'}
-      >
-        {isFullscreen ? (
-          <Shrink className="size-6" />
-        ) : (
-          <Expand className="size-6" />
-        )}
-      </Button>
+      {!isLoading && !hasError && !isAfk && (
+        <Button
+          onClick={toggleFullscreen}
+          size="icon"
+          variant="white"
+          className="absolute bottom-4 right-4"
+          aria-label={isFullscreen ? 'Exit fullscreen' : 'Enter fullscreen'}
+        >
+          {isFullscreen ? (
+            <Shrink className="size-6" />
+          ) : (
+            <Expand className="size-6" />
+          )}
+        </Button>
+      )}
     </div>
   )
 }

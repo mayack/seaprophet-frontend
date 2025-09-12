@@ -48,7 +48,7 @@ export function ForecastItem({
             key={hour}
             className="flex items-center justify-between border-t py-2.5"
           >
-            <div className="w-9 text-2xs xs:text-xs">{hour}</div>
+            <div className="w-8 text-2xs">{hour}</div>
             <WaveItem
               className="w-36 xl:w-40"
               height={forecast.waveHeight}
