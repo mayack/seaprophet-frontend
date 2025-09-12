@@ -19,8 +19,8 @@ export function ForecastItem({
   const date = new Date(day.date)
 
   return (
-    <div className="flex flex-col gap-x-10 gap-y-4 lg:flex-row xl:gap-x-12">
-      <aside className="flex w-full flex-col gap-y-4 lg:w-72 lg:gap-y-8">
+    <div className="flex flex-col gap-x-10 gap-y-4 xl:flex-row xl:gap-x-12">
+      <aside className="flex w-full flex-col gap-y-4 xl:w-72 xl:gap-y-8">
         <h2 className="font-style-h2 flex flex-col justify-center">
           {getDateLabel(date)}
           <div className="font-style-comment">
@@ -50,7 +50,7 @@ export function ForecastItem({
           >
             <div className="w-8 text-2xs">{hour}</div>
             <WaveItem
-              className="w-36 xl:w-40"
+              className="w-36 xs:w-40"
               height={forecast.waveHeight}
               period={forecast.wavePeriod}
               direction={forecast.waveDirection}
@@ -87,7 +87,7 @@ export function ForecastItem({
               windRating={forecast.windRating}
             />
             <TemperatureItem
-              className="w-12 xl:w-16"
+              className="w-12 xs:w-16"
               airTemp={forecast.airTemperature}
               weatherType={forecast.weatherType}
               unit={units.temperature}

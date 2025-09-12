@@ -28,15 +28,15 @@ export function WaveItem({
     <div
       className={cn(
         className,
-        'inline-flex items-center gap-1.5 whitespace-nowrap rounded bg-muted px-2 py-1 xl:gap-2'
+        'inline-flex items-center gap-1.5 whitespace-nowrap rounded bg-muted px-2 py-1 xs:gap-2'
       )}
     >
       {formatValueWithUnitSeparated(
         height,
         unit,
-        'min-w-8 xl:min-w-9 font-medium'
+        'min-w-8 xs:min-w-9 font-medium'
       )}
-      {formatValueWithUnitSeparated(period, 'seconds', 'min-w-5 xl:min-w-6')}
+      {formatValueWithUnitSeparated(period, 'seconds', 'min-w-5 xs:min-w-6')}
       {formatValueWithUnitSeparated(energy, 'kilojoules', 'flex-1')}
       <IconDirection degrees={direction} isWind={false} size="small" />
     </div>
@@ -92,7 +92,7 @@ export function WindItem({
   return (
     <div className={cn(className, 'flex items-center gap-1.5')}>
       <div className="flex items-center gap-1">
-        <div className="min-w-7 text-center text-sm xl:text-base">{speed}</div>
+        <div className="min-w-7 text-center text-sm xs:text-base">{speed}</div>
         <div className="flex min-w-4 flex-col">
           <div className="text-3xs leading-none">{gust}</div>
           <div className="mt-px text-3xs leading-none">{formatUnit(unit)}</div>
@@ -123,9 +123,9 @@ export function TemperatureItem({
   className?: string
 }): React.JSX.Element {
   return (
-    <div className={cn(className, 'flex items-center gap-1.5 xl:gap-2')}>
-      <WeatherIcon weatherType={weatherType} className="size-3 xl:size-4" />
-      <span className="text-xs xl:text-sm">
+    <div className={cn(className, 'flex items-center gap-1.5 xs:gap-2')}>
+      <WeatherIcon weatherType={weatherType} className="size-3 xs:size-4" />
+      <span className="text-xs xs:text-sm">
         {formatValueWithUnit(airTemp, unit)}
       </span>
     </div>

@@ -28,8 +28,8 @@ const directions = [
 ]
 
 const sizes = {
-  small: 'size-2.5 xl:size-3',
-  medium: 'size-3.5 xl:size-4',
+  small: 'size-2.5 xs:size-3',
+  medium: 'size-3.5 xs:size-4',
   large: 'size-5',
 } as const
 

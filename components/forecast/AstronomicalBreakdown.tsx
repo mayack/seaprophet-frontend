@@ -23,7 +23,7 @@ export function AstronomicalBreakdown({
     <div
       className={cn(
         className,
-        'grid w-full grid-cols-3 gap-x-6 gap-y-2 md:grid-cols-5 lg:grid-cols-3'
+        'grid w-full grid-cols-3 gap-x-6 gap-y-2 md:grid-cols-5 xl:grid-cols-3'
       )}
     >
       <InfoBreakdownLine

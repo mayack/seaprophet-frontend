@@ -218,7 +218,7 @@ export default function TideChart({
   }
 
   return (
-    <div className={cn(className, 'relative w-full lg:w-72')}>
+    <div className={cn(className, 'relative w-full xl:w-72')}>
       <svg
         ref={svgRef}
         width="100%"
