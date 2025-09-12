@@ -130,12 +130,22 @@ export async function clearTokensAndRedirect(request: NextRequest) {
   }
 }
 
+type CookieOptions = {
+  path?: string
+  domain?: string
+  httpOnly?: boolean
+  secure?: boolean
+  sameSite?: 'lax' | 'strict' | 'none'
+  expires?: Date
+  maxAge?: number
+}
+
 export async function setCookie(
   response: NextResponse,
   name: string,
   value: string,
-  options: any
-) {
+  options: CookieOptions = {}
+): Promise<NextResponse> {
   response.cookies.set({ name, value, ...options })
   return response
 }
