@@ -313,10 +313,15 @@ export function WebcamViewer({ config }: WebcamViewerProps): React.JSX.Element {
     const handleKeyDown = (event: KeyboardEvent): void => {
       if (event.defaultPrevented) return
 
-      const target = event.target as (HTMLElement | null)
+      const target = event.target as HTMLElement | null
       if (target) {
         const tag = target.tagName?.toLowerCase()
-        if (tag === 'input' || tag === 'textarea' || tag === 'select' || target.isContentEditable) {
+        if (
+          tag === 'input' ||
+          tag === 'textarea' ||
+          tag === 'select' ||
+          target.isContentEditable
+        ) {
           return
         }
       }
