@@ -90,12 +90,14 @@ export function WindItem({
   }
 
   return (
-    <div className={cn(className, 'flex items-center gap-1.5')}>
+    <div className={cn(className, 'flex items-center gap-1.5 xs:gap-2')}>
       <div className="flex items-center gap-1">
         <div className="min-w-7 text-center text-sm xs:text-base">{speed}</div>
         <div className="flex min-w-4 flex-col">
-          <div className="text-3xs leading-none">{gust}</div>
-          <div className="mt-px text-3xs leading-none">{formatUnit(unit)}</div>
+          <div className="text-3xs leading-none xs:text-2xs">{gust}</div>
+          <div className="mt-px text-3xs leading-none xs:text-2xs">
+            {formatUnit(unit)}
+          </div>
         </div>
       </div>
       <div
