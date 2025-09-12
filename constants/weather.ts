@@ -2,6 +2,8 @@ import { WeatherType } from '@/api/polvo/interfaces/forecast'
 import {
   Sun,
   Moon,
+  Sunrise,
+  Sunset,
   CloudSun,
   CloudMoon,
   Cloud,
@@ -23,6 +25,8 @@ export const WEATHER_ICONS: Record<
   'clear-night': Moon,
   'partly-cloudy-day': CloudSun,
   'partly-cloudy-night': CloudMoon,
+  'twilight-dawn': Sunrise,
+  'twilight-dusk': Sunset,
   'mostly-cloudy-day': Cloud,
   'mostly-cloudy-night': Cloud,
   'stormy-day': CloudRainWind,

@@ -81,6 +81,8 @@ export interface General {
 export type WeatherType =
   | 'clear-day'
   | 'clear-night'
+  | 'twilight-dawn'
+  | 'twilight-dusk'
   | 'partly-cloudy-day'
   | 'partly-cloudy-night'
   | 'mostly-cloudy-day'
