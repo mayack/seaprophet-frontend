@@ -9,6 +9,7 @@ import { searchSpots } from '@/api/sargo/actions/spot'
 import { SpotSummary } from '@/api/sargo/interfaces/spot'
 import { debounce } from '@/components/maps/utils'
 import { Skeleton } from '@/components/ui/skeleton'
+import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import React from 'react'
 import { cn } from '@/lib/utils'
@@ -183,20 +184,21 @@ export function SearchSpots({
           {!isLoading && spots.length > 0 && (
             <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
               {spots.map((spot) => (
-                <SpotCard
+                <Link
                   key={spot.id}
-                  id={spot.id}
-                  name={spot.name}
-                  webcam={spot.webcam}
-                  compact={true}
-                  onClick={(e: React.MouseEvent) => {
-                    e.preventDefault()
-                    e.stopPropagation()
+                  href={`/spot/${spot.id}`}
+                  onClick={() => {
                     setIsOpen(false)
                     clearSearch()
-                    router.push(`/spot/${spot.id}`)
                   }}
-                />
+                >
+                  <SpotCard
+                    id={spot.id}
+                    name={spot.name}
+                    webcam={spot.webcam}
+                    compact={true}
+                  />
+                </Link>
               ))}
             </div>
           )}

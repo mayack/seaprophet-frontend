@@ -1,4 +1,5 @@
 import { SpotsByCountry, SpotSummary } from '@/api/sargo/interfaces/spot'
+import Link from 'next/link'
 import { SpotCard } from '../SpotCard'
 import React from 'react'
 
@@ -51,11 +52,13 @@ export function SpotsBrowse({
                                 <ul className="col-span-3 grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-3">
                                   {municipalitySpots.map((spot) => (
                                     <li key={spot.id} className="col-span-1">
-                                      <SpotCard
-                                        id={spot.id}
-                                        name={spot.name}
-                                        webcam={spot.webcam}
-                                      />
+                                      <Link href={`/spot/${spot.id}`}>
+                                        <SpotCard
+                                          id={spot.id}
+                                          name={spot.name}
+                                          webcam={spot.webcam}
+                                        />
+                                      </Link>
                                     </li>
                                   ))}
                                 </ul>

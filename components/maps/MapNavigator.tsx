@@ -31,6 +31,7 @@ import { GeographicBounds } from '@/types/map'
 import { SpotSummary } from '@/api/sargo/interfaces/spot'
 import { CONFIG } from '@/constants/config'
 import type { MapNavigatorProps } from '@/types/map'
+import Link from 'next/link'
 
 export function MapNavigator({
   className = '',
@@ -504,17 +505,20 @@ export function MapNavigator({
                 className="embla__slide min-w-0 flex-[0_0_calc(50%-0.25rem)] md:flex-[0_0_calc(33.33%-0.5rem)] lg:flex-[0_0_calc(25%-0.5625rem)]"
                 key={spot.id}
               >
-                <SpotCard
-                  id={spot.id}
-                  name={spot.name}
-                  subtitle={
-                    spot.distance !== undefined
-                      ? formatDistance(spot.distance)
-                      : ''
-                  }
-                  webcam={spot.webcam}
-                  variant="shadow"
-                />
+                <Link href={`/spot/${spot.id}`} className="block h-full">
+                  <SpotCard
+                    id={spot.id}
+                    name={spot.name}
+                    subtitle={
+                      spot.distance !== undefined
+                        ? formatDistance(spot.distance)
+                        : ''
+                    }
+                    webcam={spot.webcam}
+                    variant="shadow"
+                    className="h-full"
+                  />
+                </Link>
               </div>
             ))}
           </div>

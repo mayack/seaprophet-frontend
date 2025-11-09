@@ -1,6 +1,6 @@
 import { WebcamConfig } from '@/api/sargo/interfaces/webcam'
+import { cn } from '@/lib/utils'
 import { Webcam } from 'lucide-react'
-import Link from 'next/link'
 import React from 'react'
 
 interface SpotCardProps {
@@ -8,9 +8,9 @@ interface SpotCardProps {
   name: string
   subtitle?: string
   webcam?: WebcamConfig
-  onClick?: (e: React.MouseEvent) => void
   variant?: 'default' | 'shadow'
   compact?: boolean
+  className?: string
 }
 
 export function SpotCard({
@@ -18,19 +18,20 @@ export function SpotCard({
   name,
   subtitle,
   webcam,
-  onClick,
   variant = 'default',
   compact = false,
+  className,
 }: SpotCardProps): React.JSX.Element {
   return (
-    <Link
-      href={`/spot/${id}`}
-      onClick={onClick}
-      className={`flex flex-col justify-center bg-card text-card-foreground ${
-        compact ? 'rounded-sm px-3 py-1' : 'rounded-lg px-4 py-2'
-      } ${
-        variant === 'default' ? 'border border-input' : 'shadow-map'
-      } ${subtitle ? 'min-h-20' : 'min-h-12'}`}
+    <div
+      data-spot-id={id}
+      className={cn(
+        'flex flex-col justify-center bg-card text-card-foreground',
+        compact ? 'rounded-sm px-3 py-1' : 'rounded-lg px-4 py-2',
+        variant === 'default' ? 'border border-input' : 'shadow-map',
+        subtitle ? 'min-h-20' : 'min-h-12',
+        className
+      )}
     >
       <div className="flex items-center">
         <div className="grow truncate text-base font-semibold">{name}</div>
@@ -39,6 +40,6 @@ export function SpotCard({
       {subtitle && (
         <div className="text-sm text-muted-foreground">{subtitle}</div>
       )}
-    </Link>
+    </div>
   )
 }

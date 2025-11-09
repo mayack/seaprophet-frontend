@@ -1,6 +1,7 @@
 'use client'
 
 import { SpotSummary } from '@/api/sargo/interfaces/spot'
+import Link from 'next/link'
 import { SearchX, LucideIcon, ChevronLeft, ChevronRight } from 'lucide-react'
 import { SpotCard } from '../SpotCard'
 import { EmptyState } from './EmptyState'
@@ -162,16 +163,19 @@ export function SpotsNearby({
                     className="embla__slide min-w-0 flex-[0_0_calc(50%-0.25rem)] md:flex-[0_0_calc(33.33%-0.5rem)] lg:flex-[0_0_calc(25%-0.5625rem)]"
                     key={spot.id}
                   >
-                    <SpotCard
-                      id={spot.id}
-                      name={spot.name}
-                      subtitle={
-                        spot.distance !== undefined
-                          ? formatDistance(spot.distance)
-                          : ''
-                      }
-                      webcam={spot.webcam}
-                    />
+                    <Link href={`/spot/${spot.id}`} className="block h-full">
+                      <SpotCard
+                        id={spot.id}
+                        name={spot.name}
+                        subtitle={
+                          spot.distance !== undefined
+                            ? formatDistance(spot.distance)
+                            : ''
+                        }
+                        webcam={spot.webcam}
+                        className="h-full"
+                      />
+                    </Link>
                   </div>
                 ))}
               </div>
