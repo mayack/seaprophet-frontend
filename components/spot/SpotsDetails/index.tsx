@@ -11,7 +11,7 @@ import {
   BreadcrumbLink,
   BreadcrumbPage,
 } from '@/components/ui/breadcrumb'
-import { MapPin, Webcam, AlertCircle } from 'lucide-react'
+import { MapPin, Webcam, AlertCircle, Mountain, Waves } from 'lucide-react'
 import { WebcamConfig } from '@/api/sargo/interfaces/webcam'
 import React from 'react'
 
@@ -26,6 +26,8 @@ interface SpotsDetailsProps {
     district?: string
     municipality?: string
   }
+  terrainData?: boolean
+  bathymetryData?: boolean
 }
 
 export function SpotsDetails({
@@ -34,6 +36,8 @@ export function SpotsDetails({
   spotName,
   spotId,
   locationPath,
+  terrainData,
+  bathymetryData,
 }: SpotsDetailsProps): React.JSX.Element {
   const WebcamTabContent = (): React.JSX.Element => {
     if (!webcam) {
@@ -60,43 +64,63 @@ export function SpotsDetails({
       <Tabs defaultValue={webcam ? 'webcam' : 'map'} className="w-full">
         <div className="wrapper">
           <div className="mb-4 flex w-full flex-col sm:mb-6">
-            {locationPath && (
-              <Breadcrumb className="mb-3">
-                <BreadcrumbList>
-                  {locationPath.country && (
-                    <>
+            <div className="mb-3 flex flex-col items-start gap-2 sm:flex-row sm:items-center">
+              {locationPath && (
+                <Breadcrumb className="flex-1">
+                  <BreadcrumbList>
+                    {locationPath.country && (
+                      <>
+                        <BreadcrumbItem>
+                          <BreadcrumbLink>
+                            {locationPath.country}
+                          </BreadcrumbLink>
+                        </BreadcrumbItem>
+                        <BreadcrumbSeparator />
+                      </>
+                    )}
+                    {locationPath.region && (
+                      <>
+                        <BreadcrumbItem>
+                          <BreadcrumbLink>{locationPath.region}</BreadcrumbLink>
+                        </BreadcrumbItem>
+                        <BreadcrumbSeparator />
+                      </>
+                    )}
+                    {locationPath.district && (
+                      <>
+                        <BreadcrumbItem>
+                          <BreadcrumbLink>
+                            {locationPath.district}
+                          </BreadcrumbLink>
+                        </BreadcrumbItem>
+                        <BreadcrumbSeparator />
+                      </>
+                    )}
+                    {locationPath.municipality && (
                       <BreadcrumbItem>
-                        <BreadcrumbLink>{locationPath.country}</BreadcrumbLink>
+                        <BreadcrumbPage>
+                          {locationPath.municipality}
+                        </BreadcrumbPage>
                       </BreadcrumbItem>
-                      <BreadcrumbSeparator />
-                    </>
-                  )}
-                  {locationPath.region && (
-                    <>
-                      <BreadcrumbItem>
-                        <BreadcrumbLink>{locationPath.region}</BreadcrumbLink>
-                      </BreadcrumbItem>
-                      <BreadcrumbSeparator />
-                    </>
-                  )}
-                  {locationPath.district && (
-                    <>
-                      <BreadcrumbItem>
-                        <BreadcrumbLink>{locationPath.district}</BreadcrumbLink>
-                      </BreadcrumbItem>
-                      <BreadcrumbSeparator />
-                    </>
-                  )}
-                  {locationPath.municipality && (
-                    <BreadcrumbItem>
-                      <BreadcrumbPage>
-                        {locationPath.municipality}
-                      </BreadcrumbPage>
-                    </BreadcrumbItem>
-                  )}
-                </BreadcrumbList>
-              </Breadcrumb>
-            )}
+                    )}
+                  </BreadcrumbList>
+                </Breadcrumb>
+              )}
+              <div className="hidden items-center gap-4 sm:flex">
+                {terrainData && (
+                  <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                    <Mountain className="size-3" />
+                    <span>Terrain data</span>
+                  </div>
+                )}
+                {bathymetryData && (
+                  <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                    <Waves className="size-3" />
+                    <span>Bathymetry data</span>
+                  </div>
+                )}
+              </div>
+            </div>
             <div className="flex items-end">
               <h1 className="font-style-h1 flex-1">{spotName}</h1>
               <TabsList>

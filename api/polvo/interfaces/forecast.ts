@@ -5,6 +5,15 @@ export type ForecastActionResponse = ActionResponse<ForecastResponse>
 export interface ForecastResponse {
   days: ForecastDay[]
   tidalDatum: string
+  _meta?: {
+    success: boolean
+    cached: boolean
+    timestamp: string
+    processedIn?: number
+    source?: 'cache' | 'stormglass' | 'system'
+    terrainData?: boolean
+    bathymetryData?: boolean
+  }
 }
 
 export interface ForecastParams {

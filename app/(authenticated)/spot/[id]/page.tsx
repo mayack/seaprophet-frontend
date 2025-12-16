@@ -97,6 +97,8 @@ export default async function SpotPage({
             spotName={spot.name}
             spotId={spotId}
             locationPath={spot.locationInfo}
+            terrainData={forecastResponse.data._meta?.terrainData}
+            bathymetryData={forecastResponse.data._meta?.bathymetryData}
           />
           <SpotsNearby
             spots={nearbySpots}

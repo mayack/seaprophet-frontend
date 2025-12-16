@@ -10,4 +10,7 @@ export {
   LocateFixed,
   LocateOff,
   Webcam,
+  Navigation,
+  Mountain,
+  Waves,
 } from 'lucide-react'

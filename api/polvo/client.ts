@@ -109,7 +109,10 @@ export class PolvoClient extends BaseApiClient {
       }
 
       const data = await response.json()
-      return data.data
+      return {
+        ...data.data,
+        _meta: data._meta,
+      }
     } catch (error) {
       if (error instanceof Error && error.name === 'auth') {
         throw error // Re-throw auth errors for retry logic
