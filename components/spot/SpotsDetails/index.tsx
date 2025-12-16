@@ -110,13 +110,13 @@ export function SpotsDetails({
                 {terrainData && (
                   <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
                     <Mountain className="size-3" />
-                    <span>Terrain data</span>
+                    <span>Terrain</span>
                   </div>
                 )}
                 {bathymetryData && (
                   <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
                     <Waves className="size-3" />
-                    <span>Bathymetry data</span>
+                    <span>Bathymetry</span>
                   </div>
                 )}
               </div>
