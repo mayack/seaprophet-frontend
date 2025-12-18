@@ -201,8 +201,22 @@ export function WebcamViewer({ config }: WebcamViewerProps): React.JSX.Element {
         autoStartLoad: true,
         lowLatencyMode: true,
         xhrSetup: (xhr: XMLHttpRequest, url: string): void => {
-          // Only proxy if not already proxied or localhost
-          if (
+          // For spotfav, make direct requests from client with proper headers
+          // This bypasses the proxy which gets blocked by spotfav's protection
+          if (url.includes('spotfav.com')) {
+            xhr.open('GET', url, true)
+            // Set headers that spotfav requires
+            xhr.setRequestHeader('Referer', 'https://www.spotfav.com/')
+            xhr.setRequestHeader('Origin', 'https://www.spotfav.com')
+            xhr.setRequestHeader('Range', 'bytes=0-')
+            xhr.setRequestHeader('Accept-Encoding', 'identity;q=1, *;q=0')
+            xhr.setRequestHeader(
+              'Accept-Language',
+              'en-US,en;q=0.9,lv;q=0.8,ru;q=0.7,lt;q=0.6,es;q=0.5,fr;q=0.4,pt;q=0.3'
+            )
+          }
+          // Only proxy if not already proxied, localhost, or spotfav
+          else if (
             url.startsWith('/api/proxy') ||
             url.startsWith('http://localhost') ||
             url.startsWith('https://localhost')
@@ -217,9 +231,12 @@ export function WebcamViewer({ config }: WebcamViewerProps): React.JSX.Element {
       })
 
       hlsRef.current = hls
-      // Route initial m3u8 through proxy for CORS and authentication
-      const proxyStreamUrl = `/api/proxy?url=${encodeURIComponent(streamUrl)}`
-      hls.loadSource(proxyStreamUrl)
+      // For spotfav, use direct URL (client-side request with headers via xhrSetup)
+      // For others, route through proxy for CORS and authentication
+      const sourceUrl = streamUrl.includes('spotfav.com')
+        ? streamUrl
+        : `/api/proxy?url=${encodeURIComponent(streamUrl)}`
+      hls.loadSource(sourceUrl)
       hls.attachMedia(video)
 
       // Handle HLS events
@@ -269,9 +286,12 @@ export function WebcamViewer({ config }: WebcamViewerProps): React.JSX.Element {
     }
     // Use native HLS support for Safari
     else if (video.canPlayType('application/vnd.apple.mpegurl')) {
-      // Route through proxy for CORS and authentication
-      const proxyUrl = `/api/proxy?url=${encodeURIComponent(streamUrl)}`
-      video.src = proxyUrl
+      // For spotfav, use direct URL (Safari can handle it with proper CORS)
+      // For others, route through proxy for CORS and authentication
+      const sourceUrl = streamUrl.includes('spotfav.com')
+        ? streamUrl
+        : `/api/proxy?url=${encodeURIComponent(streamUrl)}`
+      video.src = sourceUrl
       video.load()
 
       video.onloadedmetadata = async (): Promise<void> => {
