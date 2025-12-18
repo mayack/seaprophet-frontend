@@ -41,16 +41,41 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
         'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36'
     }
 
+    // Create abort controller for timeout
+    const controller = new AbortController()
+    const timeoutId = setTimeout(() => controller.abort(), 30000) // 30 second timeout
+
     const fetchOptions: RequestInit = {
       method: 'GET',
       headers,
+      signal: controller.signal,
     }
 
-    const response = await fetch(decodedUrl, fetchOptions)
+    let response: Response
+    try {
+      response = await fetch(decodedUrl, fetchOptions)
+      clearTimeout(timeoutId)
+    } catch (fetchError) {
+      clearTimeout(timeoutId)
+      console.error('[Proxy] Fetch failed:', {
+        url: decodedUrl,
+        error: fetchError instanceof Error ? fetchError.message : String(fetchError),
+        headers,
+      })
+      throw new Error(`Network error: ${fetchError instanceof Error ? fetchError.message : String(fetchError)}`)
+    }
 
     if (!response.ok) {
       const text = await response.text()
-      throw new Error(`HTTP error! status: ${response.status}, body: ${text}`)
+      const errorMessage = `HTTP error! status: ${response.status}, body: ${text.substring(0, 500)}`
+      console.error('[Proxy] Request failed:', {
+        url: decodedUrl,
+        status: response.status,
+        headers: Object.fromEntries(response.headers.entries()),
+        sentHeaders: headers,
+        bodyPreview: text.substring(0, 200),
+      })
+      throw new Error(errorMessage)
     }
 
     const contentType =
@@ -106,10 +131,15 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       },
     })
   } catch (error) {
+    console.error('[Proxy] Error:', {
+      error: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : undefined,
+      url,
+    })
     return NextResponse.json(
       {
         error: 'Failed to fetch stream',
-        details: (error as Error).message,
+        details: error instanceof Error ? error.message : String(error),
         url,
       },
       { status: 500 }
