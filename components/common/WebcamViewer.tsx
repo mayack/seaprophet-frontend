@@ -321,6 +321,28 @@ export function WebcamViewer({ config }: WebcamViewerProps): React.JSX.Element {
     }
   }, [isAfk, startAfkTimer])
 
+  // Reset state when config changes (e.g., navigating between spots)
+  useEffect(() => {
+    // Reset all state to prevent showing wrong webcam
+    setM3u8Url(null)
+    setHasError(null)
+    setIsLoading(true)
+    setIsAfk(false)
+    clearAfkTimer()
+
+    // Destroy any existing stream
+    if (hlsRef.current) {
+      hlsRef.current.destroy()
+      hlsRef.current = null
+    }
+
+    const video = videoRef.current
+    if (video) {
+      video.removeAttribute('src')
+      video.load()
+    }
+  }, [config.website_url, config.url, config.container_id, clearAfkTimer])
+
   // Initialize stream and set up event listeners
   useEffect(() => {
     const video = videoRef.current

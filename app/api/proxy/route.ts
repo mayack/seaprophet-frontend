@@ -30,6 +30,14 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       headers['Icy-MetaInt'] = '32000'
     }
 
+    // Add Spotfav-specific headers if needed
+    if (decodedUrl.includes('spotfav.com')) {
+      headers['Origin'] = 'https://flus.spotfav.com'
+      headers['Referer'] = 'https://flus.spotfav.com/'
+      // Ensure Accept-Language is set (already in generic headers, but being explicit)
+      headers['Accept-Language'] = 'en-US,en;q=0.9'
+    }
+
     const fetchOptions: RequestInit = {
       method: 'GET',
       headers,
