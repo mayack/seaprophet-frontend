@@ -13,7 +13,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   try {
     const decodedUrl = decodeURIComponent(url)
 
-    // Generic headers for webcam streams
+    // Generic headers for webcam streams (VLC user agent for most providers)
     const headers: Record<string, string> = {
       'User-Agent': 'VLC/3.0.18 LibVLC/3.0.18',
       Accept: '*/*',
@@ -32,10 +32,12 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
 
     // Add Spotfav-specific headers if needed
     if (decodedUrl.includes('spotfav.com')) {
-      headers['Origin'] = 'https://flus.spotfav.com'
-      headers['Referer'] = 'https://flus.spotfav.com/'
-      // Ensure Accept-Language is set (already in generic headers, but being explicit)
-      headers['Accept-Language'] = 'en-US,en;q=0.9'
+      headers['Referer'] = 'https://www.spotfav.com/'
+      headers['Origin'] = 'https://www.spotfav.com'
+      headers['Accept-Encoding'] = 'identity;q=1, *;q=0'
+      headers['Range'] = 'bytes=0-'
+      // Use browser-like user agent for spotfav
+      headers['User-Agent'] = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36'
     }
 
     const fetchOptions: RequestInit = {
