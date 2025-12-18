@@ -13,7 +13,13 @@ import {
 } from '@/components/ui/breadcrumb'
 import { MapPin, Webcam, AlertCircle, Mountain, Waves } from 'lucide-react'
 import { WebcamConfig } from '@/api/sargo/interfaces/webcam'
-import React from 'react'
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip'
+import React, { useState } from 'react'
 
 interface SpotsDetailsProps {
   mapCenter: [number, number]
@@ -28,6 +34,7 @@ interface SpotsDetailsProps {
   }
   terrainData?: boolean
   bathymetryData?: boolean
+  updatedAt?: string
 }
 
 export function SpotsDetails({
@@ -38,26 +45,10 @@ export function SpotsDetails({
   locationPath,
   terrainData,
   bathymetryData,
+  updatedAt,
 }: SpotsDetailsProps): React.JSX.Element {
-  const WebcamTabContent = (): React.JSX.Element => {
-    if (!webcam) {
-      return (
-        <div className="flex size-full flex-col items-center justify-center space-y-4 rounded-lg bg-muted p-8">
-          <AlertCircle className="size-8 text-muted-foreground" />
-          <div className="text-center">
-            <p className="font-medium text-muted-foreground">
-              No webcam available
-            </p>
-            <p className="text-sm text-muted-foreground">
-              This spot doesn&apos;t have webcam data available
-            </p>
-          </div>
-        </div>
-      )
-    }
-
-    return <WebcamViewer config={webcam} />
-  }
+  const [terrainTooltipOpen, setTerrainTooltipOpen] = useState(false)
+  const [bathymetryTooltipOpen, setBathymetryTooltipOpen] = useState(false)
 
   return (
     <div>
@@ -106,20 +97,6 @@ export function SpotsDetails({
                   </BreadcrumbList>
                 </Breadcrumb>
               )}
-              <div className="hidden items-center gap-4 sm:flex">
-                {terrainData && (
-                  <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                    <Mountain className="size-3" />
-                    <span>Terrain</span>
-                  </div>
-                )}
-                {bathymetryData && (
-                  <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                    <Waves className="size-3" />
-                    <span>Bathymetry</span>
-                  </div>
-                )}
-              </div>
             </div>
             <div className="flex items-end">
               <h1 className="font-style-h1 flex-1">{spotName}</h1>
@@ -146,7 +123,7 @@ export function SpotsDetails({
             value="webcam"
             className="aspect-video md:aspect-auto md:h-[60vh]"
           >
-            <WebcamTabContent />
+            <WebcamViewer config={webcam} />
           </TabsContent>
         )}
         <TabsContent
@@ -162,6 +139,70 @@ export function SpotsDetails({
           />
         </TabsContent>
       </Tabs>
+      <div className="items-center gap-4 flex wrapper mt-4">
+        {updatedAt && (
+          <div className="text-xs text-muted-foreground flex-1 flex gap-x-1 flex-col xs:flex-row xs:items-center">
+            <span>Updated on:</span>
+            <span>
+              {new Date(updatedAt).toLocaleString('en-GB', {
+                hour: '2-digit',
+                minute: '2-digit',
+                day: '2-digit',
+                month: '2-digit',
+                year: 'numeric',
+              })}
+            </span>
+          </div>
+        )}
+        <div className="flex gap-x-4">
+          <TooltipProvider>
+            {terrainData && (
+              <Tooltip
+                open={terrainTooltipOpen}
+                onOpenChange={setTerrainTooltipOpen}
+              >
+                <TooltipTrigger asChild>
+                  <button
+                    type="button"
+                    onClick={() => setTerrainTooltipOpen(!terrainTooltipOpen)}
+                    className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors cursor-help"
+                  >
+                    <Mountain className="size-3" />
+                    <span>Terrain</span>
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent className="max-w-[30ch] leading-tight text-xs">
+                    Terrain data accounts for how surrounding land features
+                    affect wind patterns and wave forecasts at this location.
+                </TooltipContent>
+              </Tooltip>
+            )}
+            {bathymetryData && (
+              <Tooltip
+                open={bathymetryTooltipOpen}
+                onOpenChange={setBathymetryTooltipOpen}
+              >
+                <TooltipTrigger asChild>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setBathymetryTooltipOpen(!bathymetryTooltipOpen)
+                    }
+                    className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors cursor-help"
+                  >
+                    <Waves className="size-3" />
+                    <span>Bathymetry</span>
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent className="max-w-[30ch] leading-tight text-xs">
+                    Bathymetry data uses detailed seafloor depth measurements
+                    to provide more accurate wave height and break predictions.
+                </TooltipContent>
+              </Tooltip>
+            )}
+          </TooltipProvider>
+        </div>
+      </div>
     </div>
   )
 }
