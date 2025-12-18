@@ -63,10 +63,10 @@ export async function extractWebcamUrl(
           try {
             const m3u8Url = await polvoClient.getWebcamUrl(
               params.websiteUrl,
+              freshToken,
               params.containerId,
               params.autoPlay,
-              params.cacheExpiration,
-              freshToken
+              params.cacheExpiration
             )
 
             return {
