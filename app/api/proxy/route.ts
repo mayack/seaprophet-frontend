@@ -1,9 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { webcamProviders } from '@/constants/webcamProviders'
 
 export async function GET(request: NextRequest): Promise<NextResponse> {
   const url = request.nextUrl.searchParams.get('url')
-  const provider = request.nextUrl.searchParams.get('provider') || 'generic'
 
   if (!url) {
     return NextResponse.json(
@@ -13,13 +11,14 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   }
 
   try {
-    const providerConfig = webcamProviders[provider] || webcamProviders.generic
     const decodedUrl = decodeURIComponent(url)
 
-    // Define headers explicitly as Record<string, string>
+    // Generic headers for webcam streams
     const headers: Record<string, string> = {
-      ...(providerConfig.headers || {}),
+      'User-Agent': 'VLC/3.0.18 LibVLC/3.0.18',
       Accept: '*/*',
+      'Accept-Language': 'en-US,en;q=0.9',
+      Connection: 'keep-alive',
     }
 
     const fetchOptions: RequestInit = {
@@ -27,22 +26,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       headers,
     }
 
-    // Surfline-specific tweaks for persistence
-    let finalUrl = decodedUrl
-    if (provider === 'surfline') {
-      headers['Connection'] = 'keep-alive'
-      headers['Range'] = 'bytes=0-'
-      headers['Accept-Encoding'] = 'identity'
-      fetchOptions.keepalive = true
-      // Add timestamp to .m3u8 URLs for freshness
-      if (finalUrl.includes('.m3u8')) {
-        finalUrl = finalUrl.includes('?')
-          ? `${finalUrl}&_t=${Date.now()}`
-          : `${finalUrl}?_t=${Date.now()}`
-      }
-    }
-
-    const response = await fetch(finalUrl, fetchOptions)
+    const response = await fetch(decodedUrl, fetchOptions)
 
     if (!response.ok) {
       const text = await response.text()
@@ -52,11 +36,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     const contentType =
       response.headers.get('content-type') || 'application/vnd.apple.mpegurl'
 
-    // Surfline-specific cache control
-    const cacheControl =
-      provider === 'surfline'
-        ? 'no-store, no-cache, must-revalidate, max-age=0'
-        : 'no-store, no-cache, must-revalidate'
+    const cacheControl = 'no-store, no-cache, must-revalidate'
 
     return new NextResponse(response.body, {
       status: response.status,

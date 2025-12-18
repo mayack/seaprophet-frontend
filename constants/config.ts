@@ -43,6 +43,9 @@ export const CONFIG = {
         forecast: {
           get: (lat: number, lon: number) => `/api/forecast/${lat}/${lon}`,
         },
+        webcam: {
+          extract: '/api/webcam',
+        },
       },
     },
     tokens: {

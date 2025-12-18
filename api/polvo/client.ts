@@ -123,6 +123,88 @@ export class PolvoClient extends BaseApiClient {
       )
     }
   }
+
+  async getWebcamUrl(
+    websiteUrl: string,
+    containerId?: string,
+    autoPlay?: boolean,
+    cacheExpiration?: number,
+    token: string
+  ): Promise<string> {
+    if (!websiteUrl) {
+      throw createError('Website URL is required', 'validation')
+    }
+
+    const queryObject: Record<string, string> = {
+      url: websiteUrl,
+    }
+
+    if (containerId) {
+      queryObject.containerId = containerId
+    }
+
+    if (autoPlay !== undefined) {
+      queryObject.autoPlay = autoPlay.toString()
+    }
+
+    if (cacheExpiration !== undefined) {
+      queryObject.cacheExpiration = cacheExpiration.toString()
+    }
+
+    const queryParams = new URLSearchParams(queryObject)
+    const url = `${CONFIG.api.urls.polvo}${CONFIG.api.endpoints.polvo.webcam.extract}?${queryParams.toString()}`
+
+    const headers: HeadersInit = {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`,
+      Accept: 'application/json',
+      'Cache-Control': 'no-cache',
+      'Accept-Encoding': 'gzip',
+    }
+
+    try {
+      const response = await fetch(url, {
+        method: 'GET',
+        headers,
+        cache: 'no-store',
+      })
+
+      if (!response.ok) {
+        const errorType =
+          response.status === 401 || response.status === 403
+            ? 'auth'
+            : 'network'
+        throw createError(
+          `Webcam extraction failed: ${response.status}`,
+          errorType
+        )
+      }
+
+      const data = (await response.json()) as {
+        data: { m3u8Url: string }
+        _meta: {
+          success: boolean
+          cached: boolean
+          timestamp: string
+          source: string
+        }
+      }
+
+      if (!data.data?.m3u8Url) {
+        throw createError('No m3u8 URL returned from webcam extraction', 'network')
+      }
+
+      return data.data.m3u8Url
+    } catch (error) {
+      if (error instanceof Error && error.name === 'auth') {
+        throw error // Re-throw auth errors for retry logic
+      }
+      throw createError(
+        `Failed to extract webcam URL: ${getErrorMessage(error)}`,
+        'network'
+      )
+    }
+  }
 }
 
 export const polvoClient = new PolvoClient()

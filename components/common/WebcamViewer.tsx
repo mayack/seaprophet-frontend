@@ -6,8 +6,8 @@ import { Expand, Shrink, RefreshCw, Play } from 'lucide-react'
 import { Button } from '../ui/button'
 import { Spinner } from '../ui/spinner'
 import { WebcamConfig } from '@/api/sargo/interfaces/webcam'
-import { webcamProviders } from '@/constants/webcamProviders'
 import { CONFIG } from '@/constants/config'
+import { extractWebcamUrl } from '@/api/polvo/actions/webcam'
 import React from 'react'
 
 const AFK_TIMEOUT = CONFIG.webcam.afk_timer
@@ -21,6 +21,7 @@ export function WebcamViewer({ config }: WebcamViewerProps): React.JSX.Element {
   const [isLoading, setIsLoading] = useState(true)
   const [hasError, setHasError] = useState<string | null>(null)
   const [isAfk, setIsAfk] = useState(false)
+  const [m3u8Url, setM3u8Url] = useState<string | null>(null)
 
   const videoRef = useRef<HTMLVideoElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
@@ -115,9 +116,38 @@ export function WebcamViewer({ config }: WebcamViewerProps): React.JSX.Element {
     }
   }, [])
 
+  // Extract webcam URL if website_url is provided
+  const extractWebcam = useCallback(async (): Promise<string | null> => {
+    if (!config.website_url) {
+      return null
+    }
+
+    try {
+      setIsLoading(true)
+      const result = await extractWebcamUrl({
+        websiteUrl: config.website_url,
+        containerId: config.container_id,
+        autoPlay: config.autoplay ?? true,
+        cacheExpiration: config.cache ?? 300,
+      })
+
+      if (result.error || !result.data?.m3u8Url) {
+        throw new Error(result.error || 'Failed to extract webcam URL')
+      }
+
+      return result.data.m3u8Url
+    } catch (error) {
+      setHasError(
+        `Failed to extract webcam URL: ${error instanceof Error ? error.message : 'Unknown error'}`
+      )
+      setIsLoading(false)
+      return null
+    }
+  }, [config.website_url, config.container_id, config.autoplay, config.cache])
+
   // Initialize the stream
-  const initStream = useCallback((): void => {
-    if (!config.url || isAfk) return
+  const initStream = useCallback(async (): Promise<void> => {
+    if (isAfk) return
 
     setIsLoading(true)
     setHasError(null)
@@ -126,14 +156,29 @@ export function WebcamViewer({ config }: WebcamViewerProps): React.JSX.Element {
     const video = videoRef.current
     if (!video) return
 
-    // Get provider and prepare URLs
-    const provider =
-      webcamProviders[config.provider as keyof typeof webcamProviders] ||
-      webcamProviders.generic
-    const baseUrl = config.url.substring(0, config.url.lastIndexOf('/') + 1)
-    const streamUrl = provider.requiresProxy
-      ? `/api/proxy?url=${encodeURIComponent(config.url)}&provider=${config.provider}`
-      : config.url
+    // If website_url is provided, extract m3u8 URL first
+    let streamUrl: string | null = null
+    if (config.website_url) {
+      const extractedUrl = await extractWebcam()
+      if (extractedUrl) {
+        streamUrl = extractedUrl
+        setM3u8Url(extractedUrl)
+      } else {
+        return // Error already set in extractWebcam
+      }
+    } else if (config.url) {
+      streamUrl = config.url
+    } else {
+      setHasError('No webcam URL provided')
+      setIsLoading(false)
+      return
+    }
+
+    if (!streamUrl) {
+      setHasError('No valid webcam URL available')
+      setIsLoading(false)
+      return
+    }
 
     // Function to handle playback errors
     const handlePlaybackError = (
@@ -153,17 +198,6 @@ export function WebcamViewer({ config }: WebcamViewerProps): React.JSX.Element {
     // Setup HLS.js if supported
     if (Hls.isSupported()) {
       const hls = new Hls({
-        xhrSetup: (xhr: XMLHttpRequest, url: string): void => {
-          if (url.startsWith('/api/proxy')) return
-
-          const finalUrl = provider.transformUrl
-            ? provider.transformUrl(baseUrl)(url)
-            : url
-          const proxyUrl = provider.requiresProxy
-            ? `/api/proxy?url=${encodeURIComponent(finalUrl)}&provider=${config.provider}`
-            : finalUrl
-          xhr.open('GET', proxyUrl, true)
-        },
         autoStartLoad: true,
         lowLatencyMode: true,
       })
@@ -247,12 +281,12 @@ export function WebcamViewer({ config }: WebcamViewerProps): React.JSX.Element {
     else {
       handlePlaybackError('HLS playback not supported in this browser')
     }
-  }, [config.url, config.provider, destroyStream, isAfk, startAfkTimer])
+  }, [config.url, config.website_url, destroyStream, isAfk, startAfkTimer, extractWebcam])
 
   // Handle keeping watching after AFK
   const handleKeepWatching = useCallback((): void => {
     setIsAfk(false)
-    initStream()
+    void initStream()
   }, [initStream])
 
   // Handle mouse movement
@@ -295,7 +329,7 @@ export function WebcamViewer({ config }: WebcamViewerProps): React.JSX.Element {
 
     // Initialize stream if not AFK
     if (!isAfk) {
-      initStream()
+      void initStream()
       startAfkTimer()
     }
 
@@ -355,7 +389,7 @@ export function WebcamViewer({ config }: WebcamViewerProps): React.JSX.Element {
         <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 text-background dark:text-foreground">
           <div>{hasError || 'Failed to load webcam stream'}</div>
           <Button
-            onClick={initStream}
+            onClick={() => void initStream()}
             variant="white"
             className="flex items-center gap-2"
           >
