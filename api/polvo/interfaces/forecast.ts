@@ -9,6 +9,7 @@ export interface ForecastResponse {
     success: boolean
     cached: boolean
     timestamp: string
+    cachedAt?: string
     processedIn?: number
     source?: 'cache' | 'stormglass' | 'system'
     terrainData?: boolean

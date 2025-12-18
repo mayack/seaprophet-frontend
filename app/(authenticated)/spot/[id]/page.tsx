@@ -99,7 +99,10 @@ export default async function SpotPage({
             locationPath={spot.locationInfo}
             terrainData={forecastResponse.data._meta?.terrainData}
             bathymetryData={forecastResponse.data._meta?.bathymetryData}
-            updatedAt={forecastResponse.data._meta?.timestamp}
+            updatedAt={
+              forecastResponse.data._meta?.cachedAt ||
+              forecastResponse.data._meta?.timestamp
+            }
           />
           <SpotsNearby
             spots={nearbySpots}
