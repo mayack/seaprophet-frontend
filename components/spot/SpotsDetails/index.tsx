@@ -139,9 +139,9 @@ export function SpotsDetails({
           />
         </TabsContent>
       </Tabs>
-      <div className="items-center gap-4 flex wrapper mt-4">
+      <div className="wrapper mt-4 flex items-center gap-4">
         {updatedAt && (
-          <div className="text-xs text-muted-foreground flex-1 flex gap-x-1 flex-col xs:flex-row xs:items-center">
+          <div className="flex flex-1 flex-col gap-x-1 text-xs text-muted-foreground xs:flex-row xs:items-center">
             <span>Updated on:</span>
             <span>
               {new Date(updatedAt).toLocaleString('en-GB', {
@@ -165,15 +165,15 @@ export function SpotsDetails({
                   <button
                     type="button"
                     onClick={() => setTerrainTooltipOpen(!terrainTooltipOpen)}
-                    className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors cursor-help"
+                    className="flex cursor-help items-center gap-1.5 text-xs text-muted-foreground transition-colors hover:text-foreground"
                   >
                     <Mountain className="size-3" />
                     <span>Terrain</span>
                   </button>
                 </TooltipTrigger>
-                <TooltipContent className="max-w-[30ch] leading-tight text-xs">
-                    Terrain data accounts for how surrounding land features
-                    affect wind patterns and wave forecasts at this location.
+                <TooltipContent className="max-w-[30ch] text-xs leading-tight">
+                  Terrain data accounts for how surrounding land features affect
+                  wind patterns and wave forecasts at this location.
                 </TooltipContent>
               </Tooltip>
             )}
@@ -188,15 +188,15 @@ export function SpotsDetails({
                     onClick={() =>
                       setBathymetryTooltipOpen(!bathymetryTooltipOpen)
                     }
-                    className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors cursor-help"
+                    className="flex cursor-help items-center gap-1.5 text-xs text-muted-foreground transition-colors hover:text-foreground"
                   >
                     <Waves className="size-3" />
                     <span>Bathymetry</span>
                   </button>
                 </TooltipTrigger>
-                <TooltipContent className="max-w-[30ch] leading-tight text-xs">
-                    Bathymetry data uses detailed seafloor depth measurements
-                    to provide more accurate wave height and break predictions.
+                <TooltipContent className="max-w-[30ch] text-xs leading-tight">
+                  Bathymetry data uses detailed seafloor depth measurements to
+                  provide more accurate wave height and break predictions.
                 </TooltipContent>
               </Tooltip>
             )}
