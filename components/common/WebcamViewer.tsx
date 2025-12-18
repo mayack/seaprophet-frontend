@@ -210,7 +210,6 @@ export function WebcamViewer({ config }: WebcamViewerProps): React.JSX.Element {
             xhr.open('GET', url, true)
           } else {
             // Route through proxy for CORS and authentication
-            // This is required for spotfav since we can't set Origin header from client
             const proxyUrl = `/api/proxy?url=${encodeURIComponent(url)}`
             xhr.open('GET', proxyUrl, true)
           }
@@ -219,7 +218,6 @@ export function WebcamViewer({ config }: WebcamViewerProps): React.JSX.Element {
 
       hlsRef.current = hls
       // Route through proxy for CORS and authentication
-      // Required for spotfav since we can't set Origin header from client
       const proxyStreamUrl = `/api/proxy?url=${encodeURIComponent(streamUrl)}`
       hls.loadSource(proxyStreamUrl)
       hls.attachMedia(video)
@@ -272,7 +270,6 @@ export function WebcamViewer({ config }: WebcamViewerProps): React.JSX.Element {
     // Use native HLS support for Safari
     else if (video.canPlayType('application/vnd.apple.mpegurl')) {
       // Route through proxy for CORS and authentication
-      // Required for spotfav since we can't set Origin header from client
       const proxyUrl = `/api/proxy?url=${encodeURIComponent(streamUrl)}`
       video.src = proxyUrl
       video.load()
