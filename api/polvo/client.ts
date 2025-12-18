@@ -191,7 +191,10 @@ export class PolvoClient extends BaseApiClient {
       }
 
       if (!data.data?.m3u8Url) {
-        throw createError('No m3u8 URL returned from webcam extraction', 'network')
+        throw createError(
+          'No m3u8 URL returned from webcam extraction',
+          'network'
+        )
       }
 
       return data.data.m3u8Url

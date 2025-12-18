@@ -281,7 +281,14 @@ export function WebcamViewer({ config }: WebcamViewerProps): React.JSX.Element {
     else {
       handlePlaybackError('HLS playback not supported in this browser')
     }
-  }, [config.url, config.website_url, destroyStream, isAfk, startAfkTimer, extractWebcam])
+  }, [
+    config.url,
+    config.website_url,
+    destroyStream,
+    isAfk,
+    startAfkTimer,
+    extractWebcam,
+  ])
 
   // Handle keeping watching after AFK
   const handleKeepWatching = useCallback((): void => {
