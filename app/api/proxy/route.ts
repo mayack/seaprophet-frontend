@@ -32,10 +32,16 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
 
     // Add Spotfav-specific headers if needed
     if (decodedUrl.includes('spotfav.com')) {
+      // Remove Connection header - browsers don't send it explicitly
+      delete headers['Connection']
+
+      // Match exact headers from working browser request
       headers['Referer'] = 'https://www.spotfav.com/'
       headers['Origin'] = 'https://www.spotfav.com'
       headers['Accept-Encoding'] = 'identity;q=1, *;q=0'
       headers['Range'] = 'bytes=0-'
+      headers['Accept-Language'] =
+        'en-US,en;q=0.9,lv;q=0.8,ru;q=0.7,lt;q=0.6,es;q=0.5,fr;q=0.4,pt;q=0.3'
       // Use browser-like user agent for spotfav
       headers['User-Agent'] =
         'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36'
