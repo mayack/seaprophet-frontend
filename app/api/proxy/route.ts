@@ -37,7 +37,8 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       headers['Accept-Encoding'] = 'identity;q=1, *;q=0'
       headers['Range'] = 'bytes=0-'
       // Use browser-like user agent for spotfav
-      headers['User-Agent'] = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36'
+      headers['User-Agent'] =
+        'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36'
     }
 
     const fetchOptions: RequestInit = {
