@@ -50,11 +50,11 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     // If it's an m3u8 file, we need to rewrite relative URLs to absolute
     if (contentType.includes('mpegurl') || decodedUrl.includes('.m3u8')) {
       const text = await response.text()
-      
+
       // Get the base URL from the original request
       const urlObj = new URL(decodedUrl)
       const baseUrl = `${urlObj.protocol}//${urlObj.host}${urlObj.pathname.substring(0, urlObj.pathname.lastIndexOf('/') + 1)}`
-      
+
       // Rewrite relative URLs to absolute URLs
       const rewritten = text
         .split('\n')
@@ -63,7 +63,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
           if (line.startsWith('#') || !line.trim()) {
             return line
           }
-          
+
           // If it's a relative URL, make it absolute
           if (line.startsWith('/')) {
             return `${urlObj.protocol}//${urlObj.host}${line}`
@@ -71,11 +71,11 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
             // Relative path, prepend base URL
             return `${baseUrl}${line}`
           }
-          
+
           return line
         })
         .join('\n')
-      
+
       return new NextResponse(rewritten, {
         status: response.status,
         headers: {
