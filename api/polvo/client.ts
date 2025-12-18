@@ -126,10 +126,10 @@ export class PolvoClient extends BaseApiClient {
 
   async getWebcamUrl(
     websiteUrl: string,
+    token: string,
     containerId?: string,
     autoPlay?: boolean,
-    cacheExpiration?: number,
-    token: string
+    cacheExpiration?: number
   ): Promise<string> {
     if (!websiteUrl) {
       throw createError('Website URL is required', 'validation')
