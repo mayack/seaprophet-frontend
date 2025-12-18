@@ -200,10 +200,26 @@ export function WebcamViewer({ config }: WebcamViewerProps): React.JSX.Element {
       const hls = new Hls({
         autoStartLoad: true,
         lowLatencyMode: true,
+        xhrSetup: (xhr: XMLHttpRequest, url: string): void => {
+          // Only proxy if not already proxied or localhost
+          if (
+            url.startsWith('/api/proxy') ||
+            url.startsWith('http://localhost') ||
+            url.startsWith('https://localhost')
+          ) {
+            xhr.open('GET', url, true)
+          } else {
+            // Route through proxy for CORS and authentication
+            const proxyUrl = `/api/proxy?url=${encodeURIComponent(url)}`
+            xhr.open('GET', proxyUrl, true)
+          }
+        },
       })
 
       hlsRef.current = hls
-      hls.loadSource(streamUrl)
+      // Route initial m3u8 through proxy for CORS and authentication
+      const proxyStreamUrl = `/api/proxy?url=${encodeURIComponent(streamUrl)}`
+      hls.loadSource(proxyStreamUrl)
       hls.attachMedia(video)
 
       // Handle HLS events
@@ -253,7 +269,9 @@ export function WebcamViewer({ config }: WebcamViewerProps): React.JSX.Element {
     }
     // Use native HLS support for Safari
     else if (video.canPlayType('application/vnd.apple.mpegurl')) {
-      video.src = streamUrl
+      // Route through proxy for CORS and authentication
+      const proxyUrl = `/api/proxy?url=${encodeURIComponent(streamUrl)}`
+      video.src = proxyUrl
       video.load()
 
       video.onloadedmetadata = async (): Promise<void> => {

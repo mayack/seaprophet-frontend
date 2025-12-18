@@ -21,6 +21,15 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       Connection: 'keep-alive',
     }
 
+    // Add SkylineWebcams-specific headers if needed
+    if (decodedUrl.includes('skylinewebcams.com')) {
+      headers['Referer'] = 'https://www.skylinewebcams.com/'
+      headers['Origin'] = 'https://www.skylinewebcams.com'
+      headers['Accept-Encoding'] = 'identity'
+      headers['Range'] = 'bytes=0-'
+      headers['Icy-MetaInt'] = '32000'
+    }
+
     const fetchOptions: RequestInit = {
       method: 'GET',
       headers,
@@ -37,6 +46,45 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       response.headers.get('content-type') || 'application/vnd.apple.mpegurl'
 
     const cacheControl = 'no-store, no-cache, must-revalidate'
+
+    // If it's an m3u8 file, we need to rewrite relative URLs to absolute
+    if (contentType.includes('mpegurl') || decodedUrl.includes('.m3u8')) {
+      const text = await response.text()
+      
+      // Get the base URL from the original request
+      const urlObj = new URL(decodedUrl)
+      const baseUrl = `${urlObj.protocol}//${urlObj.host}${urlObj.pathname.substring(0, urlObj.pathname.lastIndexOf('/') + 1)}`
+      
+      // Rewrite relative URLs to absolute URLs
+      const rewritten = text
+        .split('\n')
+        .map((line) => {
+          // Skip comments and empty lines
+          if (line.startsWith('#') || !line.trim()) {
+            return line
+          }
+          
+          // If it's a relative URL, make it absolute
+          if (line.startsWith('/')) {
+            return `${urlObj.protocol}//${urlObj.host}${line}`
+          } else if (!line.startsWith('http')) {
+            // Relative path, prepend base URL
+            return `${baseUrl}${line}`
+          }
+          
+          return line
+        })
+        .join('\n')
+      
+      return new NextResponse(rewritten, {
+        status: response.status,
+        headers: {
+          'Content-Type': contentType,
+          'Access-Control-Allow-Origin': '*',
+          'Cache-Control': cacheControl,
+        },
+      })
+    }
 
     return new NextResponse(response.body, {
       status: response.status,
