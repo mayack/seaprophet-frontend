@@ -59,10 +59,13 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       clearTimeout(timeoutId)
       console.error('[Proxy] Fetch failed:', {
         url: decodedUrl,
-        error: fetchError instanceof Error ? fetchError.message : String(fetchError),
+        error:
+          fetchError instanceof Error ? fetchError.message : String(fetchError),
         headers,
       })
-      throw new Error(`Network error: ${fetchError instanceof Error ? fetchError.message : String(fetchError)}`)
+      throw new Error(
+        `Network error: ${fetchError instanceof Error ? fetchError.message : String(fetchError)}`
+      )
     }
 
     if (!response.ok) {
