@@ -147,13 +147,23 @@ export function WebcamViewer({ config }: WebcamViewerProps): React.JSX.Element {
       })
 
       if (result.error || !result.data?.m3u8Url) {
-        throw new Error(result.error || 'Failed to extract webcam URL')
+        const errorMsg = result.error || 'Failed to extract webcam URL'
+        // Check if it's a 404
+        if (errorMsg.includes('404') || errorMsg.includes('Not Found')) {
+          throw new Error('The camera is offline.')
+        }
+        throw new Error(errorMsg)
       }
 
       return result.data.m3u8Url
     } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : 'Unknown error'
+      // Use clean message if it's already formatted (like "The camera is offline.")
       setHasError(
-        `Failed to extract webcam URL: ${error instanceof Error ? error.message : 'Unknown error'}`
+        errorMessage.includes('The camera is offline')
+          ? errorMessage
+          : `Failed to extract webcam URL: ${errorMessage}`
       )
       setIsLoading(false)
       return null
@@ -203,12 +213,33 @@ export function WebcamViewer({ config }: WebcamViewerProps): React.JSX.Element {
       return
     }
 
+    // Format error message - show clean message for 404s
+    const formatErrorMessage = (
+      error: unknown,
+      defaultMessage: string
+    ): string => {
+      const errorMessage =
+        error instanceof Error ? error.message : String(error)
+
+      // Check for 404 errors
+      if (
+        errorMessage.includes('404') ||
+        errorMessage.includes('Not Found') ||
+        errorMessage.toLowerCase().includes('camera is offline')
+      ) {
+        return 'The camera is offline.'
+      }
+
+      return defaultMessage
+    }
+
     // Function to handle playback errors
     const handlePlaybackError = (
       message: string,
       shouldRetry = false
     ): void => {
-      setHasError(message)
+      const cleanMessage = formatErrorMessage(message, message)
+      setHasError(cleanMessage)
       setIsLoading(false)
 
       if (shouldRetry && !isAfk) {
@@ -264,10 +295,19 @@ export function WebcamViewer({ config }: WebcamViewerProps): React.JSX.Element {
             isInitializingRef.current = false
           }
         } catch (err: unknown) {
+          // Ignore browser power-saving errors (video paused in background)
+          const errorMessage =
+            err instanceof Error ? err.message : 'unknown error'
+          if (errorMessage.includes('background media was paused')) {
+            isInitializingRef.current = false
+            return
+          }
           isInitializingRef.current = false
-          handlePlaybackError(
-            `Playback failed: ${err instanceof Error ? err.message : 'unknown error'}`
+          const cleanMessage = formatErrorMessage(
+            err,
+            `Playback failed: ${errorMessage}`
           )
+          handlePlaybackError(cleanMessage)
         }
       })
 
@@ -297,10 +337,18 @@ export function WebcamViewer({ config }: WebcamViewerProps): React.JSX.Element {
           setIsLoading(false)
           isInitializingRef.current = false
         } else if (data.type === Hls.ErrorTypes.NETWORK_ERROR) {
-          setHasError(errorMessage)
+          // Check for 404 in network errors
+          const is404 =
+            data.details?.includes('404') ||
+            data.response?.code === 404 ||
+            errorMessage.includes('404')
+          const displayMessage = is404 ? 'The camera is offline.' : errorMessage
+          setHasError(displayMessage)
           setIsLoading(false)
           isInitializingRef.current = false
-          setTimeout(() => hls.startLoad(), 2000)
+          if (!is404) {
+            setTimeout(() => hls.startLoad(), 2000)
+          }
         } else {
           isInitializingRef.current = false
           handlePlaybackError(errorMessage, true)
@@ -332,10 +380,19 @@ export function WebcamViewer({ config }: WebcamViewerProps): React.JSX.Element {
             isInitializingRef.current = false
           }
         } catch (err: unknown) {
+          // Ignore browser power-saving errors (video paused in background)
+          const errorMessage =
+            err instanceof Error ? err.message : 'unknown error'
+          if (errorMessage.includes('background media was paused')) {
+            isInitializingRef.current = false
+            return
+          }
           isInitializingRef.current = false
-          handlePlaybackError(
-            `Native playback failed: ${err instanceof Error ? err.message : 'unknown error'}`
+          const cleanMessage = formatErrorMessage(
+            err,
+            `Native playback failed: ${errorMessage}`
           )
+          handlePlaybackError(cleanMessage)
         }
       }
     }
@@ -414,7 +471,15 @@ export function WebcamViewer({ config }: WebcamViewerProps): React.JSX.Element {
 
     const handleError = (): void => {
       if (isAfk) return
-      setHasError('Video error occurred')
+      // Check if video has error details (404, etc.)
+      const video = videoRef.current
+      if (video?.error) {
+        // Video element errors are generic, but check network state
+        // 404s usually come through HLS.js error handler, but check here too
+        setHasError('The camera is offline.')
+      } else {
+        setHasError('Video error occurred')
+      }
       setIsLoading(false)
     }
 
