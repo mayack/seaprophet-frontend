@@ -31,10 +31,14 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     }
 
     // Add iol.pt/beachcam.meo.pt-specific headers if needed
-    if (decodedUrl.includes('video-auth1.iol.pt') || decodedUrl.includes('iol.pt')) {
+    if (
+      decodedUrl.includes('video-auth1.iol.pt') ||
+      decodedUrl.includes('iol.pt')
+    ) {
       headers['Origin'] = 'https://beachcam.meo.pt'
       headers['Referer'] = 'https://beachcam.meo.pt/'
-      headers['User-Agent'] = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36'
+      headers['User-Agent'] =
+        'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36'
       headers['Accept-Encoding'] = 'gzip, deflate, br, zstd'
     }
 
