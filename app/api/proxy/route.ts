@@ -59,7 +59,6 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
 
     if (!response.ok) {
       const text = await response.text()
-      const errorMessage = `HTTP error! status: ${response.status}, body: ${text.substring(0, 500)}`
       console.error('[Proxy] Request failed:', {
         url: decodedUrl,
         status: response.status,
@@ -67,7 +66,26 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
         sentHeaders: headers,
         bodyPreview: text.substring(0, 200),
       })
-      throw new Error(errorMessage)
+
+      // Return proper HTTP status code with clean error message
+      // 404 = camera offline, other errors = generic failure
+      const errorMessage =
+        response.status === 404
+          ? 'camera_offline'
+          : `Failed to fetch stream: ${response.status}`
+
+      return NextResponse.json(
+        {
+          error: errorMessage,
+          status: response.status,
+        },
+        {
+          status: response.status,
+          headers: {
+            'Access-Control-Allow-Origin': '*',
+          },
+        }
+      )
     }
 
     // Determine content type based on URL or response headers
@@ -132,18 +150,29 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       },
     })
   } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error)
+    const isTimeout = errorMessage.includes('abort')
+
     console.error('[Proxy] Error:', {
-      error: error instanceof Error ? error.message : String(error),
+      error: errorMessage,
       stack: error instanceof Error ? error.stack : undefined,
       url,
     })
+
+    // Return appropriate status code based on error type
+    const status = isTimeout ? 504 : 500
+
     return NextResponse.json(
       {
-        error: 'Failed to fetch stream',
-        details: error instanceof Error ? error.message : String(error),
-        url,
+        error: isTimeout ? 'Request timeout' : 'Failed to fetch stream',
+        details: errorMessage,
       },
-      { status: 500 }
+      {
+        status,
+        headers: {
+          'Access-Control-Allow-Origin': '*',
+        },
+      }
     )
   }
 }

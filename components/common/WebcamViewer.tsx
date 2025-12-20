@@ -337,11 +337,14 @@ export function WebcamViewer({ config }: WebcamViewerProps): React.JSX.Element {
           setIsLoading(false)
           isInitializingRef.current = false
         } else if (data.type === Hls.ErrorTypes.NETWORK_ERROR) {
-          // Check for 404 in network errors
+          // Check for 404 or manifestLoadError (often means camera offline)
+          // Proxy now returns proper 404 status codes, HLS.js passes them through
+          const responseCode = data.response?.code
           const is404 =
+            responseCode === 404 ||
             data.details?.includes('404') ||
-            data.response?.code === 404 ||
-            errorMessage.includes('404')
+            errorMessage.includes('404') ||
+            data.details === 'manifestLoadError' // Can't load manifest = likely offline
           const displayMessage = is404 ? 'The camera is offline.' : errorMessage
           setHasError(displayMessage)
           setIsLoading(false)
