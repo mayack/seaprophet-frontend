@@ -11,6 +11,7 @@ import { extractWebcamUrl } from '@/api/polvo/actions/webcam'
 import React from 'react'
 
 const AFK_TIMEOUT = CONFIG.webcam.afk_timer
+const MOUSE_MOVE_THROTTLE = 500 // ms - throttle mouse move events
 
 interface WebcamViewerProps {
   config: WebcamConfig
@@ -28,6 +29,10 @@ export function WebcamViewer({ config }: WebcamViewerProps): React.JSX.Element {
   const hlsRef = useRef<Hls | null>(null)
   const afkTimerRef = useRef<NodeJS.Timeout | null>(null)
   const isInitializingRef = useRef<boolean>(false)
+  // Track HLS instance to ignore events from stale instances
+  const hlsInstanceIdRef = useRef<number>(0)
+  // Throttle mouse move
+  const lastMouseMoveRef = useRef<number>(0)
 
   // Simple function to stop any timer
   const clearAfkTimer = useCallback((): void => {
@@ -46,6 +51,9 @@ export function WebcamViewer({ config }: WebcamViewerProps): React.JSX.Element {
       // Destroy stream directly instead of calling destroyStream
       clearAfkTimer()
 
+      // Increment instance ID to invalidate pending callbacks
+      hlsInstanceIdRef.current += 1
+
       if (hlsRef.current) {
         hlsRef.current.destroy()
         hlsRef.current = null
@@ -60,7 +68,7 @@ export function WebcamViewer({ config }: WebcamViewerProps): React.JSX.Element {
           if (videoRef.current) {
             videoRef.current.load()
           }
-        }, 100)
+        }, 150)
       }
     }, AFK_TIMEOUT)
   }, [clearAfkTimer])
@@ -69,6 +77,11 @@ export function WebcamViewer({ config }: WebcamViewerProps): React.JSX.Element {
   const destroyStream = useCallback(async (): Promise<void> => {
     clearAfkTimer()
 
+    // Increment instance ID first to invalidate any pending HLS callbacks
+    hlsInstanceIdRef.current += 1
+
+    // Destroy HLS instance BEFORE touching video element
+    // This prevents stale event handlers from firing
     if (hlsRef.current) {
       hlsRef.current.destroy()
       hlsRef.current = null
@@ -76,14 +89,11 @@ export function WebcamViewer({ config }: WebcamViewerProps): React.JSX.Element {
 
     const video = videoRef.current
     if (video) {
-      // Pause and wait for any pending play() promises to complete
+      // Pause video after HLS is destroyed
       video.pause()
-      try {
-        // Wait a bit to ensure any pending play() operations complete
-        await new Promise((resolve) => setTimeout(resolve, 100))
-      } catch {
-        // Ignore errors
-      }
+      // Wait for any pending play() promises to settle
+      // This prevents "play() was interrupted" errors
+      await new Promise((resolve) => setTimeout(resolve, 150))
       video.removeAttribute('src')
       video.load()
     }
@@ -251,6 +261,9 @@ export function WebcamViewer({ config }: WebcamViewerProps): React.JSX.Element {
 
     // Setup HLS.js if supported
     if (Hls.isSupported()) {
+      // Capture instance ID at start to detect stale callbacks
+      const currentInstanceId = hlsInstanceIdRef.current
+
       const hls = new Hls({
         autoStartLoad: true,
         lowLatencyMode: true,
@@ -278,6 +291,11 @@ export function WebcamViewer({ config }: WebcamViewerProps): React.JSX.Element {
 
       // Handle HLS events
       hls.on(Hls.Events.MANIFEST_PARSED, async () => {
+        // Ignore if this is a stale HLS instance
+        if (currentInstanceId !== hlsInstanceIdRef.current) {
+          return
+        }
+
         if (isAfk) {
           await destroyStream()
           isInitializingRef.current = false
@@ -286,6 +304,10 @@ export function WebcamViewer({ config }: WebcamViewerProps): React.JSX.Element {
 
         try {
           await video.play()
+          // Re-check instance ID after async operation
+          if (currentInstanceId !== hlsInstanceIdRef.current) {
+            return
+          }
           if (!isAfk) {
             setIsLoading(false)
             startAfkTimer()
@@ -295,10 +317,18 @@ export function WebcamViewer({ config }: WebcamViewerProps): React.JSX.Element {
             isInitializingRef.current = false
           }
         } catch (err: unknown) {
-          // Ignore browser power-saving errors (video paused in background)
+          // Re-check instance ID after async operation
+          if (currentInstanceId !== hlsInstanceIdRef.current) {
+            return
+          }
           const errorMessage =
             err instanceof Error ? err.message : 'unknown error'
-          if (errorMessage.includes('background media was paused')) {
+          // Ignore "play() was interrupted" - this is a race condition, not a real error
+          // Happens when destroyStream() calls load() while play() is pending
+          if (
+            errorMessage.includes('interrupted') ||
+            errorMessage.includes('background media was paused')
+          ) {
             isInitializingRef.current = false
             return
           }
@@ -312,6 +342,11 @@ export function WebcamViewer({ config }: WebcamViewerProps): React.JSX.Element {
       })
 
       hls.on(Hls.Events.ERROR, (_, data) => {
+        // Ignore if this is a stale HLS instance
+        if (currentInstanceId !== hlsInstanceIdRef.current) {
+          return
+        }
+
         if (isAfk) {
           void destroyStream()
           isInitializingRef.current = false
@@ -326,6 +361,21 @@ export function WebcamViewer({ config }: WebcamViewerProps): React.JSX.Element {
         // levelLoadError is non-fatal - HLS.js automatically tries another quality level
         // Don't show error to user since playback continues
         if (data.details === 'levelLoadError') {
+          return
+        }
+
+        // levelEmptyError - level playlist loaded but empty (transient)
+        // Auto-retry after a delay instead of showing error
+        if (data.details === 'levelEmptyError') {
+          console.log('[WebcamViewer] levelEmptyError - retrying in 2s...')
+          setTimeout(() => {
+            if (
+              currentInstanceId === hlsInstanceIdRef.current &&
+              hlsRef.current
+            ) {
+              hlsRef.current.startLoad()
+            }
+          }, 2000)
           return
         }
 
@@ -350,7 +400,14 @@ export function WebcamViewer({ config }: WebcamViewerProps): React.JSX.Element {
           setIsLoading(false)
           isInitializingRef.current = false
           if (!is404) {
-            setTimeout(() => hls.startLoad(), 2000)
+            setTimeout(() => {
+              if (
+                currentInstanceId === hlsInstanceIdRef.current &&
+                hlsRef.current
+              ) {
+                hlsRef.current.startLoad()
+              }
+            }, 2000)
           }
         } else {
           isInitializingRef.current = false
@@ -360,12 +417,20 @@ export function WebcamViewer({ config }: WebcamViewerProps): React.JSX.Element {
     }
     // Use native HLS support for Safari
     else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+      // Capture instance ID at start to detect stale callbacks
+      const currentInstanceId = hlsInstanceIdRef.current
+
       // Route through proxy for CORS and authentication
       const proxyUrl = `/api/proxy?url=${encodeURIComponent(streamUrl)}`
       video.src = proxyUrl
       video.load()
 
       video.onloadedmetadata = async (): Promise<void> => {
+        // Ignore if this is a stale instance
+        if (currentInstanceId !== hlsInstanceIdRef.current) {
+          return
+        }
+
         if (isAfk) {
           await destroyStream()
           isInitializingRef.current = false
@@ -374,6 +439,10 @@ export function WebcamViewer({ config }: WebcamViewerProps): React.JSX.Element {
 
         try {
           await video.play()
+          // Re-check instance ID after async operation
+          if (currentInstanceId !== hlsInstanceIdRef.current) {
+            return
+          }
           if (!isAfk) {
             setIsLoading(false)
             startAfkTimer()
@@ -383,10 +452,17 @@ export function WebcamViewer({ config }: WebcamViewerProps): React.JSX.Element {
             isInitializingRef.current = false
           }
         } catch (err: unknown) {
-          // Ignore browser power-saving errors (video paused in background)
+          // Re-check instance ID after async operation
+          if (currentInstanceId !== hlsInstanceIdRef.current) {
+            return
+          }
           const errorMessage =
             err instanceof Error ? err.message : 'unknown error'
-          if (errorMessage.includes('background media was paused')) {
+          // Ignore "play() was interrupted" and power-saving errors
+          if (
+            errorMessage.includes('interrupted') ||
+            errorMessage.includes('background media was paused')
+          ) {
             isInitializingRef.current = false
             return
           }
@@ -419,9 +495,13 @@ export function WebcamViewer({ config }: WebcamViewerProps): React.JSX.Element {
     void initStream()
   }, [initStream])
 
-  // Handle mouse movement
+  // Handle mouse movement (throttled to avoid excessive timer resets)
   const handleMouseMove = useCallback((): void => {
-    if (!isAfk) {
+    if (isAfk) return
+
+    const now = Date.now()
+    if (now - lastMouseMoveRef.current >= MOUSE_MOVE_THROTTLE) {
+      lastMouseMoveRef.current = now
       startAfkTimer()
     }
   }, [isAfk, startAfkTimer])
@@ -435,6 +515,9 @@ export function WebcamViewer({ config }: WebcamViewerProps): React.JSX.Element {
     setIsAfk(false)
     isInitializingRef.current = false
     clearAfkTimer()
+
+    // Increment instance ID to invalidate any pending HLS callbacks
+    hlsInstanceIdRef.current += 1
 
     // Destroy any existing stream
     if (hlsRef.current) {
@@ -451,7 +534,7 @@ export function WebcamViewer({ config }: WebcamViewerProps): React.JSX.Element {
         if (videoRef.current) {
           videoRef.current.load()
         }
-      }, 100)
+      }, 150)
     }
   }, [config.website_url, config.url, config.container_id, clearAfkTimer])
 
