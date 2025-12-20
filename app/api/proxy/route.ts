@@ -70,8 +70,17 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       throw new Error(errorMessage)
     }
 
-    const contentType =
-      response.headers.get('content-type') || 'application/vnd.apple.mpegurl'
+    // Determine content type based on URL or response headers
+    let contentType = response.headers.get('content-type')
+    if (!contentType) {
+      if (decodedUrl.includes('.m3u8')) {
+        contentType = 'application/vnd.apple.mpegurl'
+      } else if (decodedUrl.includes('.ts')) {
+        contentType = 'video/mp2t'
+      } else {
+        contentType = 'application/vnd.apple.mpegurl'
+      }
+    }
 
     const cacheControl = 'no-store, no-cache, must-revalidate'
 

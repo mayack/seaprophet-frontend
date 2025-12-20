@@ -27,6 +27,7 @@ export function WebcamViewer({ config }: WebcamViewerProps): React.JSX.Element {
   const containerRef = useRef<HTMLDivElement>(null)
   const hlsRef = useRef<Hls | null>(null)
   const afkTimerRef = useRef<NodeJS.Timeout | null>(null)
+  const isInitializingRef = useRef<boolean>(false)
 
   // Simple function to stop any timer
   const clearAfkTimer = useCallback((): void => {
@@ -52,14 +53,20 @@ export function WebcamViewer({ config }: WebcamViewerProps): React.JSX.Element {
 
       const video = videoRef.current
       if (video) {
+        video.pause()
         video.removeAttribute('src')
-        video.load()
+        // Use setTimeout to avoid interrupting pending play() promises
+        setTimeout(() => {
+          if (videoRef.current) {
+            videoRef.current.load()
+          }
+        }, 100)
       }
     }, AFK_TIMEOUT)
   }, [clearAfkTimer])
 
   // Stream destruction with proper cleanup
-  const destroyStream = useCallback((): void => {
+  const destroyStream = useCallback(async (): Promise<void> => {
     clearAfkTimer()
 
     if (hlsRef.current) {
@@ -69,6 +76,14 @@ export function WebcamViewer({ config }: WebcamViewerProps): React.JSX.Element {
 
     const video = videoRef.current
     if (video) {
+      // Pause and wait for any pending play() promises to complete
+      video.pause()
+      try {
+        // Wait a bit to ensure any pending play() operations complete
+        await new Promise((resolve) => setTimeout(resolve, 100))
+      } catch {
+        // Ignore errors
+      }
       video.removeAttribute('src')
       video.load()
     }
@@ -147,14 +162,18 @@ export function WebcamViewer({ config }: WebcamViewerProps): React.JSX.Element {
 
   // Initialize the stream
   const initStream = useCallback(async (): Promise<void> => {
-    if (isAfk) return
+    if (isAfk || isInitializingRef.current) return
 
+    isInitializingRef.current = true
     setIsLoading(true)
     setHasError(null)
-    destroyStream()
+    await destroyStream()
 
     const video = videoRef.current
-    if (!video) return
+    if (!video) {
+      isInitializingRef.current = false
+      return
+    }
 
     // If website_url is provided, extract m3u8 URL first
     let streamUrl: string | null = null
@@ -164,19 +183,23 @@ export function WebcamViewer({ config }: WebcamViewerProps): React.JSX.Element {
         streamUrl = extractedUrl
         setM3u8Url(extractedUrl)
       } else {
-        return // Error already set in extractWebcam
+        // Error already set in extractWebcam
+        isInitializingRef.current = false
+        return
       }
     } else if (config.url) {
       streamUrl = config.url
     } else {
       setHasError('No webcam URL provided')
       setIsLoading(false)
+      isInitializingRef.current = false
       return
     }
 
     if (!streamUrl) {
       setHasError('No valid webcam URL available')
       setIsLoading(false)
+      isInitializingRef.current = false
       return
     }
 
@@ -225,7 +248,8 @@ export function WebcamViewer({ config }: WebcamViewerProps): React.JSX.Element {
       // Handle HLS events
       hls.on(Hls.Events.MANIFEST_PARSED, async () => {
         if (isAfk) {
-          destroyStream()
+          await destroyStream()
+          isInitializingRef.current = false
           return
         }
 
@@ -234,10 +258,13 @@ export function WebcamViewer({ config }: WebcamViewerProps): React.JSX.Element {
           if (!isAfk) {
             setIsLoading(false)
             startAfkTimer()
+            isInitializingRef.current = false
           } else {
-            destroyStream()
+            await destroyStream()
+            isInitializingRef.current = false
           }
         } catch (err: unknown) {
+          isInitializingRef.current = false
           handlePlaybackError(
             `Playback failed: ${err instanceof Error ? err.message : 'unknown error'}`
           )
@@ -246,7 +273,8 @@ export function WebcamViewer({ config }: WebcamViewerProps): React.JSX.Element {
 
       hls.on(Hls.Events.ERROR, (_, data) => {
         if (isAfk) {
-          destroyStream()
+          void destroyStream()
+          isInitializingRef.current = false
           return
         }
 
@@ -257,11 +285,14 @@ export function WebcamViewer({ config }: WebcamViewerProps): React.JSX.Element {
             hls.recoverMediaError()
             setHasError(errorMessage)
             setIsLoading(false)
+            isInitializingRef.current = false
           } else if (data.type === Hls.ErrorTypes.NETWORK_ERROR) {
             setHasError(errorMessage)
             setIsLoading(false)
+            isInitializingRef.current = false
             setTimeout(() => hls.startLoad(), 2000)
           } else {
+            isInitializingRef.current = false
             handlePlaybackError(errorMessage, true)
           }
         }
@@ -276,7 +307,8 @@ export function WebcamViewer({ config }: WebcamViewerProps): React.JSX.Element {
 
       video.onloadedmetadata = async (): Promise<void> => {
         if (isAfk) {
-          destroyStream()
+          await destroyStream()
+          isInitializingRef.current = false
           return
         }
 
@@ -285,10 +317,13 @@ export function WebcamViewer({ config }: WebcamViewerProps): React.JSX.Element {
           if (!isAfk) {
             setIsLoading(false)
             startAfkTimer()
+            isInitializingRef.current = false
           } else {
-            destroyStream()
+            await destroyStream()
+            isInitializingRef.current = false
           }
         } catch (err: unknown) {
+          isInitializingRef.current = false
           handlePlaybackError(
             `Native playback failed: ${err instanceof Error ? err.message : 'unknown error'}`
           )
@@ -297,6 +332,7 @@ export function WebcamViewer({ config }: WebcamViewerProps): React.JSX.Element {
     }
     // No HLS support available
     else {
+      isInitializingRef.current = false
       handlePlaybackError('HLS playback not supported in this browser')
     }
   }, [
@@ -328,6 +364,7 @@ export function WebcamViewer({ config }: WebcamViewerProps): React.JSX.Element {
     setHasError(null)
     setIsLoading(true)
     setIsAfk(false)
+    isInitializingRef.current = false
     clearAfkTimer()
 
     // Destroy any existing stream
@@ -338,8 +375,14 @@ export function WebcamViewer({ config }: WebcamViewerProps): React.JSX.Element {
 
     const video = videoRef.current
     if (video) {
+      video.pause()
       video.removeAttribute('src')
-      video.load()
+      // Use setTimeout to avoid interrupting pending play() promises
+      setTimeout(() => {
+        if (videoRef.current) {
+          videoRef.current.load()
+        }
+      }, 100)
     }
   }, [config.website_url, config.url, config.container_id, clearAfkTimer])
 
@@ -383,7 +426,7 @@ export function WebcamViewer({ config }: WebcamViewerProps): React.JSX.Element {
     // Clean up
     return (): void => {
       abortController.abort()
-      destroyStream()
+      void destroyStream()
     }
   }, [initStream, handleMouseMove, destroyStream, isAfk, startAfkTimer])
 
