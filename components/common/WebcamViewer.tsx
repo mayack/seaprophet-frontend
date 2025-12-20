@@ -278,23 +278,32 @@ export function WebcamViewer({ config }: WebcamViewerProps): React.JSX.Element {
           return
         }
 
-        if (data.fatal) {
-          const errorMessage = `Stream error: ${data.type} - ${data.details}`
+        // Ignore non-fatal errors - HLS.js handles them automatically
+        if (!data.fatal) {
+          return
+        }
 
-          if (data.type === Hls.ErrorTypes.MEDIA_ERROR) {
-            hls.recoverMediaError()
-            setHasError(errorMessage)
-            setIsLoading(false)
-            isInitializingRef.current = false
-          } else if (data.type === Hls.ErrorTypes.NETWORK_ERROR) {
-            setHasError(errorMessage)
-            setIsLoading(false)
-            isInitializingRef.current = false
-            setTimeout(() => hls.startLoad(), 2000)
-          } else {
-            isInitializingRef.current = false
-            handlePlaybackError(errorMessage, true)
-          }
+        // levelLoadError is non-fatal - HLS.js automatically tries another quality level
+        // Don't show error to user since playback continues
+        if (data.details === 'levelLoadError') {
+          return
+        }
+
+        const errorMessage = `Stream error: ${data.type} - ${data.details}`
+
+        if (data.type === Hls.ErrorTypes.MEDIA_ERROR) {
+          hls.recoverMediaError()
+          setHasError(errorMessage)
+          setIsLoading(false)
+          isInitializingRef.current = false
+        } else if (data.type === Hls.ErrorTypes.NETWORK_ERROR) {
+          setHasError(errorMessage)
+          setIsLoading(false)
+          isInitializingRef.current = false
+          setTimeout(() => hls.startLoad(), 2000)
+        } else {
+          isInitializingRef.current = false
+          handlePlaybackError(errorMessage, true)
         }
       })
     }
