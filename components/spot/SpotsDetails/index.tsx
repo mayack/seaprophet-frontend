@@ -150,8 +150,8 @@ export function SpotsDetails({
             <div className="flex items-center gap-4">
               <h1 className="font-style-h1 flex-1 leading-none">{spotName}</h1>
               <div className="flex items-center gap-3">
-                <TabsList>
-                  {webcam && (
+                {webcam && (
+                  <TabsList>
                     <TabsTrigger
                       value="webcam"
                       className="flex items-center gap-2"
@@ -159,12 +159,15 @@ export function SpotsDetails({
                       <Webcam className="size-4" />
                       <div className="hidden sm:block">Webcam</div>
                     </TabsTrigger>
-                  )}
-                  <TabsTrigger value="map" className="flex items-center gap-2">
-                    <MapPin className="size-4" />
-                    <div className="hidden sm:block">Map</div>
-                  </TabsTrigger>
-                </TabsList>
+                    <TabsTrigger
+                      value="map"
+                      className="flex items-center gap-2"
+                    >
+                      <MapPin className="size-4" />
+                      <div className="hidden sm:block">Map</div>
+                    </TabsTrigger>
+                  </TabsList>
+                )}
                 {spotId && (
                   <TooltipProvider>
                     <Tooltip>

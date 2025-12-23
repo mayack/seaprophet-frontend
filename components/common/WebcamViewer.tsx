@@ -232,7 +232,8 @@ export function WebcamViewer({ config }: WebcamViewerProps) {
         <Overlay>
           <p className="text-white">{error}</p>
           <Button onClick={retry} variant="secondary" className="mt-4">
-            <RefreshCw className="mr-2 size-4" /> Retry
+            <RefreshCw />
+            Retry
           </Button>
         </Overlay>
       )}
@@ -241,7 +242,8 @@ export function WebcamViewer({ config }: WebcamViewerProps) {
         <Overlay>
           <p className="text-white">Still watching?</p>
           <Button onClick={retry} variant="secondary" className="mt-4">
-            <Play className="mr-2 size-4" /> Continue
+            <Play />
+            Continue
           </Button>
         </Overlay>
       )}
