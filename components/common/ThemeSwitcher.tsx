@@ -51,9 +51,7 @@ export default function ThemeSwitcher(): React.JSX.Element {
                     <Sun className="size-4" />
                   </div>
                 </TooltipTrigger>
-                <TooltipContent>
-                  <p>Light mode</p>
-                </TooltipContent>
+                <TooltipContent>Light mode</TooltipContent>
               </Tooltip>
             </TabsTrigger>
             <TabsTrigger value="dark" className="flex-1">
@@ -63,9 +61,7 @@ export default function ThemeSwitcher(): React.JSX.Element {
                     <Moon className="size-4" />
                   </div>
                 </TooltipTrigger>
-                <TooltipContent>
-                  <p>Dark mode</p>
-                </TooltipContent>
+                <TooltipContent>Light mode</TooltipContent>
               </Tooltip>
             </TabsTrigger>
             <TabsTrigger value="system" className="flex-1">
@@ -75,9 +71,7 @@ export default function ThemeSwitcher(): React.JSX.Element {
                     <Monitor className="size-4" />
                   </div>
                 </TooltipTrigger>
-                <TooltipContent>
-                  <p>System mode</p>
-                </TooltipContent>
+                <TooltipContent>System mode</TooltipContent>
               </Tooltip>
             </TabsTrigger>
           </div>

@@ -68,10 +68,11 @@ export function IconDirection({
             />
           </div>
         </TooltipTrigger>
-        <TooltipContent>
-          <div className="text-xs font-semibold leading-none">
-            {degrees}° {cardinalDirection}
-          </div>
+        <TooltipContent
+          className="text-xs font-semibold leading-none"
+          sideOffset={10}
+        >
+          {degrees}° {cardinalDirection}
         </TooltipContent>
       </Tooltip>
     </TooltipProvider>

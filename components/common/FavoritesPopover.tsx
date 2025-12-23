@@ -38,7 +38,7 @@ export function FavoritesPopover(): React.JSX.Element {
     setOpen(newOpen)
     // Always close tooltip when dropdown state changes
     setTooltipOpen(false)
-    
+
     // If dropdown just closed, prevent tooltip for a brief moment
     if (!newOpen) {
       setJustClosed(true)
@@ -155,9 +155,7 @@ export function FavoritesPopover(): React.JSX.Element {
             )}
           </DropdownMenuContent>
         </DropdownMenu>
-        <TooltipContent sideOffset={8}>
-          <p>Favorite spots</p>
-        </TooltipContent>
+        <TooltipContent sideOffset={10} className="text-xs leading-none">Favorite spots</TooltipContent>
       </Tooltip>
     </TooltipProvider>
   )

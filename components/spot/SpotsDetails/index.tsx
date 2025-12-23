@@ -184,11 +184,9 @@ export function SpotsDetails({
                         </Button>
                       </TooltipTrigger>
                       <TooltipContent>
-                        <p>
-                          {isFavorite
-                            ? 'Remove from favorites'
-                            : 'Add to favorites'}
-                        </p>
+                        {isFavorite
+                          ? 'Remove from favorites'
+                          : 'Add to favorites'}
                       </TooltipContent>
                     </Tooltip>
                   </TooltipProvider>
@@ -250,7 +248,11 @@ export function SpotsDetails({
                     <span>Terrain</span>
                   </button>
                 </TooltipTrigger>
-                <TooltipContent className="max-w-[30ch] text-xs leading-tight">
+                <TooltipContent
+                  className="max-w-[30ch] text-xs leading-tight"
+                  sideOffset={10}
+                  side="bottom"
+                >
                   Terrain data accounts for how surrounding land features affect
                   wind patterns and wave forecasts at this location.
                 </TooltipContent>
@@ -273,7 +275,11 @@ export function SpotsDetails({
                     <span>Bathymetry</span>
                   </button>
                 </TooltipTrigger>
-                <TooltipContent className="max-w-[30ch] text-xs leading-tight">
+                <TooltipContent
+                  className="max-w-[30ch] text-xs leading-tight"
+                  sideOffset={10}
+                  side="bottom"
+                >
                   Bathymetry data uses detailed seafloor depth measurements to
                   provide more accurate wave height and break predictions.
                 </TooltipContent>

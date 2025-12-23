@@ -333,7 +333,10 @@ export class SargoClient extends BaseApiClient {
     )
   }
 
-  async getSpotsByIds(spotIds: number[], isPublic = true): Promise<{ data: Spot[] }> {
+  async getSpotsByIds(
+    spotIds: number[],
+    isPublic = true
+  ): Promise<{ data: Spot[] }> {
     if (!spotIds || spotIds.length === 0) {
       return { data: [] }
     }
