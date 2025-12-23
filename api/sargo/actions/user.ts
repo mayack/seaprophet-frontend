@@ -220,3 +220,157 @@ export async function updateUserUnits(units: UserSettings['units']) {
     }
   }
 }
+
+export async function toggleFavorite(spotId: number) {
+  try {
+    const cookieStore = await cookies()
+
+    // First, try to read from cookie cache (most up-to-date)
+    let user: {
+      username: string
+      email: string
+      settings: UserSettings
+    } | null = null
+    const optionsCookie = cookieStore.get(
+      CONFIG.api.tokens.sargoOptions.key
+    )?.value
+
+    if (optionsCookie) {
+      try {
+        const cachedUser = JSON.parse(optionsCookie) as {
+          username: string
+          email: string
+          settings: UserSettings
+        }
+        user = cachedUser
+      } catch (error) {
+        console.error('Failed to parse sargoOptions cookie:', error)
+      }
+    }
+
+    // Fall back to API if cookie doesn't exist or is invalid
+    if (!user) {
+      const apiUser = await sargoClient.getCurrentUser()
+      if (!apiUser) throw new Error('User not found')
+      user = {
+        username: apiUser.username,
+        email: apiUser.email,
+        settings: apiUser.settings || CONFIG.settings.default,
+      }
+    }
+
+    // Ensure we have a proper favorites array
+    // Handle cases where favorites might be undefined, null, or not an array
+    let currentFavorites: number[] = []
+    if (user.settings.favorites) {
+      if (Array.isArray(user.settings.favorites)) {
+        // Ensure all items are numbers
+        currentFavorites = user.settings.favorites
+          .map((id) => Number(id))
+          .filter((id) => !isNaN(id))
+      }
+    }
+
+    const isFavorite = currentFavorites.includes(spotId)
+
+    // Create updated favorites array
+    const updatedFavorites = isFavorite
+      ? currentFavorites.filter((id) => id !== spotId)
+      : [...currentFavorites, spotId]
+
+    // Remove duplicates just in case
+    const uniqueFavorites = Array.from(new Set(updatedFavorites))
+
+    // Ensure we preserve all existing settings
+    const updatedSettings: UserSettings = {
+      ...user.settings,
+      favorites: uniqueFavorites,
+    }
+
+    console.log('Toggling favorite:', {
+      spotId,
+      currentFavorites,
+      updatedFavorites: uniqueFavorites,
+      isFavorite,
+      userSettings: user.settings,
+      source: optionsCookie ? 'cookie' : 'api',
+    })
+
+    const updatedUser = await sargoClient.updateUserProfile({
+      settings: updatedSettings,
+    })
+
+    console.log('Updated user response:', {
+      username: updatedUser.username,
+      settings: updatedUser.settings,
+      favorites: updatedUser.settings?.favorites,
+    })
+
+    // Check if the API call returned a valid user object with complete settings
+    if (!updatedUser || !updatedUser.username) {
+      console.warn('API returned incomplete user data, using fallback approach')
+      // Fall back to using the original user data with updated settings
+      const fallbackUser = {
+        ...user,
+        settings: updatedSettings,
+      }
+
+      // Update cached user options with fallback data
+      const cookieStore = await cookies()
+      cookieStore.set({
+        name: CONFIG.api.tokens.sargoOptions.key,
+        value: JSON.stringify({
+          username: fallbackUser.username,
+          email: fallbackUser.email,
+          settings: updatedSettings,
+        }),
+        ...CONFIG.api.tokens.sargoOptions.options,
+      })
+
+      revalidatePath('/')
+      return {
+        success: true,
+        isFavorite: !isFavorite,
+        favorites: uniqueFavorites,
+        user: fallbackUser,
+      }
+    }
+
+    // Ensure the returned user has the updated settings
+    // Sometimes the API might not return the complete settings object
+    // Always use our calculated settings to ensure consistency
+    const finalUser = {
+      ...updatedUser,
+      settings: {
+        ...updatedUser.settings,
+        favorites: uniqueFavorites,
+      },
+    }
+
+    // Update cached user options with the response from API
+    cookieStore.set({
+      name: CONFIG.api.tokens.sargoOptions.key,
+      value: JSON.stringify({
+        username: finalUser.username,
+        email: finalUser.email,
+        settings: finalUser.settings,
+      }),
+      ...CONFIG.api.tokens.sargoOptions.options,
+    })
+
+    revalidatePath('/')
+    return {
+      success: true,
+      isFavorite: !isFavorite,
+      favorites: uniqueFavorites,
+      user: finalUser,
+    }
+  } catch (error) {
+    console.error('Failed to toggle favorite:', error)
+    return {
+      success: false,
+      error:
+        error instanceof Error ? error.message : 'Failed to toggle favorite',
+    }
+  }
+}

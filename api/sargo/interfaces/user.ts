@@ -14,6 +14,7 @@ export interface UserSettings {
   units: UserUnits
   // Theme is now optional since it's managed by next-themes
   theme?: 'light' | 'dark' | 'system'
+  favorites?: number[] // Array of spot IDs
 }
 
 export interface UserUnits {

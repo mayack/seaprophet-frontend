@@ -11,6 +11,7 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip'
 import { SearchSpots } from '../spot/SearchSpots'
+import { FavoritesPopover } from './FavoritesPopover'
 
 interface HeaderProps {
   user: User
@@ -29,25 +30,7 @@ export function Header({ user }: HeaderProps): React.JSX.Element {
           </Link>
           <div className="flex grow items-center gap-2 xl:gap-4">
             <SearchSpots className="w-full" placeholder="Search for spots..." />
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="shrink-0"
-                    asChild
-                  >
-                    <Link href="/browse">
-                      <Globe />
-                    </Link>
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>Browse all spots</p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
+            <FavoritesPopover />
             <UserMenu user={user} />
           </div>
         </div>

@@ -235,3 +235,42 @@ export async function searchSpots(
     }
   }
 }
+
+export async function getFavoriteSpots(
+  spotIds: number[]
+): Promise<SpotActionResponse<SpotsByCountry>> {
+  const timestamp = new Date().toISOString()
+
+  if (!spotIds || spotIds.length === 0) {
+    return {
+      data: {},
+      error: null,
+      meta: { timestamp, source: 'favorites-empty', success: true },
+    }
+  }
+
+  try {
+    // Fetch all spots and filter for favorites
+    const allSpotsResponse = await sargoClient.getSpotsByCountry(true)
+    const favoriteSpots = allSpotsResponse.data.filter((spot) =>
+      spotIds.includes(spot.id)
+    )
+
+    const organizedSpots = organizeSpotsByCountry(favoriteSpots)
+    return {
+      data: organizedSpots,
+      error: null,
+      meta: { timestamp, source: 'favorites', success: true },
+    }
+  } catch (error) {
+    console.error('getFavoriteSpots error:', error)
+    return {
+      data: {},
+      error:
+        error instanceof Error
+          ? error.message
+          : 'Failed to load favorite spots',
+      meta: { timestamp, source: 'error', success: false },
+    }
+  }
+}

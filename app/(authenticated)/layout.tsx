@@ -6,6 +6,7 @@ import { UserProvider } from '@/contexts/UserContext'
 import { redirect } from 'next/navigation'
 import { cookies } from 'next/headers'
 import { CONFIG } from '@/constants/config'
+import { Toaster } from 'sonner'
 import React from 'react'
 
 export default async function AuthenticatedLayout({
@@ -32,6 +33,7 @@ export default async function AuthenticatedLayout({
         <Header user={user} />
         <main className="flex flex-1 flex-col justify-center">{children}</main>
       </div>
+      <Toaster />
     </UserProvider>
   )
 }

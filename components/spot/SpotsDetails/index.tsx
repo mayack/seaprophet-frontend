@@ -11,7 +11,15 @@ import {
   BreadcrumbLink,
   BreadcrumbPage,
 } from '@/components/ui/breadcrumb'
-import { MapPin, Webcam, AlertCircle, Mountain, Waves } from 'lucide-react'
+import {
+  MapPin,
+  Webcam,
+  AlertCircle,
+  Mountain,
+  Waves,
+  Heart,
+  HeartCrack,
+} from 'lucide-react'
 import { WebcamConfig } from '@/api/sargo/interfaces/webcam'
 import {
   Tooltip,
@@ -20,6 +28,12 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip'
 import React, { useState } from 'react'
+import { Button } from '@/components/ui/button'
+import { useUser } from '@/contexts/UserContext'
+import { toggleFavorite } from '@/api/sargo/actions/user'
+import { useRouter } from 'next/navigation'
+import { toast } from 'sonner'
+import { cn } from '@/lib/utils'
 
 interface SpotsDetailsProps {
   mapCenter: [number, number]
@@ -49,6 +63,43 @@ export function SpotsDetails({
 }: SpotsDetailsProps): React.JSX.Element {
   const [terrainTooltipOpen, setTerrainTooltipOpen] = useState(false)
   const [bathymetryTooltipOpen, setBathymetryTooltipOpen] = useState(false)
+  const { userData, setUserData } = useUser()
+  const router = useRouter()
+  const [isToggling, setIsToggling] = useState(false)
+
+  const favorites = userData.settings.favorites || []
+  const isFavorite = spotId ? favorites.includes(spotId) : false
+
+  async function handleToggleFavorite() {
+    if (!spotId || isToggling) return
+
+    setIsToggling(true)
+    try {
+      const result = await toggleFavorite(spotId)
+      if (result.success && result.user) {
+        setUserData(result.user)
+        router.refresh()
+
+        // Show toast notification
+        if (result.isFavorite) {
+          toast.success(`${spotName} added to favorites`, {
+            icon: <Heart className="size-4" />,
+          })
+        } else {
+          toast.success(`${spotName} removed from favorites`, {
+            icon: <HeartCrack className="size-4" />,
+          })
+        }
+      } else {
+        toast.error(result.error || 'Failed to update favorites')
+      }
+    } catch (error) {
+      console.error('Failed to toggle favorite:', error)
+      toast.error('Failed to update favorites')
+    } finally {
+      setIsToggling(false)
+    }
+  }
 
   return (
     <div>
@@ -100,21 +151,49 @@ export function SpotsDetails({
             </div>
             <div className="flex items-end">
               <h1 className="font-style-h1 flex-1">{spotName}</h1>
-              <TabsList>
-                {webcam && (
-                  <TabsTrigger
-                    value="webcam"
-                    className="flex items-center gap-2"
-                  >
-                    <Webcam className="size-4" />
-                    <div className="hidden sm:block">Webcam</div>
+              <div className="flex items-center gap-3">
+                <TabsList>
+                  {webcam && (
+                    <TabsTrigger
+                      value="webcam"
+                      className="flex items-center gap-2"
+                    >
+                      <Webcam className="size-4" />
+                      <div className="hidden sm:block">Webcam</div>
+                    </TabsTrigger>
+                  )}
+                  <TabsTrigger value="map" className="flex items-center gap-2">
+                    <MapPin className="size-4" />
+                    <div className="hidden sm:block">Map</div>
                   </TabsTrigger>
+                </TabsList>
+                {spotId && (
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={handleToggleFavorite}
+                          disabled={isToggling}
+                          className="shrink-0"
+                        >
+                          <Heart
+                            className={cn(isFavorite && 'fill-foreground')}
+                          />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>
+                          {isFavorite
+                            ? 'Remove from favorites'
+                            : 'Add to favorites'}
+                        </p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
                 )}
-                <TabsTrigger value="map" className="flex items-center gap-2">
-                  <MapPin className="size-4" />
-                  <div className="hidden sm:block">Map</div>
-                </TabsTrigger>
-              </TabsList>
+              </div>
             </div>
           </div>
         </div>

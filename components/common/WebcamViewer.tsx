@@ -203,10 +203,12 @@ export function WebcamViewer({ config }: WebcamViewerProps) {
 
       {status === 'loading' && (
         <Overlay>
-          <div className="relative w-full flex justify-center items-center">
+          <div className="relative flex w-full items-center justify-center">
             <Spinner size="lg" className="text-white" />
             {config.website_url && !streamUrl && (
-              <p className="top-full mt-6 text-sm text-white absolute">This camera takes longer to load.</p>
+              <p className="absolute top-full mt-6 text-sm text-white">
+                This camera takes longer to load.
+              </p>
             )}
           </div>
         </Overlay>
