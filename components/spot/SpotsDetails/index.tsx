@@ -181,7 +181,10 @@ export function SpotsDetails({
                           />
                         </Button>
                       </TooltipTrigger>
-                      <TooltipContent>
+                      <TooltipContent
+                        className="text-xs leading-none"
+                        sideOffset={10}
+                      >
                         {isFavorite
                           ? 'Remove from favorites'
                           : 'Add to favorites'}

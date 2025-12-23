@@ -5,6 +5,12 @@ import Hls from 'hls.js'
 import { Expand, Shrink, RefreshCw, Play } from 'lucide-react'
 import { Button } from '../ui/button'
 import { Spinner } from '../ui/spinner'
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '../ui/tooltip'
 import { WebcamConfig } from '@/api/sargo/interfaces/webcam'
 import { extractWebcamUrl } from '@/api/polvo/actions/webcam'
 
@@ -26,7 +32,6 @@ export function WebcamViewer({ config }: WebcamViewerProps) {
   const hlsRef = useRef<Hls | null>(null)
   const afkTimerRef = useRef<ReturnType<typeof setTimeout>>(null)
 
-  // Cleanup HLS and timers
   const cleanup = () => {
     if (afkTimerRef.current) {
       clearTimeout(afkTimerRef.current)
@@ -38,7 +43,6 @@ export function WebcamViewer({ config }: WebcamViewerProps) {
     }
   }
 
-  // Reset AFK timer
   const resetAfkTimer = () => {
     if (afkTimerRef.current) clearTimeout(afkTimerRef.current)
     afkTimerRef.current = setTimeout(() => {
@@ -47,7 +51,6 @@ export function WebcamViewer({ config }: WebcamViewerProps) {
     }, AFK_TIMEOUT_MS)
   }
 
-  // Step 1: Resolve stream URL from config
   useEffect(() => {
     let cancelled = false
 
@@ -57,13 +60,11 @@ export function WebcamViewer({ config }: WebcamViewerProps) {
       setStreamUrl(null)
       cleanup()
 
-      // Direct URL provided
       if (config.url) {
         setStreamUrl(config.url)
         return
       }
 
-      // Need to extract from website
       if (config.website_url) {
         try {
           const result = await extractWebcamUrl({
@@ -111,7 +112,6 @@ export function WebcamViewer({ config }: WebcamViewerProps) {
     config.cache,
   ])
 
-  // Step 2: Initialize HLS player when we have a URL
   useEffect(() => {
     const video = videoRef.current
     if (!video || !streamUrl) return
@@ -170,7 +170,6 @@ export function WebcamViewer({ config }: WebcamViewerProps) {
     return cleanup
   }, [streamUrl])
 
-  // Reset AFK timer on user interaction
   useEffect(() => {
     if (status !== 'playing') return
 
@@ -187,13 +186,30 @@ export function WebcamViewer({ config }: WebcamViewerProps) {
   const toggleFullscreen = () => {
     const video = videoRef.current
     if (!video) return
-    document.fullscreenElement
-      ? document.exitFullscreen()
-      : video.requestFullscreen()
+
+    const doc = document as Document & { webkitFullscreenElement?: Element }
+    const vid = video as HTMLVideoElement & {
+      webkitEnterFullscreen?: () => void
+      webkitExitFullscreen?: () => void
+    }
+
+    if (doc.fullscreenElement || doc.webkitFullscreenElement) {
+      if (doc.exitFullscreen) {
+        doc.exitFullscreen()
+      } else if (vid.webkitExitFullscreen) {
+        vid.webkitExitFullscreen()
+      }
+    } else {
+      if (vid.webkitEnterFullscreen) {
+        vid.webkitEnterFullscreen()
+      } else if (video.requestFullscreen) {
+        video.requestFullscreen()
+      }
+    }
   }
 
   const retry = () => {
-    setStreamUrl(null) // This will trigger re-resolution
+    setStreamUrl(null)
     setStatus('loading')
   }
 
@@ -203,14 +219,12 @@ export function WebcamViewer({ config }: WebcamViewerProps) {
 
       {status === 'loading' && (
         <Overlay>
-          <div className="relative flex w-full items-center justify-center">
-            <Spinner size="lg" className="text-white" />
-            {config.website_url && !streamUrl && (
-              <p className="absolute top-full mt-6 text-sm text-white">
-                This camera takes longer to load.
-              </p>
-            )}
-          </div>
+          <Spinner size="lg" className="text-white" />
+          {config.website_url && !streamUrl && (
+            <p className="mt-4 text-sm text-white/60">
+              This camera takes longer to load
+            </p>
+          )}
         </Overlay>
       )}
 
@@ -233,14 +247,27 @@ export function WebcamViewer({ config }: WebcamViewerProps) {
       )}
 
       {status === 'playing' && (
-        <Button
-          onClick={toggleFullscreen}
-          size="icon"
-          variant="ghost"
-          className="absolute bottom-4 right-4 text-white"
-        >
-          {document.fullscreenElement ? <Shrink /> : <Expand />}
-        </Button>
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                onClick={toggleFullscreen}
+                size="icon"
+                variant="ghost"
+                className="absolute bottom-4 right-4 bg-black/80 text-white"
+              >
+                {document.fullscreenElement ? <Shrink /> : <Expand />}
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent
+              side="left"
+              className="text-xs leading-none"
+              sideOffset={10}
+            >
+              Fullscreen
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
       )}
     </div>
   )
