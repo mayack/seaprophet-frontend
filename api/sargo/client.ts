@@ -332,6 +332,50 @@ export class SargoClient extends BaseApiClient {
       }
     )
   }
+
+  async getSpotsByIds(spotIds: number[], isPublic = true): Promise<{ data: Spot[] }> {
+    if (!spotIds || spotIds.length === 0) {
+      return { data: [] }
+    }
+
+    // Build query params with Strapi's $in filter syntax
+    const queryParams = new URLSearchParams({
+      'populate[municipality][populate][district][populate][region][populate][country]':
+        'true',
+      'populate[webcam]': 'true',
+      'fields[0]': 'name',
+      'fields[1]': 'location_lat',
+      'fields[2]': 'location_long',
+      'pagination[pageSize]': spotIds.length.toString(),
+    })
+
+    // Add $in filter for each ID (Strapi v4 syntax)
+    spotIds.forEach((id, index) => {
+      queryParams.append(`filters[id][$in][${index}]`, id.toString())
+    })
+
+    const queryString = queryParams.toString()
+    const headers = await this.getHeaders(
+      `${CONFIG.api.endpoints.sargo.spots.list}?${queryString}`,
+      isPublic
+    )
+
+    const response = await this.fetch<{ data: Spot[] }>(
+      `${CONFIG.api.endpoints.sargo.spots.list}?${queryString}`,
+      {
+        init: {
+          headers,
+          next: {
+            revalidate: 3600,
+          },
+        },
+      }
+    )
+
+    return {
+      data: response.data,
+    }
+  }
 }
 
 export const sargoClient = new SargoClient()

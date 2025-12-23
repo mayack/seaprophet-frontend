@@ -250,11 +250,15 @@ export async function getFavoriteSpots(
   }
 
   try {
-    // Fetch all spots and filter for favorites
-    const allSpotsResponse = await sargoClient.getSpotsByCountry(true)
-    const favoriteSpots = allSpotsResponse.data.filter((spot) =>
-      spotIds.includes(spot.id)
-    )
+    // Fetch spots by their IDs directly using $in filter
+    const favoriteSpotsResponse = await sargoClient.getSpotsByIds(spotIds, true)
+    const favoriteSpots = favoriteSpotsResponse.data
+
+    console.log('Fetched favorite spots:', {
+      requestedIds: spotIds,
+      fetchedCount: favoriteSpots.length,
+      fetchedIds: favoriteSpots.map((s) => s.id),
+    })
 
     const organizedSpots = organizeSpotsByCountry(favoriteSpots)
     return {

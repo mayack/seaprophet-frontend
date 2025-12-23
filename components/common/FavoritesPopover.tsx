@@ -28,8 +28,27 @@ export function FavoritesPopover(): React.JSX.Element {
   const [favoriteSpots, setFavoriteSpots] = useState<SpotsByCountry>({})
   const [loading, setLoading] = useState(false)
   const [open, setOpen] = useState(false)
+  const [tooltipOpen, setTooltipOpen] = useState(false)
+  const [justClosed, setJustClosed] = useState(false)
 
   const favorites = userData.settings.favorites || []
+
+  // Handle dropdown state changes and prevent tooltip from showing after close
+  function handleDropdownOpenChange(newOpen: boolean) {
+    setOpen(newOpen)
+    // Always close tooltip when dropdown state changes
+    setTooltipOpen(false)
+    
+    // If dropdown just closed, prevent tooltip for a brief moment
+    if (!newOpen) {
+      setJustClosed(true)
+      setTimeout(() => {
+        setJustClosed(false)
+      }, 300)
+    } else {
+      setJustClosed(false)
+    }
+  }
 
   useEffect(() => {
     if (open && favorites.length > 0) {
@@ -58,9 +77,19 @@ export function FavoritesPopover(): React.JSX.Element {
   const countries = Object.keys(favoriteSpots).sort()
 
   return (
-    <TooltipProvider>
-      <Tooltip open={!open ? undefined : false}>
-        <DropdownMenu open={open} onOpenChange={setOpen}>
+    <TooltipProvider delayDuration={200}>
+      <Tooltip
+        open={open || justClosed ? false : tooltipOpen}
+        onOpenChange={(newOpen) => {
+          // Only allow tooltip to open if dropdown is closed and hasn't just closed
+          if (!open && !justClosed && newOpen) {
+            setTooltipOpen(true)
+          } else {
+            setTooltipOpen(false)
+          }
+        }}
+      >
+        <DropdownMenu open={open} onOpenChange={handleDropdownOpenChange}>
           <TooltipTrigger asChild>
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" size="icon" className="shrink-0">
@@ -72,7 +101,7 @@ export function FavoritesPopover(): React.JSX.Element {
             align="end"
             className="max-h-[400px] w-64 overflow-y-auto"
           >
-            <DropdownMenuLabel>Favorite Spots</DropdownMenuLabel>
+            <DropdownMenuLabel>Favorite spots</DropdownMenuLabel>
             <DropdownMenuSeparator />
             {loading ? (
               <div className="flex items-center justify-center py-4">
