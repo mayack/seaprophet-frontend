@@ -14,7 +14,6 @@ import {
 import {
   MapPin,
   Webcam,
-  AlertCircle,
   Mountain,
   Waves,
   Heart,
@@ -70,7 +69,7 @@ export function SpotsDetails({
   const favorites = userData.settings.favorites || []
   const isFavorite = spotId ? favorites.includes(spotId) : false
 
-  async function handleToggleFavorite() {
+  async function handleToggleFavorite(): Promise<void> {
     if (!spotId || isToggling) return
 
     setIsToggling(true)
@@ -94,7 +93,6 @@ export function SpotsDetails({
         toast.error(result.error || 'Failed to update favorites')
       }
     } catch (error) {
-      console.error('Failed to toggle favorite:', error)
       toast.error('Failed to update favorites')
     } finally {
       setIsToggling(false)

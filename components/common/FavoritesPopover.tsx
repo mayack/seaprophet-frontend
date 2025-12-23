@@ -34,7 +34,7 @@ export function FavoritesPopover(): React.JSX.Element {
   const favorites = userData.settings.favorites || []
 
   // Handle dropdown state changes and prevent tooltip from showing after close
-  function handleDropdownOpenChange(newOpen: boolean) {
+  function handleDropdownOpenChange(newOpen: boolean): void {
     setOpen(newOpen)
     // Always close tooltip when dropdown state changes
     setTooltipOpen(false)
@@ -59,7 +59,7 @@ export function FavoritesPopover(): React.JSX.Element {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, favorites.length])
 
-  async function loadFavoriteSpots() {
+  async function loadFavoriteSpots(): Promise<void> {
     if (favorites.length === 0) return
     setLoading(true)
     try {
@@ -68,7 +68,7 @@ export function FavoritesPopover(): React.JSX.Element {
         setFavoriteSpots(response.data)
       }
     } catch (error) {
-      console.error('Failed to load favorite spots:', error)
+      // Failed to load favorite spots
     } finally {
       setLoading(false)
     }
@@ -155,7 +155,9 @@ export function FavoritesPopover(): React.JSX.Element {
             )}
           </DropdownMenuContent>
         </DropdownMenu>
-        <TooltipContent sideOffset={10} className="text-xs leading-none">Favorite spots</TooltipContent>
+        <TooltipContent sideOffset={10} className="text-xs leading-none">
+          Favorite spots
+        </TooltipContent>
       </Tooltip>
     </TooltipProvider>
   )

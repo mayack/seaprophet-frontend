@@ -2,14 +2,7 @@ import Link from 'next/link'
 import { UserMenu } from './UserMenu'
 import { User } from '@/api/sargo/interfaces/user'
 import React from 'react'
-import { Globe, Waves } from 'lucide-react'
-import { Button } from '@/components/ui/button'
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from '@/components/ui/tooltip'
+import { Waves } from 'lucide-react'
 import { SearchSpots } from '../spot/SearchSpots'
 import { FavoritesPopover } from './FavoritesPopover'
 
