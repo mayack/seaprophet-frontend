@@ -149,8 +149,8 @@ export function SpotsDetails({
                 </Breadcrumb>
               )}
             </div>
-            <div className="flex items-end">
-              <h1 className="font-style-h1 flex-1">{spotName}</h1>
+            <div className="flex items-center gap-4">
+              <h1 className="font-style-h1 flex-1 leading-none">{spotName}</h1>
               <div className="flex items-center gap-3">
                 <TabsList>
                   {webcam && (
