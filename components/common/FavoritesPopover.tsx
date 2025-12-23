@@ -59,7 +59,7 @@ export function FavoritesPopover(): React.JSX.Element {
 
   return (
     <TooltipProvider>
-      <Tooltip>
+      <Tooltip open={!open ? undefined : false}>
         <DropdownMenu open={open} onOpenChange={setOpen}>
           <TooltipTrigger asChild>
             <DropdownMenuTrigger asChild>
