@@ -1,190 +1,95 @@
 import { NextRequest, NextResponse } from 'next/server'
 
-export async function GET(request: NextRequest): Promise<NextResponse> {
-  const url = request.nextUrl.searchParams.get('url')
+const TIMEOUT_MS = 30_000
+
+export async function GET(req: NextRequest): Promise<NextResponse> {
+  const url = req.nextUrl.searchParams.get('url')
+  const referer = req.nextUrl.searchParams.get('referer')
+  const origin = req.nextUrl.searchParams.get('origin')
 
   if (!url) {
-    return NextResponse.json(
-      { error: 'URL parameter is required' },
-      { status: 400 }
-    )
+    return NextResponse.json({ error: 'Missing url param' }, { status: 400 })
   }
 
-  try {
-    const decodedUrl = decodeURIComponent(url)
+  const controller = new AbortController()
+  const timeout = setTimeout(() => controller.abort(), TIMEOUT_MS)
 
-    // Generic headers for webcam streams (VLC user agent for most providers)
+  try {
     const headers: Record<string, string> = {
       'User-Agent': 'VLC/3.0.18 LibVLC/3.0.18',
       Accept: '*/*',
-      'Accept-Language': 'en-US,en;q=0.9',
-      Connection: 'keep-alive',
     }
+    if (referer) headers['Referer'] = referer
+    if (origin) headers['Origin'] = origin
 
-    // Add SkylineWebcams-specific headers if needed
-    if (decodedUrl.includes('skylinewebcams.com')) {
-      headers['Referer'] = 'https://www.skylinewebcams.com/'
-      headers['Origin'] = 'https://www.skylinewebcams.com'
-      headers['Accept-Encoding'] = 'identity'
-      headers['Range'] = 'bytes=0-'
-      headers['Icy-MetaInt'] = '32000'
-    }
-
-    // Add iol.pt/beachcam.meo.pt-specific headers if needed
-    if (
-      decodedUrl.includes('video-auth1.iol.pt') ||
-      decodedUrl.includes('iol.pt')
-    ) {
-      headers['Origin'] = 'https://beachcam.meo.pt'
-      headers['Referer'] = 'https://beachcam.meo.pt/'
-      headers['User-Agent'] =
-        'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36'
-      headers['Accept-Encoding'] = 'gzip, deflate, br, zstd'
-    }
-
-    // Create abort controller for timeout
-    const controller = new AbortController()
-    const timeoutId = setTimeout(() => controller.abort(), 30000) // 30 second timeout
-
-    const fetchOptions: RequestInit = {
-      method: 'GET',
+    const res = await fetch(decodeURIComponent(url), {
       headers,
       signal: controller.signal,
-    }
+    })
 
-    let response: Response
-    try {
-      response = await fetch(decodedUrl, fetchOptions)
-      clearTimeout(timeoutId)
-    } catch (fetchError) {
-      clearTimeout(timeoutId)
-      console.error('[Proxy] Fetch failed:', {
-        url: decodedUrl,
-        error:
-          fetchError instanceof Error ? fetchError.message : String(fetchError),
-        headers,
-      })
-      throw new Error(
-        `Network error: ${fetchError instanceof Error ? fetchError.message : String(fetchError)}`
-      )
-    }
+    clearTimeout(timeout)
 
-    if (!response.ok) {
-      const text = await response.text()
-      console.error('[Proxy] Request failed:', {
-        url: decodedUrl,
-        status: response.status,
-        headers: Object.fromEntries(response.headers.entries()),
-        sentHeaders: headers,
-        bodyPreview: text.substring(0, 200),
-      })
-
-      // Return proper HTTP status code with clean error message
-      // 404 = camera offline, other errors = generic failure
-      const errorMessage =
-        response.status === 404
-          ? 'camera_offline'
-          : `Failed to fetch stream: ${response.status}`
-
+    if (!res.ok) {
       return NextResponse.json(
-        {
-          error: errorMessage,
-          status: response.status,
-        },
-        {
-          status: response.status,
-          headers: {
-            'Access-Control-Allow-Origin': '*',
-          },
-        }
+        { error: res.status === 404 ? 'offline' : 'fetch_failed' },
+        { status: res.status, headers: corsHeaders() }
       )
     }
 
-    // Determine content type based on URL or response headers
-    let contentType = response.headers.get('content-type')
-    if (!contentType) {
-      if (decodedUrl.includes('.m3u8')) {
-        contentType = 'application/vnd.apple.mpegurl'
-      } else if (decodedUrl.includes('.ts')) {
-        contentType = 'video/mp2t'
-      } else {
-        contentType = 'application/vnd.apple.mpegurl'
-      }
-    }
+    const contentType = inferContentType(url, res.headers.get('content-type'))
 
-    const cacheControl = 'no-store, no-cache, must-revalidate'
-
-    // If it's an m3u8 file, we need to rewrite relative URLs to absolute
-    if (contentType.includes('mpegurl') || decodedUrl.includes('.m3u8')) {
-      const text = await response.text()
-
-      // Get the base URL from the original request
-      const urlObj = new URL(decodedUrl)
-      const baseUrl = `${urlObj.protocol}//${urlObj.host}${urlObj.pathname.substring(0, urlObj.pathname.lastIndexOf('/') + 1)}`
-
-      // Rewrite relative URLs to absolute URLs
-      const rewritten = text
-        .split('\n')
-        .map((line) => {
-          // Skip comments and empty lines
-          if (line.startsWith('#') || !line.trim()) {
-            return line
-          }
-
-          // If it's a relative URL, make it absolute
-          if (line.startsWith('/')) {
-            return `${urlObj.protocol}//${urlObj.host}${line}`
-          } else if (!line.startsWith('http')) {
-            // Relative path, prepend base URL
-            return `${baseUrl}${line}`
-          }
-
-          return line
-        })
-        .join('\n')
-
+    // Rewrite relative URLs in m3u8 playlists
+    if (contentType.includes('mpegurl') || url.includes('.m3u8')) {
+      const text = await res.text()
+      const rewritten = rewriteM3u8Urls(text, url)
       return new NextResponse(rewritten, {
-        status: response.status,
-        headers: {
-          'Content-Type': contentType,
-          'Access-Control-Allow-Origin': '*',
-          'Cache-Control': cacheControl,
-        },
+        headers: { 'Content-Type': contentType, ...corsHeaders() },
       })
     }
 
-    return new NextResponse(response.body, {
-      status: response.status,
-      headers: {
-        'Content-Type': contentType,
-        'Access-Control-Allow-Origin': '*',
-        'Cache-Control': cacheControl,
-      },
+    return new NextResponse(res.body, {
+      headers: { 'Content-Type': contentType, ...corsHeaders() },
     })
-  } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : String(error)
-    const isTimeout = errorMessage.includes('abort')
-
-    console.error('[Proxy] Error:', {
-      error: errorMessage,
-      stack: error instanceof Error ? error.stack : undefined,
-      url,
-    })
-
-    // Return appropriate status code based on error type
-    const status = isTimeout ? 504 : 500
-
+  } catch (e) {
+    clearTimeout(timeout)
+    const isTimeout = e instanceof Error && e.name === 'AbortError'
     return NextResponse.json(
-      {
-        error: isTimeout ? 'Request timeout' : 'Failed to fetch stream',
-        details: errorMessage,
-      },
-      {
-        status,
-        headers: {
-          'Access-Control-Allow-Origin': '*',
-        },
-      }
+      { error: isTimeout ? 'timeout' : 'fetch_failed' },
+      { status: isTimeout ? 504 : 500, headers: corsHeaders() }
     )
   }
+}
+
+export async function OPTIONS() {
+  return new NextResponse(null, { headers: corsHeaders() })
+}
+
+function corsHeaders() {
+  return {
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Methods': 'GET, OPTIONS',
+    'Cache-Control': 'no-store',
+  }
+}
+
+function inferContentType(url: string, header: string | null): string {
+  if (header) return header
+  if (url.includes('.m3u8')) return 'application/vnd.apple.mpegurl'
+  if (url.includes('.ts')) return 'video/mp2t'
+  return 'application/octet-stream'
+}
+
+function rewriteM3u8Urls(text: string, originalUrl: string): string {
+  const { protocol, host, pathname } = new URL(decodeURIComponent(originalUrl))
+  const base = `${protocol}//${host}${pathname.substring(0, pathname.lastIndexOf('/') + 1)}`
+
+  return text
+    .split('\n')
+    .map((line) => {
+      if (!line.trim() || line.startsWith('#')) return line
+      if (line.startsWith('http')) return line
+      if (line.startsWith('/')) return `${protocol}//${host}${line}`
+      return `${base}${line}`
+    })
+    .join('\n')
 }
