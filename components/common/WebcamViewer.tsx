@@ -21,7 +21,7 @@ export function WebcamViewer({ config }: WebcamViewerProps) {
   const [status, setStatus] = useState<Status>('loading')
   const [error, setError] = useState<string | null>(null)
   const [streamUrl, setStreamUrl] = useState<string | null>(null)
-  
+
   const videoRef = useRef<HTMLVideoElement>(null)
   const hlsRef = useRef<Hls | null>(null)
   const afkTimerRef = useRef<ReturnType<typeof setTimeout>>(null)
@@ -50,7 +50,7 @@ export function WebcamViewer({ config }: WebcamViewerProps) {
   // Step 1: Resolve stream URL from config
   useEffect(() => {
     let cancelled = false
-    
+
     async function resolveUrl() {
       setStatus('loading')
       setError(null)
@@ -76,7 +76,11 @@ export function WebcamViewer({ config }: WebcamViewerProps) {
           if (cancelled) return
 
           if (result.error || !result.data?.m3u8Url) {
-            setError(result.error?.includes('404') ? 'Camera is offline' : 'Failed to load stream')
+            setError(
+              result.error?.includes('404')
+                ? 'Camera is offline'
+                : 'Failed to load stream'
+            )
             setStatus('error')
             return
           }
@@ -96,8 +100,16 @@ export function WebcamViewer({ config }: WebcamViewerProps) {
     }
 
     resolveUrl()
-    return () => { cancelled = true }
-  }, [config.url, config.website_url, config.container_id, config.autoplay, config.cache])
+    return () => {
+      cancelled = true
+    }
+  }, [
+    config.url,
+    config.website_url,
+    config.container_id,
+    config.autoplay,
+    config.cache,
+  ])
 
   // Step 2: Initialize HLS player when we have a URL
   useEffect(() => {
@@ -129,21 +141,22 @@ export function WebcamViewer({ config }: WebcamViewerProps) {
     if (Hls.isSupported()) {
       const hls = new Hls({
         xhrSetup: (xhr, url) => {
-          const finalUrl = url.startsWith('http') 
-            ? `${PROXY_PREFIX}${encodeURIComponent(url)}` 
+          const finalUrl = url.startsWith('http')
+            ? `${PROXY_PREFIX}${encodeURIComponent(url)}`
             : url
           xhr.open('GET', finalUrl, true)
         },
       })
-      
+
       hlsRef.current = hls
       hls.loadSource(proxyUrl)
       hls.attachMedia(video)
-      
+
       hls.on(Hls.Events.MANIFEST_PARSED, handleReady)
       hls.on(Hls.Events.ERROR, (_, data) => {
         if (!data.fatal) return
-        const is404 = data.response?.code === 404 || data.details === 'manifestLoadError'
+        const is404 =
+          data.response?.code === 404 || data.details === 'manifestLoadError'
         handleError(is404 ? 'Camera is offline' : 'Stream error')
       })
     } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
@@ -160,11 +173,11 @@ export function WebcamViewer({ config }: WebcamViewerProps) {
   // Reset AFK timer on user interaction
   useEffect(() => {
     if (status !== 'playing') return
-    
+
     const handler = () => resetAfkTimer()
     window.addEventListener('mousemove', handler)
     window.addEventListener('keydown', handler)
-    
+
     return () => {
       window.removeEventListener('mousemove', handler)
       window.removeEventListener('keydown', handler)
@@ -174,7 +187,9 @@ export function WebcamViewer({ config }: WebcamViewerProps) {
   const toggleFullscreen = () => {
     const video = videoRef.current
     if (!video) return
-    document.fullscreenElement ? document.exitFullscreen() : video.requestFullscreen()
+    document.fullscreenElement
+      ? document.exitFullscreen()
+      : video.requestFullscreen()
   }
 
   const retry = () => {
@@ -187,7 +202,9 @@ export function WebcamViewer({ config }: WebcamViewerProps) {
       <video ref={videoRef} className="size-full" playsInline muted />
 
       {status === 'loading' && (
-        <Overlay><Spinner size="lg" className="text-white" /></Overlay>
+        <Overlay>
+          <Spinner size="lg" className="text-white" />
+        </Overlay>
       )}
 
       {status === 'error' && (
