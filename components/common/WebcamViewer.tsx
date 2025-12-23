@@ -230,7 +230,7 @@ export function WebcamViewer({ config }: WebcamViewerProps) {
           onClick={toggleFullscreen}
           size="icon"
           variant="ghost"
-          className="absolute bottom-4 right-4 text-white hover:bg-white/20"
+          className="absolute bottom-4 right-4 text-white"
         >
           {document.fullscreenElement ? <Shrink /> : <Expand />}
         </Button>
