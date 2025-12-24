@@ -25,7 +25,7 @@ interface WebcamViewerProps {
 // Get proxy URL with appropriate headers based on stream URL
 function getProxyUrl(url: string): string {
   const params = new URLSearchParams({ url })
-  
+
   // iol.pt / beachcam.meo.pt streams need specific headers
   if (url.includes('iol.pt') || url.includes('video-auth1')) {
     params.set('referer', 'https://beachcam.meo.pt/')
@@ -36,7 +36,7 @@ function getProxyUrl(url: string): string {
     params.set('referer', 'https://www.skylinewebcams.com/')
     params.set('origin', 'https://www.skylinewebcams.com')
   }
-  
+
   return `/api/proxy?${params.toString()}`
 }
 
@@ -120,7 +120,9 @@ export function WebcamViewer({ config }: WebcamViewerProps) {
     }
 
     resolveUrl()
-    return () => { cancelled = true }
+    return () => {
+      cancelled = true
+    }
   }, [
     config.url,
     config.website_url,
@@ -155,10 +157,10 @@ export function WebcamViewer({ config }: WebcamViewerProps) {
     const handleError = (msg: string, shouldRetry = false) => {
       setError(msg)
       setStatus('error')
-      
+
       // For session errors (403), auto-retry to get fresh URL
       if (shouldRetry && config.website_url) {
-        setTimeout(() => setRetryCount(c => c + 1), 1000)
+        setTimeout(() => setRetryCount((c) => c + 1), 1000)
       }
     }
 
@@ -177,11 +179,12 @@ export function WebcamViewer({ config }: WebcamViewerProps) {
       hls.on(Hls.Events.MANIFEST_PARSED, handleReady)
       hls.on(Hls.Events.ERROR, (_, data) => {
         if (!data.fatal) return
-        
+
         const responseCode = data.response?.code
         const is403 = responseCode === 403
-        const is404 = responseCode === 404 || data.details === 'manifestLoadError'
-        
+        const is404 =
+          responseCode === 404 || data.details === 'manifestLoadError'
+
         if (is403) {
           // Session expired - retry to get fresh URL
           handleError('Session expired, retrying...', true)
@@ -242,7 +245,7 @@ export function WebcamViewer({ config }: WebcamViewerProps) {
   }
 
   const retry = () => {
-    setRetryCount(c => c + 1)
+    setRetryCount((c) => c + 1)
   }
 
   return (
