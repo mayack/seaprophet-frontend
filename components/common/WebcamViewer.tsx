@@ -15,7 +15,6 @@ import { WebcamConfig } from '@/api/sargo/interfaces/webcam'
 import { extractWebcamUrl } from '@/api/polvo/actions/webcam'
 
 const AFK_TIMEOUT_MS = 5 * 60 * 1000
-const PROXY_PREFIX = '/api/proxy?url='
 
 type Status = 'loading' | 'playing' | 'error' | 'afk'
 
@@ -23,10 +22,29 @@ interface WebcamViewerProps {
   config: WebcamConfig
 }
 
+// Get proxy URL with appropriate headers based on stream URL
+function getProxyUrl(url: string): string {
+  const params = new URLSearchParams({ url })
+  
+  // iol.pt / beachcam.meo.pt streams need specific headers
+  if (url.includes('iol.pt') || url.includes('video-auth1')) {
+    params.set('referer', 'https://beachcam.meo.pt/')
+    params.set('origin', 'https://beachcam.meo.pt')
+  }
+  // Add other providers as needed
+  else if (url.includes('skylinewebcams.com')) {
+    params.set('referer', 'https://www.skylinewebcams.com/')
+    params.set('origin', 'https://www.skylinewebcams.com')
+  }
+  
+  return `/api/proxy?${params.toString()}`
+}
+
 export function WebcamViewer({ config }: WebcamViewerProps) {
   const [status, setStatus] = useState<Status>('loading')
   const [error, setError] = useState<string | null>(null)
   const [streamUrl, setStreamUrl] = useState<string | null>(null)
+  const [retryCount, setRetryCount] = useState(0)
 
   const videoRef = useRef<HTMLVideoElement>(null)
   const hlsRef = useRef<Hls | null>(null)
@@ -51,6 +69,7 @@ export function WebcamViewer({ config }: WebcamViewerProps) {
     }, AFK_TIMEOUT_MS)
   }
 
+  // Step 1: Resolve stream URL from config
   useEffect(() => {
     let cancelled = false
 
@@ -101,17 +120,17 @@ export function WebcamViewer({ config }: WebcamViewerProps) {
     }
 
     resolveUrl()
-    return () => {
-      cancelled = true
-    }
+    return () => { cancelled = true }
   }, [
     config.url,
     config.website_url,
     config.container_id,
     config.autoplay,
     config.cache,
+    retryCount, // Re-run when retry is triggered
   ])
 
+  // Step 2: Initialize HLS player when we have a URL
   useEffect(() => {
     const video = videoRef.current
     if (!video || !streamUrl) return
@@ -119,7 +138,7 @@ export function WebcamViewer({ config }: WebcamViewerProps) {
     cleanup()
     setStatus('loading')
 
-    const proxyUrl = `${PROXY_PREFIX}${encodeURIComponent(streamUrl)}`
+    const proxyUrl = getProxyUrl(streamUrl)
 
     const handleReady = async () => {
       try {
@@ -133,17 +152,20 @@ export function WebcamViewer({ config }: WebcamViewerProps) {
       }
     }
 
-    const handleError = (msg: string) => {
+    const handleError = (msg: string, shouldRetry = false) => {
       setError(msg)
       setStatus('error')
+      
+      // For session errors (403), auto-retry to get fresh URL
+      if (shouldRetry && config.website_url) {
+        setTimeout(() => setRetryCount(c => c + 1), 1000)
+      }
     }
 
     if (Hls.isSupported()) {
       const hls = new Hls({
         xhrSetup: (xhr, url) => {
-          const finalUrl = url.startsWith('http')
-            ? `${PROXY_PREFIX}${encodeURIComponent(url)}`
-            : url
+          const finalUrl = url.startsWith('http') ? getProxyUrl(url) : url
           xhr.open('GET', finalUrl, true)
         },
       })
@@ -155,9 +177,19 @@ export function WebcamViewer({ config }: WebcamViewerProps) {
       hls.on(Hls.Events.MANIFEST_PARSED, handleReady)
       hls.on(Hls.Events.ERROR, (_, data) => {
         if (!data.fatal) return
-        const is404 =
-          data.response?.code === 404 || data.details === 'manifestLoadError'
-        handleError(is404 ? 'Camera is offline' : 'Stream error')
+        
+        const responseCode = data.response?.code
+        const is403 = responseCode === 403
+        const is404 = responseCode === 404 || data.details === 'manifestLoadError'
+        
+        if (is403) {
+          // Session expired - retry to get fresh URL
+          handleError('Session expired, retrying...', true)
+        } else if (is404) {
+          handleError('Camera is offline')
+        } else {
+          handleError('Stream error')
+        }
       })
     } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
       video.src = proxyUrl
@@ -168,8 +200,9 @@ export function WebcamViewer({ config }: WebcamViewerProps) {
     }
 
     return cleanup
-  }, [streamUrl])
+  }, [streamUrl, config.website_url])
 
+  // Reset AFK timer on user interaction
   useEffect(() => {
     if (status !== 'playing') return
 
@@ -209,8 +242,7 @@ export function WebcamViewer({ config }: WebcamViewerProps) {
   }
 
   const retry = () => {
-    setStreamUrl(null)
-    setStatus('loading')
+    setRetryCount(c => c + 1)
   }
 
   return (
