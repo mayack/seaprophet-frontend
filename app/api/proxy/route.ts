@@ -16,13 +16,15 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
 
   try {
     const headers: Record<string, string> = {
-      'User-Agent': 'VLC/3.0.18 LibVLC/3.0.18',
+      'User-Agent':
+        'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
       Accept: '*/*',
     }
     if (referer) headers['Referer'] = referer
     if (origin) headers['Origin'] = origin
 
-    const res = await fetch(decodeURIComponent(url), {
+    const decodedUrl = decodeURIComponent(url)
+    const res = await fetch(decodedUrl, {
       headers,
       signal: controller.signal,
     })
@@ -36,12 +38,13 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       )
     }
 
-    const contentType = inferContentType(url, res.headers.get('content-type'))
+    const contentType =
+      res.headers.get('content-type') || 'application/octet-stream'
 
     // Rewrite relative URLs in m3u8 playlists
-    if (contentType.includes('mpegurl') || url.includes('.m3u8')) {
+    if (contentType.includes('mpegurl') || decodedUrl.includes('.m3u8')) {
       const text = await res.text()
-      const rewritten = rewriteM3u8Urls(text, url)
+      const rewritten = rewriteM3u8Urls(text, decodedUrl)
       return new NextResponse(rewritten, {
         headers: { 'Content-Type': contentType, ...corsHeaders() },
       })
@@ -72,24 +75,21 @@ function corsHeaders() {
   }
 }
 
-function inferContentType(url: string, header: string | null): string {
-  if (header) return header
-  if (url.includes('.m3u8')) return 'application/vnd.apple.mpegurl'
-  if (url.includes('.ts')) return 'video/mp2t'
-  return 'application/octet-stream'
-}
-
 function rewriteM3u8Urls(text: string, originalUrl: string): string {
-  const { protocol, host, pathname } = new URL(decodeURIComponent(originalUrl))
-  const base = `${protocol}//${host}${pathname.substring(0, pathname.lastIndexOf('/') + 1)}`
+  try {
+    const { protocol, host, pathname } = new URL(originalUrl)
+    const base = `${protocol}//${host}${pathname.substring(0, pathname.lastIndexOf('/') + 1)}`
 
-  return text
-    .split('\n')
-    .map((line) => {
-      if (!line.trim() || line.startsWith('#')) return line
-      if (line.startsWith('http')) return line
-      if (line.startsWith('/')) return `${protocol}//${host}${line}`
-      return `${base}${line}`
-    })
-    .join('\n')
+    return text
+      .split('\n')
+      .map((line) => {
+        if (!line?.trim() || line.startsWith('#')) return line ?? ''
+        if (line.startsWith('http')) return line
+        if (line.startsWith('/')) return `${protocol}//${host}${line}`
+        return `${base}${line}`
+      })
+      .join('\n')
+  } catch {
+    return text
+  }
 }
