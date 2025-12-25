@@ -12,16 +12,9 @@ import {
   TooltipTrigger,
 } from '../ui/tooltip'
 import { extractWebcamUrl } from '@/api/polvo/actions/webcam'
+import { WebcamConfig } from '@/api/sargo/interfaces/webcam'
 
 const AFK_TIMEOUT_MS = 5 * 60 * 1000
-
-interface WebcamConfig {
-  url?: string
-  website_url?: string
-  cache?: number
-  autoplay?: boolean
-  container_id?: string
-}
 
 interface WebcamViewerProps {
   config: WebcamConfig

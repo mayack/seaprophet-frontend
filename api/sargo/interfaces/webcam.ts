@@ -4,7 +4,4 @@ export interface WebcamConfig {
   cache?: number
   autoplay?: boolean
   container_id?: string
-  type?: 'iframe' | 'image' | 'video'
-  refreshInterval?: number
-  isLive?: boolean
 }
