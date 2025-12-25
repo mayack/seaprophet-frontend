@@ -20,6 +20,11 @@ interface WebcamViewerProps {
   config: WebcamConfig
 }
 
+function getStreamUrl(url: string, referer?: string): string {
+  if (!referer) return url
+  return `/api/proxy?url=${encodeURIComponent(url)}&referer=${encodeURIComponent(referer)}`
+}
+
 export function WebcamViewer({ config }: WebcamViewerProps) {
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -106,6 +111,7 @@ export function WebcamViewer({ config }: WebcamViewerProps) {
     }
 
     // Step 2: Initialize HLS
+    const finalUrl = getStreamUrl(streamUrl, config.referer)
 
     const handleReady = async () => {
       if (isStale()) return
@@ -129,10 +135,17 @@ export function WebcamViewer({ config }: WebcamViewerProps) {
     }
 
     if (Hls.isSupported()) {
-      const hls = new Hls()
+      const hls = new Hls({
+        xhrSetup: config.referer
+          ? (xhr, url) => {
+              const proxyUrl = getStreamUrl(url, config.referer)
+              xhr.open('GET', proxyUrl, true)
+            }
+          : undefined,
+      })
 
       hlsRef.current = hls
-      hls.loadSource(streamUrl)
+      hls.loadSource(finalUrl)
       hls.attachMedia(video)
 
       hls.on(Hls.Events.MANIFEST_PARSED, handleReady)
@@ -148,7 +161,7 @@ export function WebcamViewer({ config }: WebcamViewerProps) {
         }
       })
     } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
-      video.src = streamUrl
+      video.src = finalUrl
       video.onloadedmetadata = handleReady
       video.onerror = () => handleError('Playback error')
     } else {

@@ -4,4 +4,5 @@ export interface WebcamConfig {
   cache?: number
   autoplay?: boolean
   container_id?: string
+  referer?: string
 }

@@ -6,6 +6,7 @@ const BROWSER_UA =
 
 export async function GET(req: NextRequest): Promise<NextResponse> {
   const url = req.nextUrl.searchParams.get('url')
+  const referer = req.nextUrl.searchParams.get('referer')
 
   if (!url) {
     return NextResponse.json({ error: 'Missing url param' }, { status: 400 })
@@ -21,10 +22,9 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       Accept: '*/*',
     }
 
-    // iol.pt requires these headers or returns 403
-    if (decodedUrl.includes('iol.pt')) {
-      headers['Referer'] = 'https://beachcam.meo.pt/'
-      headers['Origin'] = 'https://beachcam.meo.pt'
+    if (referer) {
+      headers['Referer'] = referer
+      headers['Origin'] = new URL(referer).origin
     }
 
     const res = await fetch(decodedUrl, {
