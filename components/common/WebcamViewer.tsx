@@ -49,6 +49,7 @@ export function WebcamViewer({ config }: WebcamViewerProps) {
   const videoRef = useRef<HTMLVideoElement>(null)
   const hlsRef = useRef<Hls | null>(null)
   const afkTimerRef = useRef<ReturnType<typeof setTimeout>>(null)
+  const activeStreamRef = useRef<string | null>(null)
 
   const cleanup = () => {
     if (afkTimerRef.current) {
@@ -59,6 +60,7 @@ export function WebcamViewer({ config }: WebcamViewerProps) {
       hlsRef.current.destroy()
       hlsRef.current = null
     }
+    activeStreamRef.current = null
   }
 
   const resetAfkTimer = () => {
@@ -141,6 +143,7 @@ export function WebcamViewer({ config }: WebcamViewerProps) {
     setStatus('loading')
 
     const proxyUrl = getProxyUrl(streamUrl)
+    activeStreamRef.current = streamUrl
 
     const handleReady = async () => {
       try {
@@ -178,6 +181,8 @@ export function WebcamViewer({ config }: WebcamViewerProps) {
 
       hls.on(Hls.Events.MANIFEST_PARSED, handleReady)
       hls.on(Hls.Events.ERROR, (_, data) => {
+        // Ignore errors from old/cancelled streams
+        if (activeStreamRef.current !== streamUrl) return
         if (!data.fatal) return
 
         const responseCode = data.response?.code
