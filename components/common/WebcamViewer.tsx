@@ -241,7 +241,7 @@ export function WebcamViewer({ config }: WebcamViewerProps) {
   }, [isLoading, error, isAfk, toggleFullscreen])
 
   return (
-    <div className="relative size-full bg-black">
+    <div className="relative size-full bg-black dark:bg-white/5">
       <video ref={videoRef} className="size-full" playsInline muted />
 
       {isLoading && !isAfk && (
@@ -258,8 +258,8 @@ export function WebcamViewer({ config }: WebcamViewerProps) {
       {error && !isAfk && (
         <Overlay>
           <p className="text-white">{error}</p>
-          <Button onClick={handleRetry} variant="secondary" className="mt-4">
-            <RefreshCw className="mr-2 size-4" />
+          <Button onClick={handleRetry} variant="white" className="mt-4">
+            <RefreshCw />
             Retry
           </Button>
         </Overlay>
@@ -268,12 +268,8 @@ export function WebcamViewer({ config }: WebcamViewerProps) {
       {isAfk && (
         <Overlay>
           <p className="text-white">Still watching?</p>
-          <Button
-            onClick={handleKeepWatching}
-            variant="secondary"
-            className="mt-4"
-          >
-            <Play className="mr-2 size-4" />
+          <Button onClick={handleKeepWatching} variant="white" className="mt-4">
+            <Play />
             Continue
           </Button>
         </Overlay>
@@ -286,8 +282,8 @@ export function WebcamViewer({ config }: WebcamViewerProps) {
               <Button
                 onClick={toggleFullscreen}
                 size="icon"
-                variant="ghost"
-                className="absolute bottom-4 right-4 bg-black/80 text-white"
+                variant="white"
+                className="absolute bottom-4 right-4"
               >
                 {document.fullscreenElement ? <Shrink /> : <Expand />}
               </Button>
@@ -304,7 +300,7 @@ export function WebcamViewer({ config }: WebcamViewerProps) {
 
 function Overlay({ children }: { children: React.ReactNode }) {
   return (
-    <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/80">
+    <div className="absolute inset-0 flex flex-col items-center justify-center">
       {children}
     </div>
   )
