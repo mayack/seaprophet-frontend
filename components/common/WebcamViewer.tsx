@@ -138,6 +138,11 @@ export function WebcamViewer({ config }: WebcamViewerProps) {
       const hls = new Hls({
         xhrSetup: config.referer
           ? (xhr, url) => {
+              // Don't double-proxy
+              if (url.startsWith('/api/proxy')) {
+                xhr.open('GET', url, true)
+                return
+              }
               const proxyUrl = getStreamUrl(url, config.referer)
               xhr.open('GET', proxyUrl, true)
             }
@@ -154,8 +159,10 @@ export function WebcamViewer({ config }: WebcamViewerProps) {
         if (!data.fatal) return
 
         const code = data.response?.code
-        if (code === 404 || data.details === 'manifestLoadError') {
+        if (code === 404) {
           handleError('Camera is offline')
+        } else if (data.details === 'manifestLoadError') {
+          handleError('Failed to load stream')
         } else {
           handleError('Stream error')
         }
