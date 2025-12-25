@@ -203,7 +203,7 @@ export function WebcamViewer({ config }: WebcamViewerProps) {
     }
 
     return cleanup
-  }, [streamUrl, config.website_url])
+  }, [streamUrl, config.website_url, retryCount])
 
   // Reset AFK timer on user interaction
   useEffect(() => {
