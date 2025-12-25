@@ -49,7 +49,7 @@ export function WebcamViewer({ config }: WebcamViewerProps) {
   const videoRef = useRef<HTMLVideoElement>(null)
   const hlsRef = useRef<Hls | null>(null)
   const afkTimerRef = useRef<ReturnType<typeof setTimeout>>(null)
-  const activeStreamRef = useRef<string | null>(null)
+  const streamIdRef = useRef(0)
 
   const cleanup = () => {
     if (afkTimerRef.current) {
@@ -60,7 +60,6 @@ export function WebcamViewer({ config }: WebcamViewerProps) {
       hlsRef.current.destroy()
       hlsRef.current = null
     }
-    activeStreamRef.current = null
   }
 
   const resetAfkTimer = () => {
@@ -142,10 +141,11 @@ export function WebcamViewer({ config }: WebcamViewerProps) {
     cleanup()
     setStatus('loading')
 
+    const currentStreamId = ++streamIdRef.current
     const proxyUrl = getProxyUrl(streamUrl)
-    activeStreamRef.current = streamUrl
 
     const handleReady = async () => {
+      if (streamIdRef.current !== currentStreamId) return
       try {
         await video.play()
         setStatus('playing')
@@ -182,7 +182,7 @@ export function WebcamViewer({ config }: WebcamViewerProps) {
       hls.on(Hls.Events.MANIFEST_PARSED, handleReady)
       hls.on(Hls.Events.ERROR, (_, data) => {
         // Ignore errors from old/cancelled streams
-        if (activeStreamRef.current !== streamUrl) return
+        if (streamIdRef.current !== currentStreamId) return
         if (!data.fatal) return
 
         const responseCode = data.response?.code
@@ -201,8 +201,14 @@ export function WebcamViewer({ config }: WebcamViewerProps) {
       })
     } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
       video.src = proxyUrl
-      video.onloadedmetadata = handleReady
-      video.onerror = () => handleError('Playback error')
+      video.onloadedmetadata = () => {
+        if (streamIdRef.current !== currentStreamId) return
+        handleReady()
+      }
+      video.onerror = () => {
+        if (streamIdRef.current !== currentStreamId) return
+        handleError('Playback error')
+      }
     } else {
       handleError('HLS not supported')
     }
