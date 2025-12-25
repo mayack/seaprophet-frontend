@@ -10,9 +10,29 @@ import { calculateDistance } from '@/utils/location'
 import { SpotSummary } from '@/api/sargo/interfaces/spot'
 import { redirect } from 'next/navigation'
 import React from 'react'
+import type { Metadata } from 'next'
 
 interface SpotPageProps {
   params: Promise<{ id: string }>
+}
+
+export async function generateMetadata({
+  params,
+}: SpotPageProps): Promise<Metadata> {
+  const resolvedParams = await params
+  const spotId = Number(resolvedParams.id)
+  const spotResponse = await getSpot(spotId)
+  const spot = spotResponse?.data?.attributes
+
+  if (!spot) {
+    return {
+      title: 'Spot not found - Sea Prophet',
+    }
+  }
+
+  return {
+    title: `${spot.name} - Sea Prophet`,
+  }
 }
 
 export default async function SpotPage({
