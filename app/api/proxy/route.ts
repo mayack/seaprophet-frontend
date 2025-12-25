@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 
 const TIMEOUT_MS = 30_000
+const BROWSER_UA =
+  'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
 
 export async function GET(req: NextRequest): Promise<NextResponse> {
   const url = req.nextUrl.searchParams.get('url')
-  const referer = req.nextUrl.searchParams.get('referer')
-  const origin = req.nextUrl.searchParams.get('origin')
 
   if (!url) {
     return NextResponse.json({ error: 'Missing url param' }, { status: 400 })
@@ -15,15 +15,18 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   const timeout = setTimeout(() => controller.abort(), TIMEOUT_MS)
 
   try {
+    const decodedUrl = decodeURIComponent(url)
     const headers: Record<string, string> = {
-      'User-Agent':
-        'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+      'User-Agent': BROWSER_UA,
       Accept: '*/*',
     }
-    if (referer) headers['Referer'] = referer
-    if (origin) headers['Origin'] = origin
 
-    const decodedUrl = decodeURIComponent(url)
+    // iol.pt requires these headers or returns 403
+    if (decodedUrl.includes('iol.pt')) {
+      headers['Referer'] = 'https://beachcam.meo.pt/'
+      headers['Origin'] = 'https://beachcam.meo.pt'
+    }
+
     const res = await fetch(decodedUrl, {
       headers,
       signal: controller.signal,
@@ -41,7 +44,6 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     const contentType =
       res.headers.get('content-type') || 'application/octet-stream'
 
-    // Rewrite relative URLs in m3u8 playlists
     if (contentType.includes('mpegurl') || decodedUrl.includes('.m3u8')) {
       const text = await res.text()
       const rewritten = rewriteM3u8Urls(text, decodedUrl)
