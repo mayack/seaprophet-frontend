@@ -202,7 +202,8 @@ export function useMapbox(options: UseMapboxOptions = {}): UseMapboxReturn {
 
           // Create popup with webcam icon if spot has webcam
           const popup = new mapboxgl.Popup({ offset: 40, closeButton: false })
-          const webcamIcon = spot.webcam?.url
+          const hasWebcam = spot.webcam?.url || spot.webcam?.website_url
+          const webcamIcon = hasWebcam
             ? renderToString(
                 React.createElement(Webcam, {
                   size: 16,
