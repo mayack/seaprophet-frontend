@@ -4,6 +4,7 @@ import { ForecastDay } from '@/api/polvo/interfaces/forecast'
 import { ForecastItem } from './ForecastItem'
 import { User } from '@/api/sargo/interfaces/user'
 import React from 'react'
+import { CONFIG } from '@/constants/config'
 
 interface ForecastProps {
   days: ForecastDay[]
@@ -13,6 +14,9 @@ interface ForecastProps {
 export function Forecast({ days, user }: ForecastProps): React.JSX.Element {
   const [visibleDays, setVisibleDays] = useState(2)
   const loadMoreRef = useRef<HTMLDivElement>(null)
+
+  // Safely get units with fallback to defaults
+  const units = user.settings?.units || CONFIG.settings.default.units
 
   // Set up the Intersection Observer
   useEffect(() => {
@@ -43,7 +47,7 @@ export function Forecast({ days, user }: ForecastProps): React.JSX.Element {
     <div className="wrapper wrapper-spacing relative">
       {days.slice(0, visibleDays).map((day) => (
         <div className="animate-fade-in" key={day.date}>
-          <ForecastItem day={day} units={user.settings.units} />
+          <ForecastItem day={day} units={units} />
         </div>
       ))}
       {visibleDays < days.length && <div ref={loadMoreRef} className="h-5" />}

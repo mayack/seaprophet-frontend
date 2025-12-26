@@ -11,6 +11,8 @@ import { SpotSummary } from '@/api/sargo/interfaces/spot'
 import { redirect } from 'next/navigation'
 import React from 'react'
 import type { Metadata } from 'next'
+import { ReloadButton } from '@/components/common/ReloadButton'
+import { CONFIG } from '@/constants/config'
 
 interface SpotPageProps {
   params: Promise<{ id: string }>
@@ -52,6 +54,8 @@ export default async function SpotPage({
 
     if (!spot) return <div className="text-center">Spot not found.</div>
 
+    const units = user.settings?.units || CONFIG.settings.default.units
+
     const [forecastResponse, nearbySpotsResponse] = await Promise.all([
       getForecast({
         lat: spot.location_lat,
@@ -61,11 +65,11 @@ export default async function SpotPage({
         orientationTo: spot.beach_orientation_to,
         waveFactor: spot.wave_factor,
         adjustmentFactor: spot.adjustment_factor,
-        windUnits: user.settings.units.wind_speed,
-        swellUnits: user.settings.units.swell_height,
-        tideUnits: user.settings.units.tide_height,
-        tempUnits: user.settings.units.temperature,
-        surfUnits: user.settings.units.surf_height,
+        windUnits: units.wind_speed,
+        swellUnits: units.swell_height,
+        tideUnits: units.tide_height,
+        tempUnits: units.temperature,
+        surfUnits: units.surf_height,
       }),
       getNearbySpots(spot.location_lat, spot.location_long, 30),
     ])
@@ -75,13 +79,8 @@ export default async function SpotPage({
         <div className="wrapper">
           <h1 className="font-style-h1">{spot.name}</h1>
           <div className="p-4 text-destructive">
-            Forecast not found: {forecastResponse.error || 'Unknown error'}.
-            <button
-              onClick={() => window.location.reload()}
-              className="ml-2 underline"
-            >
-              Try again
-            </button>
+            Forecast not found: {forecastResponse.error || 'Unknown error'}.{' '}
+            <ReloadButton className="ml-2 underline" />
           </div>
         </div>
       )
@@ -138,14 +137,9 @@ export default async function SpotPage({
       <div className="wrapper">
         <h1 className="font-style-h1">Error</h1>
         <div className="p-4 text-destructive">
-          An error occurred while loading the forecast:
-          {error instanceof Error && error.message}
-          <button
-            onClick={() => window.location.reload()}
-            className="ml-2 underline"
-          >
-            Try again
-          </button>
+          An error occurred while loading the forecast:{' '}
+          {error instanceof Error && error.message}{' '}
+          <ReloadButton className="ml-2 underline" />
         </div>
       </div>
     )

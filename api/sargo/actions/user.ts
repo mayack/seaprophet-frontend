@@ -92,21 +92,19 @@ export async function updateUnits(formData: FormData) {
     const user = await sargoClient.getCurrentUser()
     if (!user) throw new Error('User not found')
 
+    const currentUnits = user.settings?.units || CONFIG.settings.default.units
+
     const units: UserSettings['units'] = {
       wind_speed: ((formData.get('units.wind_speed') as string) ||
-        user.settings.units.wind_speed) as UserSettings['units']['wind_speed'],
+        currentUnits.wind_speed) as UserSettings['units']['wind_speed'],
       surf_height: ((formData.get('units.surf_height') as string) ||
-        user.settings.units
-          .surf_height) as UserSettings['units']['surf_height'],
+        currentUnits.surf_height) as UserSettings['units']['surf_height'],
       swell_height: ((formData.get('units.swell_height') as string) ||
-        user.settings.units
-          .swell_height) as UserSettings['units']['swell_height'],
+        currentUnits.swell_height) as UserSettings['units']['swell_height'],
       tide_height: ((formData.get('units.tide_height') as string) ||
-        user.settings.units
-          .tide_height) as UserSettings['units']['tide_height'],
+        currentUnits.tide_height) as UserSettings['units']['tide_height'],
       temperature: ((formData.get('units.temperature') as string) ||
-        user.settings.units
-          .temperature) as UserSettings['units']['temperature'],
+        currentUnits.temperature) as UserSettings['units']['temperature'],
     }
 
     const updatedSettings: UserSettings = {
@@ -152,7 +150,7 @@ export async function updateUserUnits(units: UserSettings['units']) {
     if (!user) throw new Error('User not found')
 
     const updatedSettings: UserSettings = {
-      ...user.settings,
+      ...(user.settings || {}),
       units: units,
     }
 
