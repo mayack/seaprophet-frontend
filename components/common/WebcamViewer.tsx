@@ -248,7 +248,9 @@ export function WebcamViewer({ config }: WebcamViewerProps) {
         <Overlay>
           <Spinner size="lg" className="text-white" />
           {config.website_url && (
-            <p className="mt-4 text-sm text-white">This camera takes longer to load</p>
+            <p className="mt-4 text-sm text-white">
+              This camera takes longer to load
+            </p>
           )}
         </Overlay>
       )}
