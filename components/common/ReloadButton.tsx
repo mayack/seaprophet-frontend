@@ -6,14 +6,12 @@ interface ReloadButtonProps {
   className?: string
 }
 
-export function ReloadButton({ className }: ReloadButtonProps): React.JSX.Element {
+export function ReloadButton({
+  className,
+}: ReloadButtonProps): React.JSX.Element {
   return (
-    <button
-      onClick={() => window.location.reload()}
-      className={className}
-    >
+    <button onClick={() => window.location.reload()} className={className}>
       Try again
     </button>
   )
 }
-
