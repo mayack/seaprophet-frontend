@@ -113,16 +113,22 @@ export function WebcamViewer({ config }: WebcamViewerProps) {
     // Step 2: Initialize HLS
     const finalUrl = getStreamUrl(streamUrl, config.referer)
 
+    const onPlaybackStarted = () => {
+      if (isStale()) return
+      setIsLoading(false)
+      startAfkTimer()
+    }
+
+    video.addEventListener('playing', onPlaybackStarted, { once: true })
+
     const handleReady = async () => {
       if (isStale()) return
       try {
         await video.play()
-        if (isStale()) return
-        setIsLoading(false)
-        startAfkTimer()
       } catch (e) {
         if (e instanceof Error && e.message.includes('interrupted')) return
         if (isStale()) return
+        video.removeEventListener('playing', onPlaybackStarted)
         setError('Playback failed')
         setIsLoading(false)
       }
@@ -130,6 +136,7 @@ export function WebcamViewer({ config }: WebcamViewerProps) {
 
     const handleError = (msg: string) => {
       if (isStale()) return
+      video.removeEventListener('playing', onPlaybackStarted)
       setError(msg)
       setIsLoading(false)
     }
