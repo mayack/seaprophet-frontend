@@ -13,6 +13,7 @@ import {
   createMap,
   createMarkerElement,
   createSpotMarkerElement,
+  createWebcamMarkerElement,
   createMarker,
   debounce,
   isUserCloseToLocation,
@@ -197,12 +198,14 @@ export function useMapbox(options: UseMapboxOptions = {}): UseMapboxReturn {
 
       spots.forEach((spot) => {
         try {
-          // Create spot marker element with theme awareness
-          const markerElement = createSpotMarkerElement(isDark)
-
-          // Create popup with webcam icon if spot has webcam
-          const popup = new mapboxgl.Popup({ offset: 40, closeButton: false })
+          // Spots with a webcam use the camera glyph so users can see
+          // at a glance which breaks have a live cam.
           const hasWebcam = spot.webcam?.url || spot.webcam?.website_url
+          const markerElement = hasWebcam
+            ? createWebcamMarkerElement(isDark)
+            : createSpotMarkerElement(isDark)
+
+          const popup = new mapboxgl.Popup({ offset: 40, closeButton: false })
           const webcamIcon = hasWebcam
             ? renderToString(
                 React.createElement(Webcam, {
