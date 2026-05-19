@@ -11,14 +11,7 @@ import {
   BreadcrumbLink,
   BreadcrumbPage,
 } from '@/components/ui/breadcrumb'
-import {
-  MapPin,
-  Video,
-  Mountain,
-  Waves,
-  Heart,
-  HeartCrack,
-} from 'lucide-react'
+import { MapPin, Video, Mountain, Waves, Heart, HeartCrack } from 'lucide-react'
 import { WebcamConfig } from '@/api/sargo/interfaces/webcam'
 import {
   Tooltip,
