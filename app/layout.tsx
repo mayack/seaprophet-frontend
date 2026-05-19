@@ -3,6 +3,7 @@ import { Inter } from 'next/font/google'
 import './globals.css'
 import React from 'react'
 import { ThemeProvider } from '@/contexts/ThemeContext'
+import { SpotIndexPreloader } from '@/components/common/SpotIndexPreloader'
 
 const inter = Inter({
   variable: '--font-inter',
@@ -29,6 +30,7 @@ export default function RootLayout({
     <html lang="en" className={inter.variable} suppressHydrationWarning>
       <body>
         <ThemeProvider>{children}</ThemeProvider>
+        <SpotIndexPreloader />
       </body>
     </html>
   )

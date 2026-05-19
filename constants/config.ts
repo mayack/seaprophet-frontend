@@ -10,7 +10,7 @@ import type {
 } from '@/types/map'
 
 export const CONFIG = {
-  version: '0.6.3',
+  version: '0.6.4',
   defaultTheme: 'system',
   api: {
     urls: {
@@ -34,6 +34,7 @@ export const CONFIG = {
           byCountry: '/api/spots',
           search:
             '/api/spots?filters[name][$containsi]=:query&fields[0]=name&populate[webcam]=true',
+          searchIndex: '/api/spots/search-index',
         },
       },
       polvo: {

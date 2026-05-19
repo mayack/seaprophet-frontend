@@ -13,10 +13,38 @@ import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import React from 'react'
 import { cn } from '@/lib/utils'
+import { useSpotIndex } from './useSpotIndex'
+import type { SpotIndex, SpotIndexEntry } from '@/lib/spotSearchIndex'
 
 interface SearchSpotsProps {
   className?: string
   placeholder?: string
+}
+
+const MAX_RESULTS = 12
+const FALLBACK_DEBOUNCE_MS = 300
+
+function entryToSummary(entry: SpotIndexEntry): SpotSummary {
+  return {
+    id: entry.id,
+    name: entry.name,
+    location: { lat: entry.location_lat, long: entry.location_long },
+    webcam: entry.webcam ?? undefined,
+  }
+}
+
+function searchLocalIndex(index: SpotIndex, query: string): SpotSummary[] {
+  const trimmed = query.trim()
+  if (!trimmed) return []
+
+  const results = index.search.search(trimmed)
+  const summaries: SpotSummary[] = []
+  for (const result of results) {
+    const entry = index.byId.get(result.id as number)
+    if (entry) summaries.push(entryToSummary(entry))
+    if (summaries.length >= MAX_RESULTS) break
+  }
+  return summaries
 }
 
 export function SearchSpots({
@@ -25,64 +53,71 @@ export function SearchSpots({
 }: SearchSpotsProps): React.JSX.Element {
   const pathname = usePathname()
   const router = useRouter()
+  const spotIndex = useSpotIndex()
   const [query, setQuery] = useState('')
   const [spots, setSpots] = useState<SpotSummary[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [isOpen, setIsOpen] = useState(false)
   const containerRef = useRef<HTMLDivElement>(null)
+  // Tracks the most recent query so out-of-order fallback responses can be ignored.
+  const fallbackRequestIdRef = useRef(0)
 
   const clearSearch = useCallback((): void => {
     setQuery('')
     setSpots([])
     setError(null)
     setIsOpen(false)
+    setIsLoading(false)
   }, [])
 
-  // Handle both route changes and same-route refreshes
   useEffect((): void => {
     clearSearch()
     router.refresh()
   }, [pathname, clearSearch, router])
 
-  const debouncedSearch = useRef(
-    debounce(async (searchQuery: string): Promise<void> => {
-      if (!searchQuery.trim()) {
-        setSpots([])
-        setError(null)
-        setIsLoading(false)
-        setIsOpen(false)
-        return
-      }
-
-      setIsLoading(true)
-      setError(null)
-      setIsOpen(true)
-
+  // Server-action fallback for the rare case where the user types before
+  // the in-memory index has loaded (cold first visit, slow network, etc.).
+  const fallbackSearch = useRef(
+    debounce(async (searchQuery: string, requestId: number): Promise<void> => {
       try {
         const response = await searchSpots(searchQuery)
+        if (requestId !== fallbackRequestIdRef.current) return
         if (response.error) {
           setError(response.error)
           setSpots([])
         } else {
           setSpots(response.data || [])
+          setError(null)
         }
       } catch (err) {
+        if (requestId !== fallbackRequestIdRef.current) return
         setError(err instanceof Error ? err.message : 'Search failed')
         setSpots([])
       } finally {
-        setIsLoading(false)
+        if (requestId === fallbackRequestIdRef.current) {
+          setIsLoading(false)
+        }
       }
-    }, 500)
+    }, FALLBACK_DEBOUNCE_MS)
   ).current
 
   useEffect((): (() => void) => {
     return () => {
-      debouncedSearch.cancel()
+      fallbackSearch.cancel()
     }
-  }, [debouncedSearch])
+  }, [fallbackSearch])
 
-  // Handle clicks outside
+  // If the index finishes loading while the user is mid-query, re-run
+  // the search locally so they get instant results.
+  useEffect((): void => {
+    if (!spotIndex || !query.trim()) return
+    fallbackSearch.cancel()
+    setSpots(searchLocalIndex(spotIndex, query))
+    setError(null)
+    setIsLoading(false)
+  }, [spotIndex, query, fallbackSearch])
+
   useEffect((): (() => void) => {
     const handleClickOutside = (event: MouseEvent): void => {
       if (
@@ -103,13 +138,36 @@ export function SearchSpots({
     (event: React.ChangeEvent<HTMLInputElement>): void => {
       const newQuery = event.target.value
       setQuery(newQuery)
-      if (newQuery.trim()) {
-        setIsLoading(true)
-        setIsOpen(true)
+
+      if (!newQuery.trim()) {
+        fallbackSearch.cancel()
+        fallbackRequestIdRef.current += 1
+        setSpots([])
+        setError(null)
+        setIsOpen(false)
+        setIsLoading(false)
+        return
       }
-      debouncedSearch(newQuery)
+
+      setIsOpen(true)
+
+      if (spotIndex) {
+        // Hot path: synchronous local filter, no spinner needed.
+        fallbackSearch.cancel()
+        fallbackRequestIdRef.current += 1
+        setSpots(searchLocalIndex(spotIndex, newQuery))
+        setError(null)
+        setIsLoading(false)
+        return
+      }
+
+      // Cold path: index hasn't loaded yet — defer to the server action.
+      setIsLoading(true)
+      setError(null)
+      fallbackRequestIdRef.current += 1
+      fallbackSearch(newQuery, fallbackRequestIdRef.current)
     },
-    [debouncedSearch]
+    [spotIndex, fallbackSearch]
   )
 
   const handleInputFocus = useCallback((): void => {
@@ -163,9 +221,6 @@ export function SearchSpots({
                 <SearchX className="size-4" strokeWidth="2" />
                 {error}
               </div>
-              {/* <div className="px-12 text-xs leading-tight text-muted-foreground xs:text-sm">
-                {error}
-              </div> */}
             </div>
           )}
 
@@ -175,9 +230,6 @@ export function SearchSpots({
                 <SearchX className="size-4" strokeWidth="2" />
                 No spots found
               </div>
-              {/* <div className="px-12 text-xs leading-tight text-muted-foreground xs:text-sm">
-                Try different search terms
-              </div> */}
             </div>
           )}
 
