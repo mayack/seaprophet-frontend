@@ -13,7 +13,7 @@ import {
 } from '@/components/ui/breadcrumb'
 import {
   MapPin,
-  Webcam,
+  Video,
   Mountain,
   Waves,
   Heart,
@@ -156,7 +156,7 @@ export function SpotsDetails({
                       value="webcam"
                       className="flex items-center gap-2"
                     >
-                      <Webcam className="size-4" />
+                      <Video className="size-4" />
                       <div className="hidden sm:block">Webcam</div>
                     </TabsTrigger>
                     <TabsTrigger

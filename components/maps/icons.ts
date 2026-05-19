@@ -9,7 +9,7 @@ export {
   Locate,
   LocateFixed,
   LocateOff,
-  Webcam,
+  Video,
   Navigation,
   Mountain,
   Waves,

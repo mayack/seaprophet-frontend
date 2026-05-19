@@ -1,6 +1,6 @@
 import { WebcamConfig } from '@/api/sargo/interfaces/webcam'
 import { cn } from '@/lib/utils'
-import { Webcam } from 'lucide-react'
+import { Video } from 'lucide-react'
 import React from 'react'
 
 interface SpotCardProps {
@@ -35,7 +35,7 @@ export function SpotCard({
     >
       <div className="flex items-center">
         <div className="grow truncate text-base font-semibold">{name}</div>
-        {webcam && <Webcam size={16} className="text-muted-foreground" />}
+        {webcam && <Video size={16} className="text-muted-foreground" />}
       </div>
       {subtitle && (
         <div className="text-sm text-muted-foreground">{subtitle}</div>

@@ -1,6 +1,6 @@
 'use client'
 
-import React, {
+import {
   useRef,
   useLayoutEffect,
   useEffect,
@@ -32,8 +32,6 @@ import type {
 } from '@/types/map'
 import { CONFIG } from '@/constants/config'
 import { SpotSummary } from '@/api/sargo/interfaces/spot'
-import { renderToString } from 'react-dom/server'
-import { Webcam } from './icons'
 
 export function useMapbox(options: UseMapboxOptions = {}): UseMapboxReturn {
   const {
@@ -206,19 +204,9 @@ export function useMapbox(options: UseMapboxOptions = {}): UseMapboxReturn {
             : createSpotMarkerElement(isDark)
 
           const popup = new mapboxgl.Popup({ offset: 40, closeButton: false })
-          const webcamIcon = hasWebcam
-            ? renderToString(
-                React.createElement(Webcam, {
-                  size: 16,
-                  className: 'ml-1.5 text-muted-foreground',
-                })
-              )
-            : ''
-
           popup.setHTML(`
               <a href="/spot/${spot.id}" class="flex items-center text-base font-medium hover:underline focus:outline-none">
                 <span>${spot.name}</span>
-                ${webcamIcon}
               </a>
           `)
 
