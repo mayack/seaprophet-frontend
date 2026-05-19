@@ -15,36 +15,75 @@ import React from 'react'
 import { cn } from '@/lib/utils'
 import { useSpotIndex } from './useSpotIndex'
 import type { SpotIndex, SpotIndexEntry } from '@/lib/spotSearchIndex'
+import { CONFIG } from '@/constants/config'
 
 interface SearchSpotsProps {
   className?: string
   placeholder?: string
 }
 
-const MAX_RESULTS = 12
-const FALLBACK_DEBOUNCE_MS = 300
+const MAX_RESULTS = CONFIG.search.maxResults
+const FALLBACK_DEBOUNCE_MS = CONFIG.search.fallback.debounceMs
 
-function entryToSummary(entry: SpotIndexEntry): SpotSummary {
+interface SearchResultSpot extends SpotSummary {
+  country: string | null
+  countryEmoji: string | null
+}
+
+interface CountryGroup {
+  key: string
+  label: string
+  spots: SearchResultSpot[]
+}
+
+const UNKNOWN_COUNTRY_KEY = '__unknown__'
+
+function entryToResult(entry: SpotIndexEntry): SearchResultSpot {
   return {
     id: entry.id,
     name: entry.name,
     location: { lat: entry.location_lat, long: entry.location_long },
     webcam: entry.webcam ?? undefined,
+    country: entry.country,
+    countryEmoji: entry.country_emoji,
   }
 }
 
-function searchLocalIndex(index: SpotIndex, query: string): SpotSummary[] {
+function searchLocalIndex(index: SpotIndex, query: string): SearchResultSpot[] {
   const trimmed = query.trim()
   if (!trimmed) return []
 
   const results = index.search.search(trimmed)
-  const summaries: SpotSummary[] = []
+  const spots: SearchResultSpot[] = []
   for (const result of results) {
     const entry = index.byId.get(result.id as number)
-    if (entry) summaries.push(entryToSummary(entry))
-    if (summaries.length >= MAX_RESULTS) break
+    if (entry) spots.push(entryToResult(entry))
+    if (spots.length >= MAX_RESULTS) break
   }
-  return summaries
+  return spots
+}
+
+// Groups results by country while preserving relevance order: countries are
+// ordered by the relevance of their best-matching spot, and spots within each
+// country keep MiniSearch's ranking.
+function groupByCountry(spots: SearchResultSpot[]): CountryGroup[] {
+  const groups = new Map<string, CountryGroup>()
+
+  for (const spot of spots) {
+    const key = spot.country ?? UNKNOWN_COUNTRY_KEY
+    const label = spot.country
+      ? `${spot.countryEmoji ? `${spot.countryEmoji} ` : ''}${spot.country}`
+      : 'Other'
+
+    const existing = groups.get(key)
+    if (existing) {
+      existing.spots.push(spot)
+    } else {
+      groups.set(key, { key, label, spots: [spot] })
+    }
+  }
+
+  return Array.from(groups.values())
 }
 
 export function SearchSpots({
@@ -55,7 +94,7 @@ export function SearchSpots({
   const router = useRouter()
   const spotIndex = useSpotIndex()
   const [query, setQuery] = useState('')
-  const [spots, setSpots] = useState<SpotSummary[]>([])
+  const [spots, setSpots] = useState<SearchResultSpot[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [isOpen, setIsOpen] = useState(false)
@@ -87,7 +126,15 @@ export function SearchSpots({
           setError(response.error)
           setSpots([])
         } else {
-          setSpots(response.data || [])
+          // Server-action results don't carry country metadata yet; mark as
+          // unknown so they fall into a single "Other" group below.
+          setSpots(
+            (response.data || []).map((spot) => ({
+              ...spot,
+              country: null,
+              countryEmoji: null,
+            }))
+          )
           setError(null)
         }
       } catch (err) {
@@ -177,6 +224,11 @@ export function SearchSpots({
   }, [query])
 
   const showDropdown = isOpen && query.length > 0
+  const groupedSpots = groupByCountry(spots)
+  // Hide the section label when there's only one group of results without a
+  // country (typical of the cold-start fallback path).
+  const showGroupLabels =
+    groupedSpots.length > 1 || groupedSpots[0]?.key !== UNKNOWN_COUNTRY_KEY
 
   return (
     <div ref={containerRef} className={cn('md:relative', className)}>
@@ -234,23 +286,34 @@ export function SearchSpots({
           )}
 
           {!isLoading && spots.length > 0 && (
-            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-              {spots.map((spot) => (
-                <Link
-                  key={spot.id}
-                  href={`/spot/${spot.id}`}
-                  onClick={() => {
-                    setIsOpen(false)
-                    clearSearch()
-                  }}
-                >
-                  <SpotCard
-                    id={spot.id}
-                    name={spot.name}
-                    webcam={spot.webcam}
-                    compact={true}
-                  />
-                </Link>
+            <div className="space-y-3">
+              {groupedSpots.map((group) => (
+                <div key={group.key}>
+                  {showGroupLabels && group.key !== UNKNOWN_COUNTRY_KEY && (
+                    <div className="mb-2 px-1 text-sm font-medium text-muted-foreground">
+                      {group.label}
+                    </div>
+                  )}
+                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                    {group.spots.map((spot) => (
+                      <Link
+                        key={spot.id}
+                        href={`/spot/${spot.id}`}
+                        onClick={() => {
+                          setIsOpen(false)
+                          clearSearch()
+                        }}
+                      >
+                        <SpotCard
+                          id={spot.id}
+                          name={spot.name}
+                          webcam={spot.webcam}
+                          compact={true}
+                        />
+                      </Link>
+                    ))}
+                  </div>
+                </div>
               ))}
             </div>
           )}

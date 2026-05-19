@@ -103,6 +103,18 @@ export const CONFIG = {
   webcam: {
     afk_timer: 120 * 1000, // 2 minutes in milliseconds
   },
+  search: {
+    index: {
+      storageKey: 'spot-search-index-v2',
+      ttlMs: 60 * 60 * 1000, // 1 hour client-side cache
+      preloadIdleTimeoutMs: 2000,
+      preloadFallbackDelayMs: 500,
+    },
+    fallback: {
+      debounceMs: 300,
+    },
+    maxResults: 12,
+  },
   // Enhanced map configuration with proper typing
   map: {
     defaults: {

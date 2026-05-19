@@ -10,6 +10,8 @@ export interface SpotIndexEntry {
   name_normalized: string
   location_lat: number
   location_long: number
+  country: string | null
+  country_emoji: string | null
   webcam: WebcamConfig | null
 }
 
@@ -26,8 +28,8 @@ export interface SpotIndex {
   version: number
 }
 
-const STORAGE_KEY = 'spot-search-index-v1'
-const TTL_MS = 60 * 60 * 1000 // 1 hour
+const STORAGE_KEY = CONFIG.search.index.storageKey
+const TTL_MS = CONFIG.search.index.ttlMs
 
 let cached: SpotIndex | null = null
 let inFlight: Promise<SpotIndex> | null = null
@@ -170,9 +172,9 @@ export function preloadSpotIndex(): void {
   ).requestIdleCallback
 
   if (typeof idle === 'function') {
-    idle(start, { timeout: 2000 })
+    idle(start, { timeout: CONFIG.search.index.preloadIdleTimeoutMs })
   } else {
-    window.setTimeout(start, 500)
+    window.setTimeout(start, CONFIG.search.index.preloadFallbackDelayMs)
   }
 }
 
