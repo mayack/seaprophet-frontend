@@ -290,7 +290,7 @@ export function SearchSpots({
               {groupedSpots.map((group) => (
                 <div key={group.key}>
                   {showGroupLabels && group.key !== UNKNOWN_COUNTRY_KEY && (
-                    <div className="mb-2 px-1 text-sm font-medium text-muted-foreground">
+                    <div className="mb-2 px-1 text-sm font-semibold">
                       {group.label}
                     </div>
                   )}
