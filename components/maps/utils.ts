@@ -227,10 +227,14 @@ export function createSpotMarkerElement(
 
 // Marker variant used for spots that have a webcam. Renders the camera
 // glyph instead of the pin so users can spot cam-equipped breaks at a glance.
+// The outer div keeps the standard 32x32 hit area while the icon itself is
+// rendered slightly smaller so it doesn't feel visually heavier than the pin.
 export function createWebcamMarkerElement(
   isDark: boolean = false,
   width: string = '32px',
   height: string = '32px',
+  iconWidth: string = '28px',
+  iconHeight: string = '28px',
   className: string = 'spot-marker spot-marker--webcam'
 ): HTMLDivElement {
   const el = document.createElement('div')
@@ -239,7 +243,7 @@ export function createWebcamMarkerElement(
   const color = isDark ? 'white' : 'black'
 
   el.innerHTML = `
-    <svg width="${width}" height="${height}" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <svg width="${iconWidth}" height="${iconHeight}" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
       <path d="M21.223 16.4813L16 12.9993V10.4993L21.248 7.43729C21.324 7.39295 21.4103 7.36944 21.4983 7.36914C21.5863 7.36884 21.6728 7.39176 21.7491 7.43559C21.8253 7.47941 21.8887 7.54259 21.9328 7.61874C21.9768 7.69489 22 7.78131 22 7.86929V16.0653C22 16.1557 21.9754 16.2445 21.9289 16.322C21.8824 16.3996 21.8157 16.4631 21.736 16.5058C21.6563 16.5485 21.5664 16.5688 21.4761 16.5645C21.3858 16.5601 21.2983 16.5314 21.223 16.4813Z" fill="${color}" stroke="${color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
       <path d="M14 6H4C2.89543 6 2 6.89543 2 8V16C2 17.1046 2.89543 18 4 18H14C15.1046 18 16 17.1046 16 16V8C16 6.89543 15.1046 6 14 6Z" fill="${color}" stroke="${color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
     </svg>
