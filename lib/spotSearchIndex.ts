@@ -108,7 +108,10 @@ async function fetchIndex(): Promise<SpotIndexResponse> {
     throw new Error('Sargo API URL is not configured')
   }
   const url = `${base}${CONFIG.api.endpoints.sargo.spots.searchIndex}`
-  const res = await fetch(url, { cache: 'force-cache' })
+  // `default` respects the Cache-Control headers from Sargo (max-age=3600,
+  // SWR=86400) so the response is still well-cached by browsers and CDNs,
+  // without pinning a stale copy on every client forever.
+  const res = await fetch(url, { cache: 'default' })
   if (!res.ok) {
     throw new Error(`Search index request failed: ${res.status}`)
   }

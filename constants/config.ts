@@ -105,7 +105,7 @@ export const CONFIG = {
   },
   search: {
     index: {
-      storageKey: 'spot-search-index-v2',
+      storageKey: 'spot-search-index-v3',
       ttlMs: 60 * 60 * 1000, // 1 hour client-side cache
       preloadIdleTimeoutMs: 2000,
       preloadFallbackDelayMs: 500,
