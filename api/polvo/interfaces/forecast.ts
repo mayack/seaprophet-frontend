@@ -86,6 +86,9 @@ export interface Astronomical {
 
 export interface General {
   averageWaterTemperature: number
+  // Daily peak (max across the hourly series). May be undefined for cached
+  // forecasts produced before UV was added — render with a fallback.
+  maxUvIndex?: number
 }
 
 export type WeatherType =

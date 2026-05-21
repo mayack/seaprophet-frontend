@@ -1,4 +1,4 @@
-import { Sunrise, Sunset, Moon, MoonStar, Droplet } from 'lucide-react'
+import { Sunrise, Sunset, Moon, MoonStar, Droplet, Sun } from 'lucide-react'
 import { Astronomical, General } from '@/api/polvo/interfaces/forecast'
 import { InfoBreakdownLine } from '../common/InfoBreakdownLine'
 import { UserUnits } from '@/api/sargo/interfaces/user'
@@ -23,7 +23,7 @@ export function AstronomicalBreakdown({
     <div
       className={cn(
         className,
-        'grid w-full grid-cols-3 gap-x-6 gap-y-2 md:grid-cols-5 xl:grid-cols-3'
+        'grid w-full grid-cols-3 gap-x-6 gap-y-2 md:grid-cols-6 xl:grid-cols-3'
       )}
     >
       <InfoBreakdownLine
@@ -58,6 +58,14 @@ export function AstronomicalBreakdown({
         label="Sunset"
         value={astronomical.sunset}
         className="md:order-3 lg:order-5"
+      />
+      <InfoBreakdownLine
+        icon={<Sun className="size-5" />}
+        label="UV index"
+        value={
+          general.maxUvIndex !== undefined ? String(general.maxUvIndex) : '—'
+        }
+        className="md:order-6 lg:order-6"
       />
     </div>
   )
