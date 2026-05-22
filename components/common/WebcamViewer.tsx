@@ -257,6 +257,10 @@ export function WebcamViewer({ config }: WebcamViewerProps): React.JSX.Element {
   }, [initStream])
 
   const handleKeepWatching = useCallback(() => {
+    // Update the ref synchronously so the guard at the top of `initStream`
+    // (which reads `isAfkRef.current`) doesn't bail before the state update
+    // from `setIsAfk(false)` is flushed on the next render.
+    isAfkRef.current = false
     setIsAfk(false)
     initStream()
   }, [initStream])
