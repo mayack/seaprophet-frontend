@@ -15,7 +15,7 @@ interface ForecastProps {
 const INITIAL_VISIBLE_DAYS = CONFIG.forecast.initialVisibleDays
 
 export function Forecast({ days, user }: ForecastProps): React.JSX.Element {
-  const [visibleDays, setVisibleDays] = useState(INITIAL_VISIBLE_DAYS)
+  const [visibleDays, setVisibleDays] = useState<number>(INITIAL_VISIBLE_DAYS)
   const loadMoreRef = useRef<HTMLDivElement>(null)
 
   // Safely get units with fallback to defaults
