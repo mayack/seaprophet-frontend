@@ -106,6 +106,7 @@ export class PolvoClient extends BaseApiClient {
       orientationMid: params.orientationMid?.toString(),
       waveFactor: params.waveFactor?.toString(),
       adjustmentFactor: params.adjustmentFactor?.toString(),
+      spotId: params.spotId?.toString(),
     }).reduce(
       (acc, [key, value]) => {
         if (value !== undefined && value !== null) {

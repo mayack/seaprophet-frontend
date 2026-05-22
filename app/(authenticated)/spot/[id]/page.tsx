@@ -74,6 +74,7 @@ export default async function SpotPage({
       getForecast({
         lat: spot.location_lat,
         lon: spot.location_long,
+        spotId,
         orientationFrom: spot.beach_orientation_from,
         orientationMid: spot.beach_orientation_mid,
         orientationTo: spot.beach_orientation_to,

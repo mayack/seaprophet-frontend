@@ -25,6 +25,7 @@ export interface ForecastParams {
   orientationMid?: number | null
   waveFactor?: number | null
   adjustmentFactor?: number | null
+  spotId?: number
   // Make units optional since they'll be handled by the action
   windUnits?: string
   swellUnits?: string
