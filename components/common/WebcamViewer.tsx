@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef, useState, useCallback } from 'react'
+import React, { useEffect, useRef, useState, useCallback } from 'react'
 import Hls, { type ErrorData, type Events } from 'hls.js'
 import { Expand, Shrink, RefreshCw, Play } from 'lucide-react'
 import { Button } from '../ui/button'
@@ -26,7 +26,7 @@ function getStreamUrl(url: string, referer?: string): string {
   return `/api/proxy?url=${encodeURIComponent(url)}&referer=${encodeURIComponent(referer)}`
 }
 
-export function WebcamViewer({ config }: WebcamViewerProps) {
+export function WebcamViewer({ config }: WebcamViewerProps): React.JSX.Element {
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [isAfk, setIsAfk] = useState(false)
@@ -200,7 +200,7 @@ export function WebcamViewer({ config }: WebcamViewerProps) {
     if (Hls.isSupported()) {
       const hls = new Hls({
         xhrSetup: config.referer
-          ? (xhr, url) => {
+          ? (xhr, url): void => {
               // Don't double-proxy
               if (url.startsWith('/api/proxy')) {
                 xhr.open('GET', url, true)
@@ -288,11 +288,11 @@ export function WebcamViewer({ config }: WebcamViewerProps) {
   useEffect(() => {
     if (isLoading || error || isAfk) return
 
-    const handler = () => startAfkTimer()
+    const handler = (): void => startAfkTimer()
     window.addEventListener('mousemove', handler)
     window.addEventListener('keydown', handler)
 
-    return () => {
+    return (): void => {
       window.removeEventListener('mousemove', handler)
       window.removeEventListener('keydown', handler)
     }
@@ -302,7 +302,7 @@ export function WebcamViewer({ config }: WebcamViewerProps) {
   useEffect(() => {
     if (isLoading || error || isAfk) return
 
-    const handler = (e: KeyboardEvent) => {
+    const handler = (e: KeyboardEvent): void => {
       if (e.key === 'f' || e.key === 'F') {
         const tag = (e.target as HTMLElement)?.tagName?.toLowerCase()
         if (tag !== 'input' && tag !== 'textarea') {
@@ -313,7 +313,7 @@ export function WebcamViewer({ config }: WebcamViewerProps) {
     }
 
     window.addEventListener('keydown', handler)
-    return () => window.removeEventListener('keydown', handler)
+    return (): void => window.removeEventListener('keydown', handler)
   }, [isLoading, error, isAfk, toggleFullscreen])
 
   return (
@@ -344,7 +344,11 @@ export function WebcamViewer({ config }: WebcamViewerProps) {
       {isAfk && (
         <Overlay>
           <p className="text-white">Still watching?</p>
-          <Button onClick={handleKeepWatching} variant="overlay" className="mt-4">
+          <Button
+            onClick={handleKeepWatching}
+            variant="overlay"
+            className="mt-4"
+          >
             <Play />
             Continue
           </Button>
@@ -374,7 +378,11 @@ export function WebcamViewer({ config }: WebcamViewerProps) {
   )
 }
 
-function Overlay({ children }: { children: React.ReactNode }) {
+function Overlay({
+  children,
+}: {
+  children: React.ReactNode
+}): React.JSX.Element {
   return (
     <div className="absolute inset-0 flex flex-col items-center justify-center">
       {children}

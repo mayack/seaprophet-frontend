@@ -40,7 +40,10 @@ export function FavoritesPopover(): React.JSX.Element {
   const [open, setOpen] = useState(false)
   const [lastFetchedKey, setLastFetchedKey] = useState<string | null>(null)
 
-  const favorites = userData.settings.favorites || []
+  const favorites = useMemo(
+    () => userData.settings.favorites || [],
+    [userData.settings.favorites]
+  )
   const favoritesKey = useMemo(
     () => JSON.stringify(favorites.slice().sort()),
     [favorites]
@@ -58,8 +61,7 @@ export function FavoritesPopover(): React.JSX.Element {
         setFavoriteSpots(response.data)
         setLastFetchedKey(favoritesKey)
       }
-    } catch (err) {
-      console.error('Failed to load favorite spots:', err)
+    } catch {
       setError('Failed to load favorites')
     } finally {
       setLoading(false)

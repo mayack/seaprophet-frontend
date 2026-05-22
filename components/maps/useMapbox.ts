@@ -153,7 +153,7 @@ export function useMapbox(options: UseMapboxOptions = {}): UseMapboxReturn {
         }, USER_MARKER_RETRY_DELAY_MS)
       }
     },
-    []
+    [USER_MARKER_MAX_RETRIES, USER_MARKER_RETRY_DELAY_MS]
   )
 
   // Setup move handler for location tracking

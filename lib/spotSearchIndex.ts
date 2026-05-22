@@ -158,9 +158,8 @@ export function preloadSpotIndex(): void {
   if (cached || inFlight) return
 
   const start = (): void => {
-    loadSpotIndex().catch((err) => {
+    loadSpotIndex().catch(() => {
       // Swallow — search will fall back to the server action on demand.
-      console.warn('[spotSearchIndex] preload failed:', err)
     })
   }
 

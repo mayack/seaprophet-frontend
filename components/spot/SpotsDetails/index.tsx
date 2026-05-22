@@ -88,7 +88,7 @@ export function SpotsDetails({
       } else {
         toast.error(result.error || 'Failed to update favorites')
       }
-    } catch (error) {
+    } catch {
       toast.error('Failed to update favorites')
     } finally {
       setIsToggling(false)
