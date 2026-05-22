@@ -334,7 +334,7 @@ export function WebcamViewer({ config }: WebcamViewerProps) {
       {error && !isAfk && (
         <Overlay>
           <p className="text-white">{error}</p>
-          <Button onClick={handleRetry} variant="white" className="mt-4">
+          <Button onClick={handleRetry} variant="overlay" className="mt-4">
             <RefreshCw />
             Retry
           </Button>
@@ -344,7 +344,7 @@ export function WebcamViewer({ config }: WebcamViewerProps) {
       {isAfk && (
         <Overlay>
           <p className="text-white">Still watching?</p>
-          <Button onClick={handleKeepWatching} variant="white" className="mt-4">
+          <Button onClick={handleKeepWatching} variant="overlay" className="mt-4">
             <Play />
             Continue
           </Button>
@@ -358,7 +358,7 @@ export function WebcamViewer({ config }: WebcamViewerProps) {
               <Button
                 onClick={toggleFullscreen}
                 size="icon"
-                variant="white"
+                variant="overlay"
                 className="absolute bottom-4 right-4"
               >
                 {document.fullscreenElement ? <Shrink /> : <Expand />}
