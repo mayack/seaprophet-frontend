@@ -23,6 +23,8 @@ import {
   useMapTheme,
   switchMapStyle,
   createMapError,
+  getMarkerSizeForZoom,
+  applyMarkerSize,
   type MapError,
 } from './utils'
 import type {
@@ -89,6 +91,10 @@ export function useMapbox(options: UseMapboxOptions = {}): UseMapboxReturn {
     ((e: { error?: { message?: string } }) => void) | null
   >(null)
   const initLocationTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+  // Live zoom handler that resizes existing spot/webcam marker DOM nodes
+  // in place rather than recreating markers, so dragging the zoom feels
+  // smooth even with hundreds of pins on screen.
+  const zoomHandlerRef = useRef<(() => void) | null>(null)
 
   const USER_MARKER_MAX_RETRIES = CONFIG.map.userMarker.maxRetries
   const USER_MARKER_RETRY_DELAY_MS = CONFIG.map.userMarker.retryDelayMs
@@ -239,14 +245,22 @@ export function useMapbox(options: UseMapboxOptions = {}): UseMapboxReturn {
     (spots: SpotSummary[]) => {
       if (!mapInstance.current) return
 
+      // Size markers up-front using the current zoom so freshly-added
+      // pins match the rest of the map (e.g. when spots stream in while
+      // zoomed out).
+      const currentZoom = mapInstance.current.getZoom()
+      const size = getMarkerSizeForZoom(currentZoom)
+      const sizePx = `${size}px`
+      const iconPx = `${Math.round(size * (28 / 32))}px`
+
       spots.forEach((spot) => {
         try {
           // Spots with a webcam use the camera glyph so users can see
           // at a glance which breaks have a live cam.
           const hasWebcam = spot.webcam?.url || spot.webcam?.website_url
           const markerElement = hasWebcam
-            ? createWebcamMarkerElement(isDark)
-            : createSpotMarkerElement(isDark)
+            ? createWebcamMarkerElement(isDark, sizePx, sizePx, iconPx, iconPx)
+            : createSpotMarkerElement(isDark, sizePx, sizePx)
 
           // Build the popup with DOM APIs and `textContent` so a malicious
           // or compromised spot name can't inject HTML/JS into the popup.
@@ -536,6 +550,24 @@ export function useMapbox(options: UseMapboxOptions = {}): UseMapboxReturn {
         mapInstance.current.on('moveend', debouncedMoveHandler)
         mapInstance.current.on('zoomend', debouncedMoveHandler)
       }
+
+      // Resize spot/webcam markers live during zoom gestures. We mutate
+      // the existing DOM nodes in place (cheap) instead of recreating
+      // markers, and skip non-spot keys so the user-location marker
+      // isn't touched.
+      const handleZoom = (): void => {
+        if (!mapInstance.current) return
+        const newSize = getMarkerSizeForZoom(mapInstance.current.getZoom())
+        const entries = Object.entries(markersRef.current)
+        for (const [key, marker] of entries) {
+          if (!key.startsWith('spot-')) continue
+          const el = marker.getElement() as HTMLDivElement | null
+          if (!el) continue
+          applyMarkerSize(el, newSize)
+        }
+      }
+      zoomHandlerRef.current = handleZoom
+      mapInstance.current.on('zoom', handleZoom)
     } catch (err) {
       const errorMessage =
         err instanceof Error ? err.message : 'Failed to initialize map'
@@ -582,6 +614,10 @@ export function useMapbox(options: UseMapboxOptions = {}): UseMapboxReturn {
           map.off('zoomend', handler)
           debouncedMoveHandlerRef.current.cancel()
           debouncedMoveHandlerRef.current = null
+        }
+        if (zoomHandlerRef.current) {
+          map.off('zoom', zoomHandlerRef.current)
+          zoomHandlerRef.current = null
         }
         map.remove()
         mapInstance.current = null

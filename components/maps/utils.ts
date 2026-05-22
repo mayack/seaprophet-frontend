@@ -227,6 +227,52 @@ export function createSpotMarkerElement(
   return createMarkerElement({ isDark, width, height, className })
 }
 
+// Webcam icon is rendered slightly smaller than the outer hit area so it
+// doesn't feel visually heavier than the pin. Kept as a ratio so the
+// dynamic resize logic can scale icon and container proportionally.
+const WEBCAM_ICON_RATIO = 28 / 32
+
+// Compute the marker size (in px) for a given map zoom level. Linearly
+// interpolates between `baseSize` and `minSize` across the configured
+// [`resizeEndZoom`, `resizeStartZoom`] range, clamped at both ends.
+export function getMarkerSizeForZoom(zoom: number): number {
+  const { baseSize, minSize, resizeStartZoom, resizeEndZoom } =
+    CONFIG.map.markers
+  if (zoom >= resizeStartZoom) return baseSize
+  if (zoom <= resizeEndZoom) return minSize
+  const span = resizeStartZoom - resizeEndZoom
+  if (span <= 0) return baseSize
+  const t = (zoom - resizeEndZoom) / span
+  return minSize + (baseSize - minSize) * t
+}
+
+// Mutate an existing spot/webcam marker DOM element in place so we can
+// resize markers cheaply during a zoom gesture without recreating the
+// underlying mapbox-gl marker. Detects webcam variant by class and keeps
+// the inner SVG proportionally smaller, matching the original 28/32
+// ratio used at construction time.
+//
+// Both the outer div (which controls hit area / flex layout) and the
+// inner <svg> (which controls the rendered glyph size via its width/
+// height attributes and styles) must change for the visual to shrink —
+// updating only the container leaves the SVG rendered at its original
+// intrinsic size and the icon doesn't visibly change.
+export function applyMarkerSize(el: HTMLDivElement, size: number): void {
+  const px = `${size}px`
+  el.style.width = px
+  el.style.height = px
+  const svg = el.querySelector('svg')
+  if (svg) {
+    const isWebcam = el.classList.contains('spot-marker--webcam')
+    const svgSize = isWebcam ? Math.round(size * WEBCAM_ICON_RATIO) : size
+    const svgPx = `${svgSize}px`
+    svg.setAttribute('width', svgPx)
+    svg.setAttribute('height', svgPx)
+    ;(svg as unknown as HTMLElement).style.width = svgPx
+    ;(svg as unknown as HTMLElement).style.height = svgPx
+  }
+}
+
 // Marker variant used for spots that have a webcam. Renders the camera
 // glyph instead of the pin so users can spot cam-equipped breaks at a glance.
 // The outer div keeps the standard 32x32 hit area while the icon itself is

@@ -7,6 +7,7 @@ import type {
   MapUIConfig,
   MapSpotsCacheConfig,
   MapUserMarkerConfig,
+  MapMarkersConfig,
   MapboxStylesConfig,
   Coordinates,
 } from '@/types/map'
@@ -187,6 +188,19 @@ export const CONFIG = {
       maxRetries: 10, // ~5s of attempts at retryDelayMs each
       retryDelayMs: 500,
     } satisfies MapUserMarkerConfig,
+    // Spot/webcam marker sizing in MapNavigator. Markers gently shrink
+    // as the user zooms out so pins don't all overlap at low zoom. The
+    // size is linearly interpolated between `baseSize` and `minSize`
+    // across the [`resizeEndZoom`, `resizeStartZoom`] range. The range
+    // starts close to the default city/region browse zoom (11) so the
+    // shrink is actually visible after the user zooms out "a bit" —
+    // earlier values kicked in too late to be noticeable.
+    markers: {
+      baseSize: 32, // px — current size, used at/above resizeStartZoom
+      minSize: 16, // px — smallest size, used at/below resizeEndZoom
+      resizeStartZoom: 12, // markers stay full size at this zoom and above
+      resizeEndZoom: 5, // markers reach minSize at this zoom and below
+    } satisfies MapMarkersConfig,
   } satisfies MapConfig,
   // Enhanced Mapbox configuration
   mapbox: {

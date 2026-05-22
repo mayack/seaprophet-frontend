@@ -271,6 +271,17 @@ export interface MapUserMarkerConfig {
   retryDelayMs: number
 }
 
+export interface MapMarkersConfig {
+  /** Default marker size in px (used at and above `resizeStartZoom`) */
+  baseSize: number
+  /** Smallest marker size in px (used at and below `resizeEndZoom`) */
+  minSize: number
+  /** Zoom level at and above which markers stay at `baseSize` */
+  resizeStartZoom: number
+  /** Zoom level at and below which markers stay at `minSize` */
+  resizeEndZoom: number
+}
+
 // Consolidated map configuration interface
 export interface MapConfig {
   defaults: MapDefaults
@@ -280,6 +291,7 @@ export interface MapConfig {
   ui: MapUIConfig
   spotsCache: MapSpotsCacheConfig
   userMarker: MapUserMarkerConfig
+  markers: MapMarkersConfig
 }
 
 // Utility types
