@@ -3,7 +3,7 @@ import React from 'react'
 
 export default function Loading(): React.JSX.Element {
   return (
-    <div className="fixed inset-0 z-[100] flex size-full flex-col items-center justify-center gap-4 bg-background">
+    <div className="flex min-h-dvh w-full items-center justify-center bg-background">
       <Spinner size="lg" />
     </div>
   )
