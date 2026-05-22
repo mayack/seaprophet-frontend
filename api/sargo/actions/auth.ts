@@ -62,20 +62,37 @@ export async function signOut() {
   const cookieStore = await cookies()
 
   try {
-    const cookiesToDelete = [
-      CONFIG.api.tokens.sargo.key,
-      CONFIG.api.tokens.sargoOptions.key,
+    // To reliably clear a cookie the delete-instruction must mirror the
+    // EXACT attribute set used at write time (path, secure, sameSite,
+    // httpOnly, …). Browsers — Safari most notably — keep "phantom"
+    // cookies around when the path or sameSite of the Set-Cookie response
+    // doesn't match the original. We deliberately reuse the same
+    // `CONFIG.api.tokens.*.options` blob used by `signIn` so the two
+    // sides can never drift.
+    const cookiesToDelete: Array<{
+      name: string
+      options: typeof CONFIG.api.tokens.sargo.options
+    }> = [
+      {
+        name: CONFIG.api.tokens.sargo.key,
+        options: CONFIG.api.tokens.sargo.options,
+      },
+      {
+        name: CONFIG.api.tokens.sargoOptions.key,
+        options: CONFIG.api.tokens.sargoOptions.options,
+      },
     ]
 
-    for (const cookieName of cookiesToDelete) {
+    for (const { name, options } of cookiesToDelete) {
       cookieStore.set({
-        name: cookieName,
+        name,
         value: '',
-        path: '/',
-        expires: new Date(0),
+        ...options,
+        // Override maxAge/expires so the cookie expires immediately
+        // regardless of the long maxAge baked into the write options.
         maxAge: 0,
+        expires: new Date(0),
       })
-      cookieStore.delete(cookieName)
     }
 
     revalidatePath('/')
@@ -94,35 +111,59 @@ export async function getCurrentUser(): Promise<User | null> {
 
   if (!jwt) return null
 
-  const optionsCookie = cookieStore.get(
-    CONFIG.api.tokens.sargoOptions.key
-  )?.value
-  if (optionsCookie) {
-    try {
-      const userOptions = JSON.parse(optionsCookie) as User
-      return {
-        username: userOptions.username || '',
-        email: userOptions.email || '',
-        settings: userOptions.settings || CONFIG.settings.default,
-      }
-    } catch (error) {
-      console.error('Failed to parse sargoOptions cookie:', error)
-    }
-  }
-
+  // Always validate against Sargo on the happy path so we never serve a
+  // 30-min-stale cookie. The cookie cache is now only used as a degraded
+  // fallback when Sargo is unreachable.
   try {
     const freshUser = await sargoClient.getCurrentUser()
     if (!freshUser) return null
 
-    const userData = {
+    const userData: User = {
       username: freshUser.username || '',
       email: freshUser.email || '',
       settings: freshUser.settings || CONFIG.settings.default,
     }
 
+    // NOTE: We intentionally do not refresh the sargoOptions cookie here.
+    // getCurrentUser is called from Server Components, which Next.js forbids
+    // from writing cookies (throws "Cookies can only be modified in a Server
+    // Action or Route Handler"). The cookie is only a degraded-mode fallback;
+    // explicit refreshes happen via fetchSargoOptionsAction() in real Server
+    // Action contexts (sign-in, settings updates, etc.).
     return userData
   } catch (error) {
-    console.error('Failed to fetch fresh user data:', error)
+    // baseApiClient tags 401s with `name === 'auth'`. On auth failure the
+    // JWT is dead. We can't clear the cookies here because getCurrentUser
+    // is called from Server Components (see note above); the middleware
+    // + next sign-in flow handle cookie cleanup on subsequent requests.
+    // Any other error (network, 5xx) means Sargo is unreachable: fall back
+    // to the cached options cookie so the app degrades gracefully.
+    const isAuthError = error instanceof Error && error.name === 'auth'
+    if (isAuthError) {
+      return null
+    }
+
+    console.error(
+      'Sargo unreachable while validating current user, falling back to cookie cache:',
+      error
+    )
+
+    const optionsCookie = cookieStore.get(
+      CONFIG.api.tokens.sargoOptions.key
+    )?.value
+    if (optionsCookie) {
+      try {
+        const userOptions = JSON.parse(optionsCookie) as User
+        return {
+          username: userOptions.username || '',
+          email: userOptions.email || '',
+          settings: userOptions.settings || CONFIG.settings.default,
+        }
+      } catch (parseError) {
+        console.error('Failed to parse sargoOptions cookie:', parseError)
+      }
+    }
+
     return null
   }
 }

@@ -32,6 +32,13 @@ import { SpotSummary } from '@/api/sargo/interfaces/spot'
 import { CONFIG } from '@/constants/config'
 import type { MapNavigatorProps } from '@/types/map'
 import Link from 'next/link'
+import { toast } from 'sonner'
+
+// User-facing message used when getSpotsByBounds fails. Kept as a module
+// constant so the toast wording stays consistent across the two fetch
+// paths (initial load + map-movement) and matches what we tell users.
+const SPOT_FETCH_ERROR_MESSAGE =
+  'Failed to load spots in this area. Try moving the map.'
 
 export function MapNavigator({
   className = '',
@@ -46,7 +53,16 @@ export function MapNavigator({
   const [isFetching, setIsFetching] = useState(false)
   const [canScrollPrev, setCanScrollPrev] = useState(false)
   const [canScrollNext, setCanScrollNext] = useState(false)
-  const abortControllerRef = useRef<AbortController | null>(null)
+  // Monotonic id used to discard out-of-order spot fetches. The previous
+  // AbortController approach didn't actually cancel anything because
+  // `getSpotsByBounds` ignores signals, so stale responses would still
+  // overwrite the cache after a newer request had landed.
+  const spotsRequestIdRef = useRef(0)
+  // Track whether we've already surfaced a fetch error toast for the
+  // current "burst" of failures. We re-arm on the next successful fetch
+  // (or on unmount/mount) so users don't get a wall of identical toasts
+  // when the network keeps failing on every map move.
+  const hasShownFetchErrorRef = useRef(false)
 
   // Carousel setup
   const [emblaRef, emblaApi] = useEmblaCarousel({
@@ -69,15 +85,12 @@ export function MapNavigator({
     setVisibleSpots([])
   }, [])
 
-  // Capture initial user location state and keep it stable
-  // This prevents reinitialization when userData updates after location is found
-  const initialCenter = useMemo((): [number, number] => {
-    if (userData.latitude !== undefined && userData.longitude !== undefined) {
-      return [userData.longitude, userData.latitude]
-    } else {
-      return CONFIG.map.defaults.center
-    }
-  }, [userData.latitude, userData.longitude]) // Include deps but memoize to prevent re-renders
+  // Pass a STABLE default center to useMapbox. We used to derive this from
+  // `userData.latitude/longitude` via useMemo, but that caused the entire
+  // Mapbox instance to be torn down and rebuilt when geolocation resolved
+  // after first paint. Instead we keep the default constant and `flyTo`
+  // the resolved user location in a dedicated effect below.
+  const defaultCenter = CONFIG.map.defaults.center
 
   // Use centralized map hook
   const {
@@ -87,16 +100,53 @@ export function MapNavigator({
     clearSpotMarkers,
     zoomIn,
     zoomOut,
+    flyTo,
     locationState,
     requestUserLocation,
     recenterToUser,
     retryCount,
   } = useMapbox({
-    center: initialCenter,
+    center: defaultCenter,
     zoom: initialZoom,
     showUserLocation: true,
     onFlyStart: handleFlyStart,
   })
+
+  // Compute the effective initial center for spot loading: prefer the user's
+  // location once it resolves, otherwise fall back to the configured default.
+  const initialCenter = useMemo((): [number, number] => {
+    if (userData.latitude !== undefined && userData.longitude !== undefined) {
+      return [userData.longitude, userData.latitude]
+    }
+    return defaultCenter
+  }, [userData.latitude, userData.longitude, defaultCenter])
+
+  // Bound the spots cache to a single map session so it doesn't survive
+  // logout or grow unbounded across navigations. Also clear the
+  // fetch-error toast flag so a new mount starts fresh.
+  useEffect(() => {
+    spotsCache.reset()
+    hasShownFetchErrorRef.current = false
+    return (): void => {
+      spotsCache.reset()
+      hasShownFetchErrorRef.current = false
+    }
+  }, [])
+
+  // When the user's location resolves after first paint, fly the (already
+  // initialized) map to it instead of recreating the Mapbox instance.
+  // Tracks whether we've already done the first fly so subsequent userData
+  // updates don't keep yanking the view around.
+  const hasFlownToUserRef = useRef(false)
+  useEffect(() => {
+    if (hasFlownToUserRef.current) return
+    if (!map) return
+    if (userData.latitude === undefined || userData.longitude === undefined) {
+      return
+    }
+    hasFlownToUserRef.current = true
+    flyTo([userData.longitude, userData.latitude])
+  }, [map, userData.latitude, userData.longitude, flyTo])
 
   const getVisibleSlides = useCallback((): number => {
     if (typeof window === 'undefined')
@@ -250,30 +300,43 @@ export function MapNavigator({
         setIsFetching(true)
         setIsLoading(true)
 
-        // Cancel any existing request
-        if (abortControllerRef.current) {
-          abortControllerRef.current.abort()
-        }
-        abortControllerRef.current = new AbortController()
+        // Bump the request id; any older in-flight response will see its
+        // id no longer matches and bail before touching state/cache.
+        spotsRequestIdRef.current += 1
+        const myId = spotsRequestIdRef.current
 
         try {
           const response = await getSpotsByBounds(bounds)
+          if (myId !== spotsRequestIdRef.current) return
 
           if (response.data && !response.error) {
             response.data.forEach((spot) => {
               spotsCache.addSpot(spot)
             })
             spotsCache.addLoadedRegion(bounds)
+            // Successful fetch: re-arm the error toast so the next
+            // failure surfaces again.
+            hasShownFetchErrorRef.current = false
+          } else if (response.error) {
+            // Envelope-level error from the server action — surface it
+            // to the user instead of letting the carousel silently
+            // appear empty.
+            if (!hasShownFetchErrorRef.current) {
+              hasShownFetchErrorRef.current = true
+              toast.error(SPOT_FETCH_ERROR_MESSAGE)
+            }
           }
-        } catch (error) {
-          // Only log if not aborted
-          if (error instanceof Error && error.name !== 'AbortError') {
-            // Silent error handling for production
+        } catch {
+          if (myId !== spotsRequestIdRef.current) return
+          if (!hasShownFetchErrorRef.current) {
+            hasShownFetchErrorRef.current = true
+            toast.error(SPOT_FETCH_ERROR_MESSAGE)
           }
         } finally {
-          setIsLoading(false)
-          setIsFetching(false)
-          abortControllerRef.current = null
+          if (myId === spotsRequestIdRef.current) {
+            setIsLoading(false)
+            setIsFetching(false)
+          }
         }
       }
 
@@ -330,14 +393,14 @@ export function MapNavigator({
       setIsFetching(true)
       setIsLoading(true)
 
-      // Cancel any existing request
-      if (abortControllerRef.current) {
-        abortControllerRef.current.abort()
-      }
-      abortControllerRef.current = new AbortController()
+      // Bump the request id; any older in-flight response will see its
+      // id no longer matches and bail before touching state/cache.
+      spotsRequestIdRef.current += 1
+      const myId = spotsRequestIdRef.current
 
       try {
         const response = await getSpotsByBounds(expandedBounds)
+        if (myId !== spotsRequestIdRef.current) return
         if (response.data && !response.error) {
           response.data.forEach((spot) => {
             spotsCache.addSpot(spot)
@@ -346,16 +409,26 @@ export function MapNavigator({
 
           // Update spots in view after loading new data
           updateSpotsInView()
+          // Successful fetch — clear the toast-armed flag so a future
+          // failure can notify again.
+          hasShownFetchErrorRef.current = false
+        } else if (response.error) {
+          if (!hasShownFetchErrorRef.current) {
+            hasShownFetchErrorRef.current = true
+            toast.error(SPOT_FETCH_ERROR_MESSAGE)
+          }
         }
-      } catch (error) {
-        // Only log if not aborted
-        if (error instanceof Error && error.name !== 'AbortError') {
-          // Silent error handling for production
+      } catch {
+        if (myId !== spotsRequestIdRef.current) return
+        if (!hasShownFetchErrorRef.current) {
+          hasShownFetchErrorRef.current = true
+          toast.error(SPOT_FETCH_ERROR_MESSAGE)
         }
       } finally {
-        setIsLoading(false)
-        setIsFetching(false)
-        abortControllerRef.current = null
+        if (myId === spotsRequestIdRef.current) {
+          setIsLoading(false)
+          setIsFetching(false)
+        }
       }
     }
 
@@ -382,12 +455,11 @@ export function MapNavigator({
     updateSpotsInView,
   ])
 
-  // Cleanup abort controller on unmount
+  // Bump the request id on unmount so any in-flight responses become stale
+  // and skip the post-await state updates.
   useEffect(() => {
     return (): void => {
-      if (abortControllerRef.current) {
-        abortControllerRef.current.abort()
-      }
+      spotsRequestIdRef.current += 1
     }
   }, [])
 

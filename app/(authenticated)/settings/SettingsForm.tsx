@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useOptimistic, useTransition } from 'react'
+import { useRef, useState, useOptimistic, useTransition } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -97,6 +97,9 @@ export function SettingsForms({
     settings: initialSettings,
   })
   const [, startTransition] = useTransition()
+  // Monotonically increasing id so out-of-order unit-update responses
+  // can be discarded and only the latest user intent wins.
+  const unitRequestIdRef = useRef(0)
 
   const handleUsernameSubmit = async (formData: FormData): Promise<void> => {
     startTransition(async () => {
@@ -143,7 +146,9 @@ export function SettingsForms({
     unit: keyof UserSettings['units'],
     value: string
   ): Promise<void> => {
-    const newUnits = { ...state.settings.units, [unit]: value }
+    const previousUnits = state.settings.units
+    const newUnits = { ...previousUnits, [unit]: value }
+    const myRequestId = ++unitRequestIdRef.current
 
     // Update optimistic state immediately
     startTransition(() => {
@@ -153,9 +158,11 @@ export function SettingsForms({
       }))
     })
 
-    // Call the new server action (no FormData, no Chrome extension issues)
     try {
       const result = await updateUserUnits(newUnits)
+
+      // Discard stale responses; a newer toggle has already superseded this one.
+      if (myRequestId !== unitRequestIdRef.current) return
 
       if (result.success && result.units) {
         setUserData({
@@ -166,23 +173,23 @@ export function SettingsForms({
         toast.success('Units updated!')
       } else {
         toast.error(result.error || 'Failed to update settings')
-        // Revert optimistic update on failure
         startTransition(() => {
           optimisticState((prev) => ({
             ...prev,
-            settings: { ...prev.settings, units: state.settings.units },
+            settings: { ...prev.settings, units: previousUnits },
           }))
         })
       }
     } catch (error) {
+      if (myRequestId !== unitRequestIdRef.current) return
+
       toast.error(
         error instanceof Error ? error.message : 'Failed to update settings'
       )
-      // Revert optimistic update on error
       startTransition(() => {
         optimisticState((prev) => ({
           ...prev,
-          settings: { ...prev.settings, units: state.settings.units },
+          settings: { ...prev.settings, units: previousUnits },
         }))
       })
     }
@@ -247,7 +254,7 @@ export function SettingsForms({
             Wind speed
           </Label>
           <Tabs
-            defaultValue={state.settings.units.wind_speed}
+            value={state.settings.units.wind_speed}
             onValueChange={(value) => handleUnitChange('wind_speed', value)}
           >
             <TabsList>
@@ -264,7 +271,7 @@ export function SettingsForms({
             Surf height
           </Label>
           <Tabs
-            defaultValue={state.settings.units.surf_height}
+            value={state.settings.units.surf_height}
             onValueChange={(value) => handleUnitChange('surf_height', value)}
           >
             <TabsList>
@@ -279,7 +286,7 @@ export function SettingsForms({
             Swell height
           </Label>
           <Tabs
-            defaultValue={state.settings.units.swell_height}
+            value={state.settings.units.swell_height}
             onValueChange={(value) => handleUnitChange('swell_height', value)}
           >
             <TabsList>
@@ -294,7 +301,7 @@ export function SettingsForms({
             Tide height
           </Label>
           <Tabs
-            defaultValue={state.settings.units.tide_height}
+            value={state.settings.units.tide_height}
             onValueChange={(value) => handleUnitChange('tide_height', value)}
           >
             <TabsList>
@@ -309,7 +316,7 @@ export function SettingsForms({
             Temperature
           </Label>
           <Tabs
-            defaultValue={state.settings.units.temperature}
+            value={state.settings.units.temperature}
             onValueChange={(value) => handleUnitChange('temperature', value)}
           >
             <TabsList>

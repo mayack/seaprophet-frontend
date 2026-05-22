@@ -57,8 +57,11 @@ export default function TideChart({
   const [mousePosition, setMousePosition] = useState<number | null>(null)
   const [currentTideValue, setCurrentTideValue] = useState<string | null>(null)
 
-  // Memoize data processing and calculations
-  const { tideData, minHeight, xScale, yScale } = useMemo(() => {
+  // Memoize the tide-data preprocessing that is independent of width.
+  // Splitting this out from the curve-point calculation lets a width
+  // change skip the expensive 1441-sample sweep below — we just rescale
+  // the existing X coordinates.
+  const { tideData, minHeight, yScale } = useMemo(() => {
     const sortedData = [...data].sort(
       (a, b) => timeToMinutes(a.time) - timeToMinutes(b.time)
     )
@@ -99,23 +102,31 @@ export default function TideChart({
           createSyntheticExtreme(regularTides[regularTides.length - 1], true)),
     ].filter(Boolean) as Tide[]
 
-    const xScale = (width - PADDING.left - PADDING.right) / 1440
-    const yScale =
-      (height - PADDING.top - PADDING.bottom) / (maxHeight - minHeight)
+    // Avoid divide-by-zero (and Infinity scaling) when every tide reading
+    // has the same height — a flat range collapses to a single horizontal line.
+    const range = maxHeight - minHeight
+    const safeRange = range === 0 ? 1 : range
+    const yScale = (height - PADDING.top - PADDING.bottom) / safeRange
 
     return {
       tideData: processedTideData,
       minHeight,
-      maxHeight,
-      xScale,
       yScale,
     }
-  }, [data, width, height])
+  }, [data, height])
 
-  // Memoize curve points calculation
-  const curvePoints = useMemo((): string[] => {
+  // Width-driven X scale. Trivial computation, no need to memoize
+  // separately, but pulled out for readability.
+  const xScale = (width - PADDING.left - PADDING.right) / 1440
+
+  // Heavy curve-point calculation, computed once per tide-data change.
+  // Crucially, this does NOT depend on `width` — points are expressed
+  // in "chart-local" coordinates (minute + Y in pixels) and the final
+  // SVG scaling translates them to render-space below. Previously this
+  // recomputed all 1441 samples on every width tick from the
+  // ResizeObserver.
+  const curveSamples = useMemo((): Array<{ minute: number; yPos: number }> => {
     return Array.from({ length: 1441 }, (_, minute) => {
-      const x = PADDING.left + minute * xScale
       let y = 0
 
       for (let i = 0; i < tideData.length - 1; i++) {
@@ -135,11 +146,23 @@ export default function TideChart({
       }
 
       const yPos = height - PADDING.bottom - (y - minHeight) * yScale
-      return `${x},${yPos}`
+      return { minute, yPos }
     })
-  }, [tideData, xScale, yScale, minHeight, height])
+  }, [tideData, yScale, minHeight, height])
 
-  const pathData = useMemo(() => `M ${curvePoints.join(' L ')}`, [curvePoints])
+  // Cheap per-width remap: scale precomputed X positions only. This is
+  // what reruns when the container width changes; the heavy sample
+  // sweep above stays cached.
+  const pathData = useMemo(() => {
+    if (curveSamples.length === 0) return ''
+    let d = ''
+    for (let i = 0; i < curveSamples.length; i++) {
+      const { minute, yPos } = curveSamples[i]
+      const x = PADDING.left + minute * xScale
+      d += i === 0 ? `M ${x},${yPos}` : ` L ${x},${yPos}`
+    }
+    return d
+  }, [curveSamples, xScale])
 
   useEffect(() => {
     setIsClient(true)

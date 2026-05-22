@@ -10,7 +10,7 @@ import { SpotSummary } from '@/api/sargo/interfaces/spot'
 import { debounce } from '@/components/maps/utils'
 import { Skeleton } from '@/components/ui/skeleton'
 import Link from 'next/link'
-import { usePathname, useRouter } from 'next/navigation'
+import { usePathname } from 'next/navigation'
 import React from 'react'
 import { cn } from '@/lib/utils'
 import { useSpotIndex } from './useSpotIndex'
@@ -91,7 +91,6 @@ export function SearchSpots({
   placeholder = 'Search spots...',
 }: SearchSpotsProps): React.JSX.Element {
   const pathname = usePathname()
-  const router = useRouter()
   const spotIndex = useSpotIndex()
   const [query, setQuery] = useState('')
   const [spots, setSpots] = useState<SearchResultSpot[]>([])
@@ -110,10 +109,13 @@ export function SearchSpots({
     setIsLoading(false)
   }, [])
 
+  // Clear search UI state whenever the user navigates to a new route so the
+  // dropdown doesn't linger across pages. We intentionally avoid
+  // router.refresh() here — it forces a full RSC refetch on every navigation,
+  // which fights with the page's own data fetching and can flash stale state.
   useEffect((): void => {
     clearSearch()
-    router.refresh()
-  }, [pathname, clearSearch, router])
+  }, [pathname, clearSearch])
 
   // Server-action fallback for the rare case where the user types before
   // the in-memory index has loaded (cold first visit, slow network, etc.).

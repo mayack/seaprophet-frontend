@@ -87,7 +87,15 @@ export function WindItem({
     1: 'bg-orange-200 text-orange-900 dark:bg-orange-600 dark:text-foreground',
     2: 'bg-yellow-200 text-yellow-900 dark:bg-yellow-600 dark:text-foreground',
     3: 'bg-green-200 text-green-900 dark:bg-green-600 dark:text-foreground',
-  }
+  } as const
+
+  // Clamp the rating to the valid 0..3 range (and guard NaN coming from the API)
+  // so an out-of-range value can't fall through to undefined / blank styling.
+  const safeRating = (
+    Number.isFinite(windRating)
+      ? Math.max(0, Math.min(3, Math.floor(windRating)))
+      : 0
+  ) as keyof typeof ratingBackgrounds
 
   return (
     <div className={cn(className, 'flex items-center gap-1.5 xs:gap-2')}>
@@ -103,8 +111,7 @@ export function WindItem({
       <div
         className={cn(
           'flex size-5 items-center justify-center rounded-full xs:size-6',
-          ratingBackgrounds[windRating as keyof typeof ratingBackgrounds] ||
-            'bg-muted'
+          ratingBackgrounds[safeRating]
         )}
       >
         <IconDirection degrees={direction} isWind={true} />

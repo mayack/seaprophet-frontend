@@ -56,9 +56,12 @@ export function SimpleMap({
           interactive: false, // Disable all interactions for SimpleMap
         })
 
-        // Add a timeout fallback in case load event doesn't fire
+        // Fallback if the `load` event never fires (network failure, blocked
+        // tiles, etc.). Previously this pretended success by flipping
+        // `isLoaded` to true, hiding the spinner over a broken map. Surface
+        // a real error so the user sees the failure UI instead.
         timeoutId = setTimeout(() => {
-          setIsLoaded(true)
+          setError(createMapError('Map failed to load', 'initialization'))
         }, 5000)
 
         // Handle map load
@@ -117,12 +120,20 @@ export function SimpleMap({
     }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps -- intentionally initialize only once
 
-  // Handle theme changes for map style
+  // Handle theme changes for map style. Previously the init effect captured
+  // `mapStyle` once, so subsequent theme toggles never reached the map.
   useEffect(() => {
     if (!map.current || !isLoaded) return
 
     switchMapStyle(map.current, mapStyle, true)
   }, [mapStyle, isLoaded])
+
+  // Recenter on `center` prop changes. Init runs once, so without this
+  // effect the map froze at whatever center was passed on first render.
+  useEffect(() => {
+    if (!map.current || !isLoaded) return
+    map.current.setCenter(center)
+  }, [center, isLoaded])
 
   // Update marker when theme or center changes
   useEffect(() => {

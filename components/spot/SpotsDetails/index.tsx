@@ -68,7 +68,10 @@ export function SpotsDetails({
     setIsToggling(true)
     try {
       const result = await toggleFavorite(spotId)
-      if (result.success && result.user) {
+      // M6: toggleFavorite now returns a discriminated union — narrow on
+      // `success` alone so the `else` branch correctly sees the error
+      // shape. `user` is always populated on success.
+      if (result.success) {
         setUserData(result.user)
         router.refresh()
 

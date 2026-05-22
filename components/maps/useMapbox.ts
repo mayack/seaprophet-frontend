@@ -47,11 +47,21 @@ export function useMapbox(options: UseMapboxOptions = {}): UseMapboxReturn {
   } = options
 
   const mapRef = useRef<HTMLDivElement>(null)
+  // Live handle used by every callback in this hook. Kept as a ref to
+  // avoid stale closures across `useCallback` recreations.
   const mapInstance = useRef<mapboxgl.Map | null>(null)
+  // State mirror of `mapInstance.current` so consumers re-render once
+  // the map has been created. Previously the hook returned the bare ref
+  // value (`mapInstance.current`), which is `null` on first render and
+  // never triggered a re-render after the layout effect populated it —
+  // so MapNavigator's effects keyed on `map` could miss the initial
+  // ready signal.
+  const [map, setMap] = useState<mapboxgl.Map | null>(null)
   const markersRef = useRef<Record<string, mapboxgl.Marker>>({})
   const userLocationMarker = useRef<mapboxgl.Marker | null>(null)
   const moveHandlerRef = useRef<(() => void) | null>(null)
   const isInitialized = useRef(false)
+  const isMountedRef = useRef(true)
   const retryTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const locationStateRef = useRef<UseMapboxReturn['locationState']>('idle')
   const userLocationRef = useRef<{
@@ -59,6 +69,29 @@ export function useMapbox(options: UseMapboxOptions = {}): UseMapboxReturn {
     longitude: number
   } | null>(null)
   const retryCountRef = useRef<number>(0)
+  // Bound the user-location marker retry loop so a failing style load
+  // can't spin every 500ms forever.
+  const userMarkerRetryCountRef = useRef<number>(0)
+  const userMarkerRetryTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+  // Capture the *initial* center once. Re-running the init effect when
+  // geolocation later resolves was tearing down and rebuilding the entire
+  // Mapbox instance — instead we init once and `flyTo` on later changes
+  // via a separate effect below.
+  const initialCenterRef = useRef(center)
+  const initialZoomRef = useRef(zoom)
+  // Store cleanup handles so the init effect can fully tear down every
+  // listener/timeout/debounced function it registered.
+  const debouncedMoveHandlerRef = useRef<
+    (((...args: unknown[]) => void) & { cancel: () => void }) | null
+  >(null)
+  const loadHandlerRef = useRef<(() => void) | null>(null)
+  const errorHandlerRef = useRef<
+    ((e: { error?: { message?: string } }) => void) | null
+  >(null)
+  const initLocationTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+
+  const USER_MARKER_MAX_RETRIES = CONFIG.map.userMarker.maxRetries
+  const USER_MARKER_RETRY_DELAY_MS = CONFIG.map.userMarker.retryDelayMs
 
   const [isLoaded, setIsLoaded] = useState(false)
   const [error, setError] = useState<MapError | null>(null)
@@ -81,25 +114,37 @@ export function useMapbox(options: UseMapboxOptions = {}): UseMapboxReturn {
     retryCountRef.current = retryCount
   }, [retryCount])
 
-  // Helper to create user location marker using utility function
+  // Helper to create user location marker using utility function.
+  // Retries when the style isn't yet loaded, but caps retries and bails
+  // after unmount so a failing style doesn't loop forever.
   const createUserLocationMarkerWrapper = useCallback(
     (location: { latitude: number; longitude: number }) => {
-      if (!mapInstance.current) {
+      if (!mapInstance.current || !isMountedRef.current) {
         return
       }
 
       try {
-        // Use the utility function to create the marker
         userLocationMarker.current = createUserLocationMarker(
           mapInstance.current,
           location,
           userLocationMarker.current
         )
+        userMarkerRetryCountRef.current = 0
       } catch {
-        // Retry after a short delay if style isn't loaded
-        setTimeout(() => {
+        if (userMarkerRetryCountRef.current >= USER_MARKER_MAX_RETRIES) {
+          userMarkerRetryCountRef.current = 0
+          return
+        }
+        userMarkerRetryCountRef.current += 1
+
+        if (userMarkerRetryTimeoutRef.current) {
+          clearTimeout(userMarkerRetryTimeoutRef.current)
+        }
+        userMarkerRetryTimeoutRef.current = setTimeout(() => {
+          userMarkerRetryTimeoutRef.current = null
+          if (!isMountedRef.current) return
           createUserLocationMarkerWrapper(location)
-        }, 500)
+        }, USER_MARKER_RETRY_DELAY_MS)
       }
     },
     []
@@ -203,12 +248,22 @@ export function useMapbox(options: UseMapboxOptions = {}): UseMapboxReturn {
             ? createWebcamMarkerElement(isDark)
             : createSpotMarkerElement(isDark)
 
+          // Build the popup with DOM APIs and `textContent` so a malicious
+          // or compromised spot name can't inject HTML/JS into the popup.
           const popup = new mapboxgl.Popup({ offset: 40, closeButton: false })
-          popup.setHTML(`
-              <a href="/spot/${spot.id}" class="flex items-center text-base font-medium hover:underline focus:outline-none">
-                <span>${spot.name}</span>
-              </a>
-          `)
+          const link = document.createElement('a')
+          link.href = `/spot/${spot.id}`
+          link.className =
+            'flex items-center text-base font-medium hover:underline focus:outline-none'
+          const nameSpan = document.createElement('span')
+          nameSpan.textContent = spot.name
+          link.appendChild(nameSpan)
+          popup.setDOMContent(link)
+
+          // Remove any prior marker with the same key before overwriting
+          // the slot — otherwise the old DOM node lingers on the map.
+          const markerKey = `spot-${spot.id}`
+          markersRef.current[markerKey]?.remove()
 
           const marker = createMarker(
             mapInstance.current!,
@@ -217,7 +272,7 @@ export function useMapbox(options: UseMapboxOptions = {}): UseMapboxReturn {
             popup
           )
 
-          markersRef.current[`spot-${spot.id}`] = marker
+          markersRef.current[markerKey] = marker
         } catch {
           // Error adding spot marker, skip this spot
         }
@@ -369,37 +424,45 @@ export function useMapbox(options: UseMapboxOptions = {}): UseMapboxReturn {
     setLocationState('centered')
   }, [setupMoveHandler, flyTo])
 
-  // Initialize map
+  // Initialize map. This effect runs exactly once per mount; later changes
+  // to `center` are routed through the dedicated `flyTo` effect below so
+  // they never tear down the Mapbox instance.
   useLayoutEffect(() => {
     if (isInitialized.current || !mapRef.current) return
 
+    isMountedRef.current = true
     isInitialized.current = true
     setError(null)
 
     try {
       const map = createMap({
         container: mapRef.current,
-        center,
-        zoom,
+        center: initialCenterRef.current,
+        zoom: initialZoomRef.current,
         theme: isDark ? 'dark' : 'light',
         disablePanning,
         disableZooming,
       })
 
       mapInstance.current = map
-      isInitialized.current = true
+      // Mirror the ref into state so React-based consumers re-render
+      // once the map exists. Effects in MapNavigator key on `map`, so
+      // this is what wires up "load spots once the map is ready".
+      setMap(map)
 
       // Setup move callback
       const debouncedMoveHandler = debounce(() => {
         if (onMove && mapInstance.current) {
-          const center = mapInstance.current.getCenter()
-          const zoom = mapInstance.current.getZoom()
-          onMove([center.lng, center.lat], zoom)
+          const c = mapInstance.current.getCenter()
+          const z = mapInstance.current.getZoom()
+          onMove([c.lng, c.lat], z)
         }
       }, CONFIG.map.interaction.debounce.moveHandler)
+      debouncedMoveHandlerRef.current = debouncedMoveHandler as unknown as ((
+        ...args: unknown[]
+      ) => void) & { cancel: () => void }
 
-      // Map event handlers
-      mapInstance.current.on('load', () => {
+      const handleLoad = (): void => {
         setIsLoaded(true)
         onMapLoad?.(mapInstance.current!)
 
@@ -412,10 +475,12 @@ export function useMapbox(options: UseMapboxOptions = {}): UseMapboxReturn {
         // Auto-request user location if enabled - after map is loaded
         if (showUserLocation) {
           // Small delay to ensure map is fully ready
-          setTimeout(() => {
+          initLocationTimeoutRef.current = setTimeout(() => {
+            initLocationTimeoutRef.current = null
+            if (!mapInstance.current || !isMountedRef.current) return
             if (userData.latitude && userData.longitude) {
               // Check if map was already initialized at user location
-              const mapCenter = mapInstance.current!.getCenter()
+              const mapCenter = mapInstance.current.getCenter()
 
               if (
                 isUserCloseToLocation(
@@ -454,13 +519,18 @@ export function useMapbox(options: UseMapboxOptions = {}): UseMapboxReturn {
             }
           }, 100)
         }
-      })
+      }
+      loadHandlerRef.current = handleLoad
 
-      mapInstance.current.on('error', (e) => {
+      const handleError = (e: { error?: { message?: string } }): void => {
         const errorMessage = e.error?.message || 'Map failed to load'
         setError(createMapError(errorMessage, 'initialization'))
         onMapError?.(errorMessage)
-      })
+      }
+      errorHandlerRef.current = handleError
+
+      mapInstance.current.on('load', handleLoad)
+      mapInstance.current.on('error', handleError)
 
       if (onMove) {
         mapInstance.current.on('moveend', debouncedMoveHandler)
@@ -473,70 +543,98 @@ export function useMapbox(options: UseMapboxOptions = {}): UseMapboxReturn {
       onMapError?.(errorMessage)
     }
 
-    // Cleanup function
+    // Cleanup function — tear down every listener/timeout/debounced fn
+    // this effect registered. Previously several of these (moveend/zoomend
+    // debounced handlers, load/error listeners, the 100ms location timeout)
+    // leaked across unmounts.
     return (): void => {
-      if (mapInstance.current) {
+      isMountedRef.current = false
+      const map = mapInstance.current
+
+      if (map) {
         clearMarkers()
         if (userLocationMarker.current) {
           userLocationMarker.current.remove()
+          userLocationMarker.current = null
         }
         if (moveHandlerRef.current) {
-          mapInstance.current.off('moveend', moveHandlerRef.current)
+          map.off('moveend', moveHandlerRef.current)
+          moveHandlerRef.current = null
         }
-        mapInstance.current.remove()
+        if (loadHandlerRef.current) {
+          map.off('load', loadHandlerRef.current)
+          loadHandlerRef.current = null
+        }
+        if (errorHandlerRef.current) {
+          map.off(
+            'error',
+            errorHandlerRef.current as unknown as (
+              e: mapboxgl.ErrorEvent
+            ) => void
+          )
+          errorHandlerRef.current = null
+        }
+        if (debouncedMoveHandlerRef.current) {
+          const handler = debouncedMoveHandlerRef.current as unknown as (
+            ...args: unknown[]
+          ) => void
+          map.off('moveend', handler)
+          map.off('zoomend', handler)
+          debouncedMoveHandlerRef.current.cancel()
+          debouncedMoveHandlerRef.current = null
+        }
+        map.remove()
         mapInstance.current = null
+        setMap(null)
       }
 
-      // Clear retry timeout
+      if (initLocationTimeoutRef.current) {
+        clearTimeout(initLocationTimeoutRef.current)
+        initLocationTimeoutRef.current = null
+      }
       if (retryTimeoutRef.current) {
         clearTimeout(retryTimeoutRef.current)
         retryTimeoutRef.current = null
       }
+      if (userMarkerRetryTimeoutRef.current) {
+        clearTimeout(userMarkerRetryTimeoutRef.current)
+        userMarkerRetryTimeoutRef.current = null
+      }
+      userMarkerRetryCountRef.current = 0
 
       setIsLoaded(false)
       setError(null)
       setRetryCount(0)
       isInitialized.current = false
     }
-  }, [
-    center,
-    zoom,
-    isDark,
-    disablePanning,
-    disableZooming,
-    showUserLocation,
-    onMapLoad,
-    onMapError,
-    onMove,
-    clearMarkers,
-    createUserLocationMarkerWrapper,
-    flyTo,
-    requestUserLocation,
-    setupMoveHandler,
-    userData.latitude,
-    userData.longitude,
-  ])
+    // Intentionally run once per mount. `center`/`zoom`/callbacks are
+    // captured via refs and dedicated effects to avoid rebuilding the
+    // entire Mapbox instance on every prop change (especially when
+    // geolocation resolves after first paint).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
-  // Update map center when center prop changes (without re-initializing)
-  // Only update on initial load, not on subsequent center changes to prevent feedback loops
-  const hasSetInitialCenter = useRef(false)
+  // Fly to the consumer-provided center whenever it changes after init.
+  // Keeps the (now-stable) map instance intact while still letting callers
+  // recenter declaratively via the `center` option.
   useEffect(() => {
-    if (mapInstance.current && isLoaded && !hasSetInitialCenter.current) {
-      const currentCenter = mapInstance.current.getCenter()
-      const [newLng, newLat] = center
+    if (!mapInstance.current || !isLoaded) return
+    const currentCenter = mapInstance.current.getCenter()
+    const [newLng, newLat] = center
 
-      // Only update if center actually changed significantly (avoid micro-movements)
-      const distance = Math.sqrt(
-        Math.pow(currentCenter.lng - newLng, 2) +
-          Math.pow(currentCenter.lat - newLat, 2)
-      )
+    // Skip micro-movements (< ~10m) so re-renders with effectively the
+    // same center don't trigger spurious flyTo animations.
+    const distance = Math.sqrt(
+      Math.pow(currentCenter.lng - newLng, 2) +
+        Math.pow(currentCenter.lat - newLat, 2)
+    )
+    if (distance < 0.0001) return
 
-      if (distance > 0.0001) {
-        // ~10 meters threshold
-        mapInstance.current.setCenter(center)
-      }
-      hasSetInitialCenter.current = true
-    }
+    mapInstance.current.flyTo({
+      center,
+      zoom: mapInstance.current.getZoom(),
+      duration: 1000,
+    })
   }, [center, isLoaded])
 
   // Handle theme changes for spot markers
@@ -602,7 +700,10 @@ export function useMapbox(options: UseMapboxOptions = {}): UseMapboxReturn {
 
   return {
     mapRef,
-    map: mapInstance.current,
+    // Return the state value so consumers re-render when the map is
+    // created/destroyed. Using `mapInstance.current` here would always
+    // be `null` on the first render and never re-trigger consumers.
+    map,
     isLoaded,
     error: error?.message || null, // Convert back to string for compatibility
     addMarker,

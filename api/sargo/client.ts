@@ -1,5 +1,6 @@
 import { BaseApiClient } from '@/lib/baseApiClient'
 import { CONFIG } from '@/constants/config'
+import { createError } from '@/utils/error'
 import { cookies } from 'next/headers'
 import {
   User,
@@ -9,6 +10,7 @@ import {
 } from './interfaces/user'
 import { Spot, SpotResponse } from './interfaces/spot'
 import { GeographicBounds } from '@/types/map'
+import { KM_PER_LAT_DEGREE } from '@/utils/location'
 
 export class SargoClient extends BaseApiClient {
   constructor() {
@@ -31,21 +33,17 @@ export class SargoClient extends BaseApiClient {
     const cookieStore = await cookies()
     const sargoToken = cookieStore.get(CONFIG.api.tokens.sargo.key)?.value
 
-    if (!sargoToken) {
-      console.warn('No sargo token found in cookie')
-      return headers
+    // Authenticated endpoints must NOT silently fall back to an
+    // unauthenticated request. The old behaviour returned the bare
+    // headers and let Strapi reject with 401 — but for endpoints that
+    // happen to allow anonymous access (or worse, write endpoints that
+    // were misconfigured to allow it) that masked auth bugs. Fail fast
+    // here so callers see an explicit auth error.
+    if (!sargoToken || typeof sargoToken !== 'string') {
+      throw createError('Missing auth token', 'auth')
     }
 
-    try {
-      if (!sargoToken || typeof sargoToken !== 'string') {
-        console.warn('Invalid or missing JWT in sargo token')
-        return headers
-      }
-      return { ...headers, Authorization: `Bearer ${sargoToken}` }
-    } catch (error) {
-      console.error('Failed to parse sargo token:', error)
-      return headers
-    }
+    return { ...headers, Authorization: `Bearer ${sargoToken}` }
   }
 
   // Auth Endpoints (No Caching)
@@ -112,40 +110,45 @@ export class SargoClient extends BaseApiClient {
 
   async changePassword(data: {
     currentPassword: string
-    password: string
-    passwordConfirmation: string
-  }): Promise<void> {
+    newPassword: string
+    confirmPassword: string
+  }): Promise<UserAuthResponse> {
     const headers = await this.getHeaders(
       CONFIG.api.endpoints.sargo.auth.changePassword
     )
 
-    await this.fetch(CONFIG.api.endpoints.sargo.auth.changePassword, {
-      init: {
-        method: 'POST',
-        headers,
-        body: JSON.stringify(data),
-        cache: 'no-store', // No caching for password changes
-      },
-    })
+    // Strapi's users-permissions change-password controller responds with
+    // a fresh JWT (and the sanitized user). Callers need both so they can
+    // rotate the auth cookie — old behaviour dropped the JWT, leaving the
+    // pre-change token live in the cookie indefinitely.
+    return this.fetch<UserAuthResponse>(
+      CONFIG.api.endpoints.sargo.auth.changePassword,
+      {
+        init: {
+          method: 'POST',
+          headers,
+          body: JSON.stringify(data),
+          cache: 'no-store', // No caching for password changes
+        },
+      }
+    )
   }
 
-  // User Endpoints (Short-Term Caching)
+  // User Endpoints — authenticated, never cached in the shared Data Cache
+  // (per-user Authorization header makes that unsafe).
+  //
+  // Errors are propagated so callers can distinguish 401 (Error with
+  // name === 'auth') from network failures. Previously this swallowed all
+  // errors and returned null, which made auth/network indistinguishable.
   async getCurrentUser(): Promise<User | null> {
-    try {
-      const headers = await this.getHeaders(CONFIG.api.endpoints.sargo.user.me)
-      Object.assign(headers, {
-        'Cache-Control': 'private, max-age=300', // Cache for 5 minutes
-      })
+    const headers = await this.getHeaders(CONFIG.api.endpoints.sargo.user.me)
 
-      return await this.fetch<User>(CONFIG.api.endpoints.sargo.user.me, {
-        init: {
-          headers,
-          next: { revalidate: 300 }, // Revalidate every 5 minutes
-        },
-      })
-    } catch {
-      return null
-    }
+    return await this.fetch<User>(CONFIG.api.endpoints.sargo.user.me, {
+      init: {
+        headers,
+        cache: 'no-store',
+      },
+    })
   }
 
   // Spot Endpoints (Longer Caching)
@@ -222,8 +225,6 @@ export class SargoClient extends BaseApiClient {
     radiusKm: number = 30,
     isPublic = true
   ): Promise<{ data: Spot[] }> {
-    const KM_PER_LAT_DEGREE = 111
-
     const deltaLat = radiusKm / KM_PER_LAT_DEGREE
     const latRad = lat * (Math.PI / 180)
     const kmPerLonDegree = KM_PER_LAT_DEGREE * Math.cos(latRad)

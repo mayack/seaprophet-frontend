@@ -1,8 +1,27 @@
-/* eslint-disable no-console */
 import { NextResponse, NextRequest } from 'next/server'
 import { CONFIG } from './constants/config'
-import { isTokenValid, clearTokensAndRedirect } from './utils/auth'
+import {
+  isTokenStructurallyValid,
+  clearTokensAndRedirect,
+} from './utils/auth-edge'
 
+/**
+ * Edge-runtime auth middleware — FIRST LINE OF DEFENSE.
+ *
+ * This is a *structural* JWT check only: we decode the token and verify
+ * its shape and `exp` claim. The signature is NOT verified here because
+ * `JWT_SECRET` is not (and should not be) available to the edge runtime.
+ *
+ * Consequences:
+ *   - Protects against unauthenticated and obviously-expired requests.
+ *   - CANNOT detect tokens that have been revoked server-side or forged
+ *     against a different secret.
+ *   - Is therefore NOT the source of truth for "is the user signed in?".
+ *
+ * The real auth gate is `app/(authenticated)/layout.tsx`, which calls
+ * `getCurrentUser()` against Sargo on every authenticated render. Treat
+ * this middleware as cheap pre-filtering only.
+ */
 export async function middleware(request: NextRequest): Promise<NextResponse> {
   const { pathname } = request.nextUrl
 
@@ -12,9 +31,6 @@ export async function middleware(request: NextRequest): Promise<NextResponse> {
   }
 
   try {
-    // Enhanced error handling for edge runtime
-    console.log(`[Next.js Middleware Handler] Processing path: ${pathname}`)
-
     // Safe cookie access with fallback
     let sargoToken: string | undefined
     try {
@@ -29,26 +45,19 @@ export async function middleware(request: NextRequest): Promise<NextResponse> {
     }
 
     if (!sargoToken) {
-      console.log(
-        '[Next.js Middleware Handler] Sargo token invalid or missing, redirecting to login...'
-      )
       return clearTokensAndRedirect(request)
     }
 
-    // Token validation (single source of truth)
-    const isValid = await isTokenValid(sargoToken)
+    // Structural / expiry-only check; signature is NOT verified here
+    // because we don't have JWT_SECRET at the edge. The real auth gate
+    // is the /users/me call in server components / actions.
+    const isValid = await isTokenStructurallyValid(sargoToken)
 
     if (!isValid) {
-      console.log(
-        '[Next.js Middleware Handler] Sargo token invalid or missing, redirecting to login...'
-      )
       return clearTokensAndRedirect(request)
     }
 
-    // Primary auth is valid, let the request through
-    console.log(
-      `[Next.js Middleware Handler] Token valid for path: ${pathname}`
-    )
+    // Primary auth is valid, let the request through.
     return NextResponse.next()
   } catch (error) {
     console.error(

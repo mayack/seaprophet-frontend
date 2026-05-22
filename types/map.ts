@@ -257,6 +257,20 @@ export interface MapboxStylesConfig {
   dark: string
 }
 
+export interface MapSpotsCacheConfig {
+  /** FIFO eviction beyond this many loaded regions */
+  maxLoadedRegions: number
+  /** Margin (fraction) when matching loaded regions against a query bounds */
+  coverageTolerance: number
+}
+
+export interface MapUserMarkerConfig {
+  /** Max attempts to attach the user-location marker before giving up */
+  maxRetries: number
+  /** Delay between attach attempts */
+  retryDelayMs: number
+}
+
 // Consolidated map configuration interface
 export interface MapConfig {
   defaults: MapDefaults
@@ -264,6 +278,8 @@ export interface MapConfig {
   interaction: MapInteractionConfig
   carousel: MapCarouselConfig
   ui: MapUIConfig
+  spotsCache: MapSpotsCacheConfig
+  userMarker: MapUserMarkerConfig
 }
 
 // Utility types

@@ -12,8 +12,10 @@ if (process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN) {
   mapboxgl.accessToken = process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN
 }
 
-// Constants
-const METERS_PER_DEGREE = 111320 // Approximate meters per degree at equator
+// Conversion factor from kilometres (the unit returned by
+// `calculateDistance`) to metres. Used to bridge the metre-based
+// thresholds in CONFIG with the km-output Haversine implementation.
+const METERS_PER_KILOMETER = 1000
 
 // Unified theme management for maps
 export function useMapTheme(): {
@@ -279,17 +281,24 @@ export function createMarker(
   return marker
 }
 
-// Location utilities for maps
+// Location utilities for maps.
+//
+// Historically this used a flat "metres per degree" approximation that
+// (a) ignored the cos(latitude) shrinkage of longitude away from the
+// equator and (b) produced different distances than the Haversine
+// implementation in `utils/location.ts#calculateDistance`. Now we route
+// everything through that single source of truth so map thresholds and
+// nearby-spot rankings agree.
+//
+// `CONFIG.map.location.alreadyAtLocationThreshold` is expressed in
+// metres, so we convert from the km output of `calculateDistance`.
 export function calculateDistanceInMeters(
   lat1: number,
   lng1: number,
   lat2: number,
   lng2: number
 ): number {
-  // Simple distance calculation using approximate conversion
-  const latDiff = (lat2 - lat1) * METERS_PER_DEGREE
-  const lngDiff = (lng2 - lng1) * METERS_PER_DEGREE
-  return Math.sqrt(latDiff * latDiff + lngDiff * lngDiff)
+  return calculateDistance(lat1, lng1, lat2, lng2) * METERS_PER_KILOMETER
 }
 
 export function isUserCloseToLocation(
@@ -429,11 +438,24 @@ export function sortSpotsByDistance(
     return [...spots]
   }
 
-  return [...spots].sort((a, b) => {
-    const distanceA = a.distance ?? Infinity
-    const distanceB = b.distance ?? Infinity
-    return distanceA - distanceB
-  })
+  // Compute distance inline rather than trusting a precomputed `distance`
+  // field — that field can be stale or missing for spots that never went
+  // through `addDistanceToSpots`, which previously produced inconsistent
+  // ordering when the input list mixed annotated and raw spots.
+  const distanceFor = (spot: SpotSummary): number => {
+    const lat = spot.location?.lat
+    const long = spot.location?.long
+    if (lat === undefined || lat === null) return Infinity
+    if (long === undefined || long === null) return Infinity
+    return calculateDistance(
+      userLocation.latitude,
+      userLocation.longitude,
+      lat,
+      long
+    )
+  }
+
+  return [...spots].sort((a, b) => distanceFor(a) - distanceFor(b))
 }
 
 export function addDistanceToSpots(
@@ -458,7 +480,13 @@ export function addDistanceToSpots(
   }))
 }
 
-// Simple spots cache implementation
+// Simple spots cache implementation.
+// Bounded by `CONFIG.map.spotsCache.maxLoadedRegions` so a long-lived
+// session can't grow `loadedRegions` unbounded; consumers should also call
+// `reset()` on MapNavigator mount/unmount to scope the cache to a single
+// map session.
+const MAX_LOADED_REGIONS = CONFIG.map.spotsCache.maxLoadedRegions
+
 const spotsCache = {
   spots: new Map<number, SpotSummary>(),
   loadedRegions: [] as GeographicBounds[],
@@ -477,15 +505,42 @@ const spotsCache = {
 
   addLoadedRegion(region: GeographicBounds): void {
     this.loadedRegions.push(region)
+    // Drop the oldest entries once we exceed the cap so the array can't
+    // accumulate forever across map pans/zooms.
+    if (this.loadedRegions.length > MAX_LOADED_REGIONS) {
+      this.loadedRegions.splice(
+        0,
+        this.loadedRegions.length - MAX_LOADED_REGIONS
+      )
+    }
+  },
+
+  reset(): void {
+    this.spots.clear()
+    this.loadedRegions = []
   },
 
   isRegionLoaded(bounds: GeographicBounds): boolean {
+    // Strict containment was almost never true after even a small pan:
+    // shifting the viewport by a few pixels meant the new bounds escaped
+    // the cached region on at least one side, triggering a refetch.
+    //
+    // Accept a small tolerance margin (5% of the query's lat/lng span)
+    // so a loaded region is considered to cover the query as long as it
+    // contains the query's interior. The result is a much better cache
+    // hit rate during the typical "small drift while looking around" UX
+    // without sacrificing correctness — we still refetch when the user
+    // moves the map a meaningful amount.
+    const TOLERANCE = CONFIG.map.spotsCache.coverageTolerance
+    const latMargin = (bounds.north - bounds.south) * TOLERANCE
+    const lngMargin = (bounds.east - bounds.west) * TOLERANCE
+
     return this.loadedRegions.some((region) => {
       return (
-        region.north >= bounds.north &&
-        region.south <= bounds.south &&
-        region.east >= bounds.east &&
-        region.west <= bounds.west
+        region.north >= bounds.north - latMargin &&
+        region.south <= bounds.south + latMargin &&
+        region.east >= bounds.east - lngMargin &&
+        region.west <= bounds.west + lngMargin
       )
     })
   },

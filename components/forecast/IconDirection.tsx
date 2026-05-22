@@ -3,7 +3,6 @@ import { ArrowUp, MousePointer2 } from 'lucide-react'
 import {
   Tooltip,
   TooltipContent,
-  TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip'
 import React from 'react'
@@ -55,26 +54,24 @@ export function IconDirection({
   const Icon = isWind ? ArrowUp : MousePointer2
 
   return (
-    <TooltipProvider>
-      <Tooltip>
-        <TooltipTrigger
-          className="flex"
-          aria-label={`Direction: ${degrees}° ${cardinalDirection}`}
-        >
-          <div className="relative inline-flex items-center justify-center">
-            <Icon
-              className={`${sizes[size]}`}
-              style={{ transform: `rotate(${adjustedDegrees}deg)` }}
-            />
-          </div>
-        </TooltipTrigger>
-        <TooltipContent
-          className="text-xs font-semibold leading-none"
-          sideOffset={10}
-        >
-          {degrees}° {cardinalDirection}
-        </TooltipContent>
-      </Tooltip>
-    </TooltipProvider>
+    <Tooltip>
+      <TooltipTrigger
+        className="flex"
+        aria-label={`Direction: ${degrees}° ${cardinalDirection}`}
+      >
+        <div className="relative inline-flex items-center justify-center">
+          <Icon
+            className={`${sizes[size]}`}
+            style={{ transform: `rotate(${adjustedDegrees}deg)` }}
+          />
+        </div>
+      </TooltipTrigger>
+      <TooltipContent
+        className="text-xs font-semibold leading-none"
+        sideOffset={10}
+      >
+        {degrees}° {cardinalDirection}
+      </TooltipContent>
+    </Tooltip>
   )
 }

@@ -5,12 +5,16 @@ import type {
   MapInteractionConfig,
   MapCarouselConfig,
   MapUIConfig,
+  MapSpotsCacheConfig,
+  MapUserMarkerConfig,
   MapboxStylesConfig,
   Coordinates,
 } from '@/types/map'
+import packageJson from '@/package.json'
 
 export const CONFIG = {
-  version: '0.6.4',
+  // Single source of truth is package.json — bump `version` there only.
+  version: packageJson.version,
   defaultTheme: 'system',
   api: {
     urls: {
@@ -101,7 +105,11 @@ export const CONFIG = {
     } as const,
   },
   webcam: {
-    afk_timer: 120 * 1000, // 2 minutes in milliseconds
+    afk_timer: 5 * 60 * 1000, // 5 minutes — pause stream after this much inactivity
+    proxyTimeoutMs: 30_000, // /api/proxy upstream-fetch deadline
+  },
+  forecast: {
+    initialVisibleDays: 2, // <Forecast> reveals N days, infinite-scrolls more
   },
   search: {
     index: {
@@ -127,6 +135,15 @@ export const CONFIG = {
     location: {
       maxRetries: 3,
       retryDelays: [3000, 3000, 3000], // ms - equal delays for consistent retry timing
+      // TODO(M14): Now compared against the Haversine-based
+      // `calculateDistance` (utils/location.ts), which rounds its output
+      // to 1 decimal of km (~100m precision). The previous flat
+      // METERS_PER_DEGREE approximation in components/maps/utils.ts
+      // underestimated longitude distances away from the equator (e.g.
+      // by ~22% at lat 39° / Portugal), so the *effective* threshold
+      // used to be smaller than the literal 100. The literal value is
+      // kept unchanged here — re-evaluate once a physical distance
+      // target is decided (e.g. "user is at the spot within 50m").
       alreadyAtLocationThreshold: 100, // meters - distance to consider "already at location"
       timeouts: {
         standard: 10000, // ms - standard location request timeout
@@ -160,6 +177,16 @@ export const CONFIG = {
         size: 16,
       },
     } satisfies MapUIConfig,
+    // Module-level spots cache (components/maps/utils.ts).
+    spotsCache: {
+      maxLoadedRegions: 50, // FIFO eviction beyond this
+      coverageTolerance: 0.05, // 5% margin when matching loaded regions against query bounds
+    } satisfies MapSpotsCacheConfig,
+    // User-location marker retry behaviour in useMapbox.
+    userMarker: {
+      maxRetries: 10, // ~5s of attempts at retryDelayMs each
+      retryDelayMs: 500,
+    } satisfies MapUserMarkerConfig,
   } satisfies MapConfig,
   // Enhanced Mapbox configuration
   mapbox: {

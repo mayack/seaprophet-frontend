@@ -1,6 +1,13 @@
 import { GeographicBounds } from '@/types/map'
 
 /**
+ * Kilometres per degree of latitude (mean Earth radius approximation).
+ * Latitude is uniform across the globe; longitude must be scaled by
+ * `Math.cos(lat)` because lines of longitude converge toward the poles.
+ */
+export const KM_PER_LAT_DEGREE = 111
+
+/**
  * Calculate distance between two geographic coordinates
  * @param lat1 First latitude in degrees
  * @param lon1 First longitude in degrees
@@ -9,12 +16,18 @@ import { GeographicBounds } from '@/types/map'
  * @returns Distance in kilometers
  */
 export function calculateDistance(
-  lat1: number,
-  lon1: number,
-  lat2: number,
-  lon2: number
+  lat1: number | null | undefined,
+  lon1: number | null | undefined,
+  lat2: number | null | undefined,
+  lon2: number | null | undefined
 ): number {
-  if (!lat1 || !lon1 || !lat2 || !lon2) return 0
+  // Treat `0` as a legitimate coordinate; only bail when a value is actually
+  // missing or non-finite.
+  const isValid = (n: number | null | undefined): n is number =>
+    n != null && Number.isFinite(n)
+  if (!isValid(lat1) || !isValid(lon1) || !isValid(lat2) || !isValid(lon2)) {
+    return 0
+  }
 
   const R = 6371 // Radius of the earth in km
   const dLat = (lat2 - lat1) * (Math.PI / 180)
@@ -54,10 +67,9 @@ export function calculateBounds(
   lng: number,
   radiusKm: number
 ): GeographicBounds {
-  const KM_PER_LAT = 111
-  const deltaLat = radiusKm / KM_PER_LAT
+  const deltaLat = radiusKm / KM_PER_LAT_DEGREE
   const latRad = lat * (Math.PI / 180)
-  const kmPerLng = KM_PER_LAT * Math.cos(latRad)
+  const kmPerLng = KM_PER_LAT_DEGREE * Math.cos(latRad)
   const deltaLng = radiusKm / kmPerLng
 
   return {

@@ -16,9 +16,24 @@ export async function getSpot(id: number): Promise<SpotActionResponse<Spot>> {
   const timestamp = new Date().toISOString()
   try {
     const response = await sargoClient.getSpot(id, true)
-    // Attach a flattened locationInfo for easier consumption
+
+    // The client never throws — it returns { spot: null, error } on failure.
+    // Surface that as an unsuccessful action response instead of silently
+    // returning success with null data.
+    if (response.error || !response.spot) {
+      return {
+        data: null,
+        error: response.error || 'Spot not found',
+        meta: {
+          timestamp,
+          source: 'spot-detail',
+          success: false,
+        },
+      }
+    }
+
     const spot = response.spot
-    if (spot?.attributes) {
+    if (spot.attributes) {
       const m = spot.attributes.municipality?.data?.attributes
       const d = m?.district?.data?.attributes
       const r = d?.region?.data?.attributes
@@ -253,12 +268,6 @@ export async function getFavoriteSpots(
     // Fetch spots by their IDs directly using $in filter
     const favoriteSpotsResponse = await sargoClient.getSpotsByIds(spotIds, true)
     const favoriteSpots = favoriteSpotsResponse.data
-
-    console.log('Fetched favorite spots:', {
-      requestedIds: spotIds,
-      fetchedCount: favoriteSpots.length,
-      fetchedIds: favoriteSpots.map((s) => s.id),
-    })
 
     const organizedSpots = organizeSpotsByCountry(favoriteSpots)
     return {

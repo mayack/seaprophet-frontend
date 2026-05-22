@@ -14,9 +14,14 @@ export const webcamProviders: Record<string, WebcamProviderConfig> = {
       Referer: 'https://flus.spotfav.com/',
     },
     transformUrl: (baseUrl: string) => (url: string) => {
-      if (url.includes('/2025/')) {
-        const segmentPath = url.split('/2025/')[1]
-        return `${baseUrl}2025/${segmentPath}`
+      // Spotfav buckets HLS segments by calendar year (e.g. `/2025/<file>.ts`,
+      // `/2026/<file>.ts`). Resolve the year at call time so this keeps
+      // working as the year rolls over instead of hard-coding it.
+      const year = new Date().getFullYear()
+      const marker = `/${year}/`
+      if (url.includes(marker)) {
+        const segmentPath = url.split(marker)[1]
+        return `${baseUrl}${year}/${segmentPath}`
       }
       return url
     },

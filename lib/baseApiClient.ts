@@ -32,7 +32,13 @@ export abstract class BaseApiClient {
       if (!response.ok) {
         const message =
           data.error?.message || `Request failed with status ${response.status}`
-        throw createError(message, response.status === 401 ? 'auth' : 'network')
+        // Treat 401 and 403 as auth failures so callers (Polvo retry,
+        // Sargo signout fallback) can react uniformly. 403 used to be
+        // tagged separately by PolvoClient before it migrated to this
+        // base class; centralizing the rule keeps both clients
+        // consistent.
+        const isAuthStatus = response.status === 401 || response.status === 403
+        throw createError(message, isAuthStatus ? 'auth' : 'network')
       }
 
       return data

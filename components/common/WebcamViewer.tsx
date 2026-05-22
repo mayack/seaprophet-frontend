@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState, useCallback } from 'react'
-import Hls from 'hls.js'
+import Hls, { type ErrorData, type Events } from 'hls.js'
 import { Expand, Shrink, RefreshCw, Play } from 'lucide-react'
 import { Button } from '../ui/button'
 import { Spinner } from '../ui/spinner'
@@ -13,8 +13,9 @@ import {
 } from '../ui/tooltip'
 import { extractWebcamUrl } from '@/api/polvo/actions/webcam'
 import { WebcamConfig } from '@/api/sargo/interfaces/webcam'
+import { CONFIG } from '@/constants/config'
 
-const AFK_TIMEOUT_MS = 5 * 60 * 1000
+const AFK_TIMEOUT_MS = CONFIG.webcam.afk_timer
 
 interface WebcamViewerProps {
   config: WebcamConfig
@@ -34,6 +35,26 @@ export function WebcamViewer({ config }: WebcamViewerProps) {
   const hlsRef = useRef<Hls | null>(null)
   const afkTimerRef = useRef<ReturnType<typeof setTimeout>>(null)
   const streamIdRef = useRef(0)
+  // Mirror `isAfk` into a ref so callbacks captured by the effect (e.g.
+  // `isStale`) always see the latest value instead of the stale closure
+  // value from when the effect first ran.
+  const isAfkRef = useRef(isAfk)
+  useEffect(() => {
+    isAfkRef.current = isAfk
+  }, [isAfk])
+
+  // Track HLS event handlers and video listeners so cleanup can fully
+  // detach them — `hls.destroy()` alone leaves listeners and the <video>
+  // element with a lingering `src`/onerror.
+  const hlsHandlersRef = useRef<{
+    manifestParsed?: (event: Events.MANIFEST_PARSED) => void
+    error?: (event: Events.ERROR, data: ErrorData) => void
+  }>({})
+  const videoHandlersRef = useRef<{
+    playing?: () => void
+    loadedmetadata?: () => void
+    error?: () => void
+  }>({})
 
   const clearAfkTimer = useCallback(() => {
     if (afkTimerRef.current) {
@@ -42,31 +63,63 @@ export function WebcamViewer({ config }: WebcamViewerProps) {
     }
   }, [])
 
-  const cleanup = useCallback(() => {
+  const cleanupStream = useCallback(() => {
     clearAfkTimer()
-    if (hlsRef.current) {
-      hlsRef.current.destroy()
+
+    const hls = hlsRef.current
+    if (hls) {
+      const handlers = hlsHandlersRef.current
+      if (handlers.manifestParsed) {
+        hls.off(Hls.Events.MANIFEST_PARSED, handlers.manifestParsed)
+      }
+      if (handlers.error) {
+        hls.off(Hls.Events.ERROR, handlers.error)
+      }
+      hls.destroy()
       hlsRef.current = null
     }
+    hlsHandlersRef.current = {}
+
+    const video = videoRef.current
+    if (video) {
+      const vh = videoHandlersRef.current
+      if (vh.playing) video.removeEventListener('playing', vh.playing)
+      if (vh.loadedmetadata) {
+        video.onloadedmetadata = null
+      }
+      if (vh.error) {
+        video.onerror = null
+      }
+      // Reset the <video> element so a previous src/MediaSource doesn't
+      // keep buffering or fire late events on retry/unmount.
+      video.removeAttribute('src')
+      try {
+        video.load()
+      } catch {
+        // Some browsers throw if load() is called during teardown — safe to ignore.
+      }
+    }
+    videoHandlersRef.current = {}
   }, [clearAfkTimer])
 
   const startAfkTimer = useCallback(() => {
     clearAfkTimer()
     afkTimerRef.current = setTimeout(() => {
       setIsAfk(true)
-      cleanup()
+      cleanupStream()
     }, AFK_TIMEOUT_MS)
-  }, [clearAfkTimer, cleanup])
+  }, [clearAfkTimer, cleanupStream])
 
   const initStream = useCallback(async () => {
-    if (isAfk) return
+    if (isAfkRef.current) return
 
     const currentStreamId = ++streamIdRef.current
-    const isStale = () => streamIdRef.current !== currentStreamId || isAfk
+    const isStale = (): boolean =>
+      streamIdRef.current !== currentStreamId || isAfkRef.current
 
     setIsLoading(true)
     setError(null)
-    cleanup()
+    cleanupStream()
 
     const video = videoRef.current
     if (!video) return
@@ -113,15 +166,16 @@ export function WebcamViewer({ config }: WebcamViewerProps) {
     // Step 2: Initialize HLS
     const finalUrl = getStreamUrl(streamUrl, config.referer)
 
-    const onPlaybackStarted = () => {
+    const onPlaybackStarted = (): void => {
       if (isStale()) return
       setIsLoading(false)
       startAfkTimer()
     }
 
     video.addEventListener('playing', onPlaybackStarted, { once: true })
+    videoHandlersRef.current.playing = onPlaybackStarted
 
-    const handleReady = async () => {
+    const handleReady = async (): Promise<void> => {
       if (isStale()) return
       try {
         await video.play()
@@ -129,14 +183,16 @@ export function WebcamViewer({ config }: WebcamViewerProps) {
         if (e instanceof Error && e.message.includes('interrupted')) return
         if (isStale()) return
         video.removeEventListener('playing', onPlaybackStarted)
+        videoHandlersRef.current.playing = undefined
         setError('Playback failed')
         setIsLoading(false)
       }
     }
 
-    const handleError = (msg: string) => {
+    const handleError = (msg: string): void => {
       if (isStale()) return
       video.removeEventListener('playing', onPlaybackStarted)
+      videoHandlersRef.current.playing = undefined
       setError(msg)
       setIsLoading(false)
     }
@@ -160,8 +216,10 @@ export function WebcamViewer({ config }: WebcamViewerProps) {
       hls.loadSource(finalUrl)
       hls.attachMedia(video)
 
-      hls.on(Hls.Events.MANIFEST_PARSED, handleReady)
-      hls.on(Hls.Events.ERROR, (_, data) => {
+      const onManifestParsed = (): void => {
+        void handleReady()
+      }
+      const onHlsError = (_event: Events.ERROR, data: ErrorData): void => {
         if (isStale()) return
         if (!data.fatal) return
 
@@ -173,15 +231,26 @@ export function WebcamViewer({ config }: WebcamViewerProps) {
         } else {
           handleError('Stream error')
         }
-      })
+      }
+
+      hlsHandlersRef.current.manifestParsed = onManifestParsed
+      hlsHandlersRef.current.error = onHlsError
+      hls.on(Hls.Events.MANIFEST_PARSED, onManifestParsed)
+      hls.on(Hls.Events.ERROR, onHlsError)
     } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
       video.src = finalUrl
-      video.onloadedmetadata = handleReady
-      video.onerror = () => handleError('Playback error')
+      const onLoadedMetadata = (): void => {
+        void handleReady()
+      }
+      const onVideoError = (): void => handleError('Playback error')
+      video.onloadedmetadata = onLoadedMetadata
+      video.onerror = onVideoError
+      videoHandlersRef.current.loadedmetadata = onLoadedMetadata
+      videoHandlersRef.current.error = onVideoError
     } else {
       handleError('HLS not supported')
     }
-  }, [config, isAfk, cleanup, startAfkTimer])
+  }, [config, cleanupStream, startAfkTimer])
 
   const handleRetry = useCallback(() => {
     initStream()
@@ -212,8 +281,8 @@ export function WebcamViewer({ config }: WebcamViewerProps) {
   // Initialize on mount and config change
   useEffect(() => {
     initStream()
-    return cleanup
-  }, [initStream, cleanup])
+    return cleanupStream
+  }, [initStream, cleanupStream])
 
   // Reset AFK timer on interaction
   useEffect(() => {

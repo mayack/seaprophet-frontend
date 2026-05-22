@@ -4,7 +4,7 @@ import { AstronomicalBreakdown } from './AstronomicalBreakdown'
 import { ForecastHeader } from './ForecastHeader'
 import TideChart from './TideChart'
 import { UserUnits } from '@/api/sargo/interfaces/user'
-import { getDateLabel } from '@/utils/getDataLabel'
+import { getDateLabel } from '@/utils/getDateLabel'
 import React from 'react'
 
 interface ForecastItemProps {

@@ -28,7 +28,7 @@ export default function RootLayout({
 }): React.JSX.Element {
   return (
     <html lang="en" className={inter.variable} suppressHydrationWarning>
-      <body>
+      <body suppressHydrationWarning>
         <ThemeProvider>{children}</ThemeProvider>
         <SpotIndexPreloader />
       </body>

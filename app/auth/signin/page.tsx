@@ -1,6 +1,6 @@
 'use client'
 import { useRouter } from 'next/navigation'
-import { useTransition } from 'react'
+import { useRef, useState, useTransition } from 'react'
 import { signIn } from '@/api/sargo/actions/auth'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -11,31 +11,42 @@ import React from 'react'
 
 export default function SignIn(): React.JSX.Element {
   const router = useRouter()
-  const [isPending, startTransition] = useTransition()
+  const [, startTransition] = useTransition()
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const isSubmittingRef = useRef(false)
 
   const handleSubmit = async (formData: FormData): Promise<void> => {
-    startTransition(async () => {
-      try {
-        const result = await signIn(formData)
-        if (result.success) {
-          toast.success('Signed in successfully!')
+    // Synchronous guard against rapid double-submits; isPending from
+    // useTransition flips back to false before the async work completes.
+    if (isSubmittingRef.current) return
+    isSubmittingRef.current = true
+    setIsSubmitting(true)
+
+    try {
+      const result = await signIn(formData)
+      if (result.success) {
+        toast.success('Signed in successfully!')
+        startTransition(() => {
           router.push('/')
           router.refresh()
-        } else {
-          toast.error(result.error || 'Sign-in failed.')
-          // eslint-disable-next-line no-console
-          console.error('Sign-in error:', result.error)
-        }
-      } catch (error) {
-        const message =
-          error instanceof Error && error.message.includes('fetch')
-            ? 'Check your connection and try again.'
-            : 'Sign-in failed unexpectedly.'
-        toast.error(message)
+        })
+      } else {
+        toast.error(result.error || 'Sign-in failed.')
         // eslint-disable-next-line no-console
-        console.error('Fetch error in signIn:', error)
+        console.error('Sign-in error:', result.error)
       }
-    })
+    } catch (error) {
+      const message =
+        error instanceof Error && error.message.includes('fetch')
+          ? 'Check your connection and try again.'
+          : 'Sign-in failed unexpectedly.'
+      toast.error(message)
+      // eslint-disable-next-line no-console
+      console.error('Fetch error in signIn:', error)
+    } finally {
+      isSubmittingRef.current = false
+      setIsSubmitting(false)
+    }
   }
 
   return (
@@ -56,7 +67,7 @@ export default function SignIn(): React.JSX.Element {
                     name="identifier"
                     placeholder="Email or username"
                     required
-                    disabled={isPending}
+                    disabled={isSubmitting}
                   />
                 </div>
                 <div className="space-y-2">
@@ -65,11 +76,15 @@ export default function SignIn(): React.JSX.Element {
                     name="password"
                     placeholder="Password"
                     required
-                    disabled={isPending}
+                    disabled={isSubmitting}
                   />
                 </div>
-                <Button type="submit" className="w-full" disabled={isPending}>
-                  {isPending ? 'Signing in...' : 'Sign in'}
+                <Button
+                  type="submit"
+                  className="w-full"
+                  disabled={isSubmitting}
+                >
+                  {isSubmitting ? 'Signing in...' : 'Sign in'}
                 </Button>
               </form>
             </CardContent>

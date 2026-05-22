@@ -8,7 +8,7 @@ import { SpotsNearby } from '@/components/spot/SpotsNearby'
 import { getCurrentUser } from '@/api/sargo/actions/auth'
 import { calculateDistance } from '@/utils/location'
 import { SpotSummary } from '@/api/sargo/interfaces/spot'
-import { redirect } from 'next/navigation'
+import { notFound, redirect } from 'next/navigation'
 import React from 'react'
 import type { Metadata } from 'next'
 import { ReloadButton } from '@/components/common/ReloadButton'
@@ -23,6 +23,13 @@ export async function generateMetadata({
 }: SpotPageProps): Promise<Metadata> {
   const resolvedParams = await params
   const spotId = Number(resolvedParams.id)
+
+  if (!Number.isFinite(spotId) || spotId <= 0) {
+    return {
+      title: 'Spot not found - Sea Prophet',
+    }
+  }
+
   const spotResponse = await getSpot(spotId)
   const spot = spotResponse?.data?.attributes
 
@@ -42,6 +49,13 @@ export default async function SpotPage({
 }: SpotPageProps): Promise<React.JSX.Element> {
   const resolvedParams = await params
   const spotId = Number(resolvedParams.id)
+
+  // Guard against non-numeric path segments (e.g. /spot/foo) so NaN
+  // doesn't propagate into downstream fetches and produce opaque errors.
+  if (!Number.isFinite(spotId) || spotId <= 0) {
+    notFound()
+  }
+
   const user = await getCurrentUser()
 
   if (!user) {

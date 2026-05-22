@@ -9,6 +9,19 @@ import { CONFIG } from '@/constants/config'
 import { Toaster } from 'sonner'
 import React from 'react'
 
+/**
+ * Authenticated layout — ACTUAL AUTH GATE.
+ *
+ * `getCurrentUser()` validates the JWT against Sargo on every request
+ * (`cache: 'no-store'`). Unlike the edge middleware (which only checks
+ * token *structure* and can't see revocations), this layout is the
+ * source of truth for "is the user signed in?" — any code rendered
+ * below this boundary can trust that `user` reflects a live Sargo
+ * session.
+ *
+ * Keep the structural middleware check (`middleware.ts`) as cheap
+ * pre-filtering; do not rely on it alone for authorization decisions.
+ */
 export default async function AuthenticatedLayout({
   children,
 }: {

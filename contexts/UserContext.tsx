@@ -7,7 +7,9 @@ import {
   useContext,
   useState,
   useEffect,
+  useRef,
   useCallback,
+  useMemo,
   ReactNode,
 } from 'react'
 
@@ -79,6 +81,10 @@ export function UserProvider({
 
   const [locationError, setLocationError] = useState<string | null>(null)
   const [isLocating, setIsLocating] = useState(false)
+  // Synchronous mirror of `isLocating` so concurrent callers of
+  // `requestLocation` actually observe the in-flight request without
+  // waiting for a state update to flush.
+  const isLocatingRef = useRef(false)
   const [lastLocationUpdate, setLastLocationUpdate] = useState<number | null>(
     storedLocation.timestamp || null
   )
@@ -99,7 +105,6 @@ export function UserProvider({
       // Check current state values directly instead of relying on dependencies
       const currentUserData = userData
       const currentLastLocationUpdate = lastLocationUpdate
-      const currentIsLocating = isLocating
 
       // Return cached location if still valid
       if (
@@ -119,16 +124,11 @@ export function UserProvider({
         return { error: 'unsupported' as const }
       }
 
-      if (currentIsLocating) return { error: 'unavailable' as const }
-
+      // Synchronous guard against concurrent calls.
+      if (isLocatingRef.current) return { error: 'unavailable' as const }
+      isLocatingRef.current = true
       setIsLocating(true)
       setLocationError(null)
-
-      console.log('Requesting location with options:', {
-        enableHighAccuracy: highAccuracy,
-        timeout: highAccuracy ? 15000 : 10000,
-        maximumAge: highAccuracy ? 60000 : 300000,
-      })
 
       try {
         const position = await new Promise<GeolocationPosition>(
@@ -140,18 +140,10 @@ export function UserProvider({
 
             navigator.geolocation.getCurrentPosition(
               (pos) => {
-                console.log('Location success:', pos.coords)
                 clearTimeout(timeoutId)
                 resolve(pos)
               },
               (err) => {
-                console.log('Location error details:', {
-                  code: err.code,
-                  message: err.message,
-                  PERMISSION_DENIED: err.PERMISSION_DENIED,
-                  POSITION_UNAVAILABLE: err.POSITION_UNAVAILABLE,
-                  TIMEOUT: err.TIMEOUT,
-                })
                 clearTimeout(timeoutId)
                 reject(err)
               },
@@ -168,6 +160,7 @@ export function UserProvider({
 
         setUserData((prev) => ({ ...prev, latitude, longitude }))
         storeLocation(latitude, longitude)
+        isLocatingRef.current = false
         setIsLocating(false)
 
         return { latitude, longitude }
@@ -194,6 +187,7 @@ export function UserProvider({
 
         console.error('Location error:', errorMessage)
         setLocationError(errorMessage)
+        isLocatingRef.current = false
         setIsLocating(false)
 
         if (error instanceof GeolocationPositionError) {
@@ -229,14 +223,20 @@ export function UserProvider({
     }
   }, [lastLocationUpdate])
 
-  const contextValue = {
-    userData,
-    setUserData,
-    requestLocation,
-    locationError,
-    isLocating,
-    lastLocationUpdate,
-  }
+  // Memoize so consumers don't re-render on every parent render with a
+  // brand-new object identity. `setUserData` is a setState fn (stable);
+  // `requestLocation` is already a stable useCallback.
+  const contextValue = useMemo<UserContextType>(
+    () => ({
+      userData,
+      setUserData,
+      requestLocation,
+      locationError,
+      isLocating,
+      lastLocationUpdate,
+    }),
+    [userData, requestLocation, locationError, isLocating, lastLocationUpdate]
+  )
 
   return (
     <UserContext.Provider value={contextValue}>{children}</UserContext.Provider>
