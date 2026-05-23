@@ -51,11 +51,11 @@ function buildForecastParams(
   spot: {
     location_lat: number
     location_long: number
-    beach_orientation_from: number
-    beach_orientation_mid: number
-    beach_orientation_to: number
-    wave_factor: number
-    adjustment_factor: number
+    beach_orientation_from: number | null
+    beach_orientation_mid: number | null
+    beach_orientation_to: number | null
+    wave_factor: number | null
+    adjustment_factor: number | null
   },
   spotId: number,
   user: User
