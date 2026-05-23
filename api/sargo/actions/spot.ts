@@ -1,4 +1,5 @@
 'use server'
+import { unstable_cache } from 'next/cache'
 import { calculateDistance } from '@/utils/location'
 // text normalization no longer needed client-side for querying
 import { sargoClient } from '../client'
@@ -12,10 +13,18 @@ import type { LocationInfo } from '../interfaces/spot'
 import { organizeSpotsByCountry } from '../utils/organizeSpotsByCountry'
 import { GeographicBounds } from '@/types/map'
 
+// Sargo spot metadata changes rarely — cache for 15 min, invalidate via the
+// `spot` tag (e.g. after an admin edit).
+const cachedGetSpot = unstable_cache(
+  (id: number) => sargoClient.getSpot(id, true),
+  ['sargo-get-spot'],
+  { revalidate: 900, tags: ['spot'] }
+)
+
 export async function getSpot(id: number): Promise<SpotActionResponse<Spot>> {
   const timestamp = new Date().toISOString()
   try {
-    const response = await sargoClient.getSpot(id, true)
+    const response = await cachedGetSpot(id)
 
     // The client never throws — it returns { spot: null, error } on failure.
     // Surface that as an unsuccessful action response instead of silently
@@ -92,6 +101,13 @@ export async function getSpotsByCountry(): Promise<
   }
 }
 
+const cachedGetNearbySpots = unstable_cache(
+  (lat: number, lon: number, radiusKm: number) =>
+    sargoClient.getNearbySpots(lat, lon, radiusKm, true),
+  ['sargo-nearby-spots'],
+  { revalidate: 900, tags: ['spot', 'nearby-spots'] }
+)
+
 export async function getNearbySpots(
   lat: number,
   lon: number,
@@ -99,7 +115,7 @@ export async function getNearbySpots(
 ): Promise<SpotActionResponse<SpotSummary[]>> {
   const timestamp = new Date().toISOString()
   try {
-    const response = await sargoClient.getNearbySpots(lat, lon, radiusKm, true)
+    const response = await cachedGetNearbySpots(lat, lon, radiusKm)
     const nearbySpots: SpotSummary[] = response.data.map((spot) => ({
       id: spot.id,
       name: spot.attributes.name,
