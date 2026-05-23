@@ -101,6 +101,12 @@ export class PolvoClient extends BaseApiClient {
       tideUnits: params.tideUnits,
       tempUnits: params.tempUnits,
       surfUnits: params.surfUnits,
+      // Display peak period (Tp) instead of Polvo's default mean period
+      // (Tm). Tp matches what surfers see on Surfline et al — typically
+      // ~1.28× the Tm number — and is what users intuit by "swell
+      // period". Polvo applies the conversion server-side; we just opt
+      // in via this query param.
+      periodStatistic: 'peak',
       orientationFrom: params.orientationFrom?.toString(),
       orientationTo: params.orientationTo?.toString(),
       orientationMid: params.orientationMid?.toString(),
