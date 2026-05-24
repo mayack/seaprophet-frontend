@@ -1,5 +1,4 @@
 'use server'
-import { unstable_cache } from 'next/cache'
 import { calculateDistance } from '@/utils/location'
 // text normalization no longer needed client-side for querying
 import { sargoClient } from '../client'
@@ -13,31 +12,22 @@ import type { LocationInfo } from '../interfaces/spot'
 import { organizeSpotsByCountry } from '../utils/organizeSpotsByCountry'
 import { GeographicBounds } from '@/types/map'
 
-// Sargo spot metadata changes rarely — cache for 15 min, invalidate via the
-// `spot` tag (e.g. after an admin edit).
-const cachedGetSpot = unstable_cache(
-  (id: number) => sargoClient.getSpot(id, true),
-  ['sargo-get-spot'],
-  { revalidate: 900, tags: ['spot'] }
-)
-
+// Caching note: sargoClient.getSpot already uses
+// `fetch(..., { next: { revalidate: 3600 } })` so the Next.js Data Cache
+// handles deduping + cross-request caching automatically. We deliberately do
+// NOT wrap this in `unstable_cache` — that would double-cache and (because
+// the client returns `{ spot: null, error }` instead of throwing) would also
+// pin transient failures as "Spot not found" for the whole TTL.
 export async function getSpot(id: number): Promise<SpotActionResponse<Spot>> {
   const timestamp = new Date().toISOString()
   try {
-    const response = await cachedGetSpot(id)
+    const response = await sargoClient.getSpot(id, true)
 
-    // The client never throws — it returns { spot: null, error } on failure.
-    // Surface that as an unsuccessful action response instead of silently
-    // returning success with null data.
     if (response.error || !response.spot) {
       return {
         data: null,
         error: response.error || 'Spot not found',
-        meta: {
-          timestamp,
-          source: 'spot-detail',
-          success: false,
-        },
+        meta: { timestamp, source: 'spot-detail', success: false },
       }
     }
 
@@ -59,22 +49,14 @@ export async function getSpot(id: number): Promise<SpotActionResponse<Spot>> {
     return {
       data: spot,
       error: null,
-      meta: {
-        timestamp,
-        source: 'spot-detail',
-        success: true,
-      },
+      meta: { timestamp, source: 'spot-detail', success: true },
     }
   } catch (error) {
     console.error('getSpot error:', error)
     return {
       data: null,
       error: error instanceof Error ? error.message : 'Failed to load spot',
-      meta: {
-        timestamp,
-        source: 'error',
-        success: false,
-      },
+      meta: { timestamp, source: 'error', success: false },
     }
   }
 }
@@ -101,13 +83,6 @@ export async function getSpotsByCountry(): Promise<
   }
 }
 
-const cachedGetNearbySpots = unstable_cache(
-  (lat: number, lon: number, radiusKm: number) =>
-    sargoClient.getNearbySpots(lat, lon, radiusKm, true),
-  ['sargo-nearby-spots'],
-  { revalidate: 900, tags: ['spot', 'nearby-spots'] }
-)
-
 export async function getNearbySpots(
   lat: number,
   lon: number,
@@ -115,7 +90,7 @@ export async function getNearbySpots(
 ): Promise<SpotActionResponse<SpotSummary[]>> {
   const timestamp = new Date().toISOString()
   try {
-    const response = await cachedGetNearbySpots(lat, lon, radiusKm)
+    const response = await sargoClient.getNearbySpots(lat, lon, radiusKm, true)
     const nearbySpots: SpotSummary[] = response.data.map((spot) => ({
       id: spot.id,
       name: spot.attributes.name,
@@ -134,11 +109,7 @@ export async function getNearbySpots(
     return {
       data: nearbySpots,
       error: null,
-      meta: {
-        timestamp,
-        source: 'nearby-spots',
-        success: true,
-      },
+      meta: { timestamp, source: 'nearby-spots', success: true },
     }
   } catch (error) {
     console.error('getNearbySpots error:', error)
@@ -146,11 +117,7 @@ export async function getNearbySpots(
       data: [],
       error:
         error instanceof Error ? error.message : 'Failed to load nearby spots',
-      meta: {
-        timestamp,
-        source: 'error',
-        success: false,
-      },
+      meta: { timestamp, source: 'error', success: false },
     }
   }
 }
