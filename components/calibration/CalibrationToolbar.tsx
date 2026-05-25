@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useState, useTransition } from 'react'
+import React, { useMemo, useState, useTransition } from 'react'
 import {
   submitCalibrationObservation,
   type HeightBand,
@@ -46,7 +46,10 @@ function nearestForecastHour(date: Date): string {
 
   for (const slot of FORECAST_HOURS) {
     const slotHour = parseInt(slot.split(':')[0]!, 10)
-    const diff = Math.min(Math.abs(slotHour - hour), 24 - Math.abs(slotHour - hour))
+    const diff = Math.min(
+      Math.abs(slotHour - hour),
+      24 - Math.abs(slotHour - hour)
+    )
     if (diff < bestDiff) {
       bestDiff = diff
       bestHour = slot
@@ -103,7 +106,7 @@ export function CalibrationToolbar({
   spotName,
   todayDate,
   todayHours = {},
-}: CalibrationToolbarProps) {
+}: CalibrationToolbarProps): React.JSX.Element {
   const [expanded, setExpanded] = useState(true)
   const [heightBand, setHeightBand] = useState<HeightBand | null>(null)
   const [windFeel, setWindFeel] = useState<WindFeel | null>(null)
@@ -114,7 +117,7 @@ export function CalibrationToolbar({
   const referenceHour = useMemo(() => nearestForecastHour(new Date()), [])
   const referenceForecast = todayHours[referenceHour]
 
-  const handleReport = () => {
+  const handleReport = (): void => {
     if (!heightBand) {
       setStatus('Pick a height band first')
       return
