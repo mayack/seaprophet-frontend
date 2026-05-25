@@ -9,6 +9,7 @@ import {
   UserUnits,
 } from './interfaces/user'
 import { Spot, SpotResponse } from './interfaces/spot'
+import type { SubmitCalibrationObservationInput } from './interfaces/calibration'
 import { GeographicBounds } from '@/types/map'
 import { KM_PER_LAT_DEGREE } from '@/utils/location'
 
@@ -332,6 +333,32 @@ export class SargoClient extends BaseApiClient {
         },
       }
     )
+  }
+
+  async submitCalibrationObservation(
+    payload: SubmitCalibrationObservationInput
+  ): Promise<{ id: string; observedAt: string }> {
+    const headers = await this.getHeaders(
+      CONFIG.api.endpoints.sargo.calibration.observations
+    )
+
+    const response = await this.fetch<{
+      success?: boolean
+      data?: { id: string; observedAt: string }
+    }>(CONFIG.api.endpoints.sargo.calibration.observations, {
+      init: {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(payload),
+        cache: 'no-store',
+      },
+    })
+
+    if (!response?.data?.id) {
+      throw createError('Invalid calibration response', 'unknown')
+    }
+
+    return response.data
   }
 
   async getSpotsByIds(

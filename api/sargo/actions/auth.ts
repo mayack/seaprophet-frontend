@@ -44,6 +44,7 @@ export async function signIn(formData: FormData) {
         username: sargoResponse.user.username,
         email: sargoResponse.user.email,
         settings: sargoResponse.user.settings || CONFIG.settings.default,
+        calibrationReporter: !!sargoResponse.user.calibrationReporter,
       }),
       ...CONFIG.api.tokens.sargoOptions.options,
     })
@@ -119,9 +120,11 @@ export async function getCurrentUser(): Promise<User | null> {
     if (!freshUser) return null
 
     const userData: User = {
+      id: freshUser.id,
       username: freshUser.username || '',
       email: freshUser.email || '',
       settings: freshUser.settings || CONFIG.settings.default,
+      calibrationReporter: !!freshUser.calibrationReporter,
     }
 
     // NOTE: We intentionally do not refresh the sargoOptions cookie here.
@@ -158,6 +161,7 @@ export async function getCurrentUser(): Promise<User | null> {
           username: userOptions.username || '',
           email: userOptions.email || '',
           settings: userOptions.settings || CONFIG.settings.default,
+          calibrationReporter: !!userOptions.calibrationReporter,
         }
       } catch (parseError) {
         console.error('Failed to parse sargoOptions cookie:', parseError)
@@ -177,6 +181,7 @@ export async function fetchSargoOptionsAction() {
       username: user.username,
       email: user.email,
       settings: user.settings || CONFIG.settings.default,
+      calibrationReporter: !!user.calibrationReporter,
     }
     cookieStore.set({
       name: CONFIG.api.tokens.sargoOptions.key,

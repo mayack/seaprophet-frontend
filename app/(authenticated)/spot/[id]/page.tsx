@@ -17,6 +17,7 @@ import { CONFIG } from '@/constants/config'
 import { Spinner } from '@/components/ui/spinner'
 import { User } from '@/api/sargo/interfaces/user'
 import { ForecastParams } from '@/api/polvo/interfaces/forecast'
+import { CalibrationToolbar } from '@/components/calibration/CalibrationToolbar'
 
 interface SpotPageProps {
   params: Promise<{ id: string }>
@@ -123,6 +124,30 @@ function ForecastFallback(): React.JSX.Element {
   )
 }
 
+interface CalibrationSectionProps {
+  forecastParams: ForecastParams
+  spotId: number
+  spotName: string
+}
+
+async function CalibrationSection({
+  forecastParams,
+  spotId,
+  spotName,
+}: CalibrationSectionProps): Promise<React.JSX.Element | null> {
+  const res = await loadForecast(forecastParams)
+  const todayDay = res.data?.days[0]
+
+  return (
+    <CalibrationToolbar
+      spotId={spotId}
+      spotName={spotName}
+      todayDate={todayDay?.date}
+      todayHours={todayDay?.forecast}
+    />
+  )
+}
+
 export default async function SpotPage({
   params,
 }: SpotPageProps): Promise<React.JSX.Element> {
@@ -171,6 +196,7 @@ export default async function SpotPage({
         : []
 
     const forecastParams = buildForecastParams(spot, spotId, user)
+    const showCalibrationToolbar = user.calibrationReporter === true
 
     return (
       <div className="wrapper-spacing mobile-safe-bottom py-4 sm:py-6 xl:py-8">
@@ -196,6 +222,15 @@ export default async function SpotPage({
         <Suspense fallback={<ForecastFallback />}>
           <SpotForecastSection forecastParams={forecastParams} user={user} />
         </Suspense>
+        {showCalibrationToolbar ? (
+          <Suspense fallback={null}>
+            <CalibrationSection
+              forecastParams={forecastParams}
+              spotId={spotId}
+              spotName={spot.name}
+            />
+          </Suspense>
+        ) : null}
       </div>
     )
   } catch (error) {

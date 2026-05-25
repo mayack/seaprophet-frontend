@@ -8,6 +8,7 @@ export interface User {
   username: string
   email: string
   settings: UserSettings
+  calibrationReporter?: boolean
 }
 
 export interface UserSettings {
