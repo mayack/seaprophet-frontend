@@ -11,15 +11,20 @@ import { Button } from '@/components/ui/button'
 import { HourlyForecast } from '@/api/polvo/interfaces/forecast'
 import { cn } from '@/lib/utils'
 
-const HEIGHT_BANDS: { id: HeightBand; label: string }[] = [
-  { id: 'flat', label: 'Flat' },
-  { id: 'ankle', label: 'Ankle' },
-  { id: 'knee', label: 'Knee' },
-  { id: 'waist', label: 'Waist' },
-  { id: 'chest', label: 'Chest' },
-  { id: 'head', label: 'Head' },
-  { id: 'overhead', label: 'OH' },
-  { id: 'double', label: '2x+' },
+const HEIGHT_BANDS: {
+  id: HeightBand
+  label: string
+  meters: string
+  feet: string
+}[] = [
+  { id: 'flat', label: 'Flat', meters: '<0.3 m', feet: '<1 ft' },
+  { id: 'ankle', label: 'Ankle', meters: '0.3–0.6 m', feet: '1–2 ft' },
+  { id: 'knee', label: 'Knee', meters: '0.6–1 m', feet: '2–3 ft' },
+  { id: 'waist', label: 'Waist', meters: '1–1.5 m', feet: '3–5 ft' },
+  { id: 'chest', label: 'Chest', meters: '1.5–2 m', feet: '5–6 ft' },
+  { id: 'head', label: 'Head', meters: '2–2.5 m', feet: '6–8 ft' },
+  { id: 'overhead', label: 'OH', meters: '2.5–3 m', feet: '8–10 ft' },
+  { id: 'double', label: '2x+', meters: '3 m+', feet: '10 ft+' },
 ]
 
 const WIND_FEELS: { id: WindFeel; label: string }[] = [
@@ -178,6 +183,9 @@ export function CalibrationToolbar({
               <p className="mb-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">
                 Height
               </p>
+              <p className="mb-2 text-[11px] text-muted-foreground">
+                Typical set size · use notes for bigger/smaller sets
+              </p>
               <div className="flex flex-wrap gap-1.5">
                 {HEIGHT_BANDS.map((band) => (
                   <Button
@@ -185,10 +193,22 @@ export function CalibrationToolbar({
                     type="button"
                     size="sm"
                     variant={heightBand === band.id ? 'default' : 'outline'}
-                    className={cn('h-8 px-2.5 text-xs')}
+                    className={cn(
+                      'h-auto min-w-[4.5rem] flex-col gap-0 px-2 py-1.5 text-xs leading-tight'
+                    )}
                     onClick={() => setHeightBand(band.id)}
                   >
-                    {band.label}
+                    <span className="font-medium">{band.label}</span>
+                    <span
+                      className={cn(
+                        'text-[10px] font-normal',
+                        heightBand === band.id
+                          ? 'text-primary-foreground/80'
+                          : 'text-muted-foreground'
+                      )}
+                    >
+                      {band.meters} · {band.feet}
+                    </span>
                   </Button>
                 ))}
               </div>
