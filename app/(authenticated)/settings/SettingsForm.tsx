@@ -32,7 +32,14 @@ interface SettingsFormsProps {
 const MESSAGES = {
   username: 'Username updated!',
   password: 'Password changed!',
+  units: 'Units updated',
 } as const
+
+// Fixed id so a burst of toggles updates one toast in place instead of
+// stacking (sonner dedupes by id). Combined with the `myRequestId`
+// stale-request guard below — which lets only the latest in-flight save
+// reach this branch — this keeps bulk changes to a single toast.
+const UNITS_TOAST_ID = 'units-updated'
 
 function Dots(): React.JSX.Element {
   return (
@@ -241,6 +248,8 @@ export function SettingsForms({
           revert(result.error || 'Settings could not be saved')
           return
         }
+
+        toast.success(MESSAGES.units, { id: UNITS_TOAST_ID })
 
         // Re-run server components (e.g. an open spot page) so the
         // forecast is refetched from Polvo with the new units — values
