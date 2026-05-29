@@ -201,8 +201,13 @@ export function WebcamViewer({ config }: WebcamViewerProps): React.JSX.Element {
       const hls = new Hls({
         xhrSetup: config.referer
           ? (xhr, url): void => {
-              // Don't double-proxy
-              if (url.startsWith('/api/proxy')) {
+              // Don't double-proxy: segments rewritten by the proxy already
+              // route through /api/proxy, but hls.js resolves them to absolute
+              // URLs (e.g. https://seaprophet.com/api/proxy?...).
+              if (
+                url.startsWith('/api/proxy') ||
+                url.startsWith(`${window.location.origin}/api/proxy`)
+              ) {
                 xhr.open('GET', url, true)
                 return
               }
