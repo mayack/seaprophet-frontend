@@ -23,7 +23,7 @@ const ALLOWED_ROOT_DOMAINS = [
   'surfline.com', // Surfline website (1 spot, Almagreira)
   'skylinewebcams.com', // (2 spots, Porto de Mós)
   'camsecure.co', // (1 spot, Mareta)
-  'escueladesurf9pies.com', // (1 spot, El Palmar)
+  'ipcamlive.com', // ipcam live cams
 ] as const
 
 // Block any literal IP that falls into these private / loopback /
