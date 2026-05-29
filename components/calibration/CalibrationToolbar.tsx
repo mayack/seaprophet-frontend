@@ -1,11 +1,8 @@
 'use client'
 
 import React, { useMemo, useState, useTransition } from 'react'
-import {
-  submitCalibrationObservation,
-  type HeightBand,
-  type WindFeel,
-} from '@/api/sargo/actions/calibration'
+import { submitCalibrationObservation } from '@/api/sargo/actions/calibration'
+import type { HeightBand, WindFeel } from '@/api/sargo/interfaces/calibration'
 import type { CalibrationUiSnapshot } from '@/api/sargo/interfaces/calibration'
 import { Button } from '@/components/ui/button'
 import { HourlyForecast } from '@/api/polvo/interfaces/forecast'

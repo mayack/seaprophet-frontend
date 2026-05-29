@@ -186,7 +186,8 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
 
     if (contentType.includes('mpegurl') || decodedUrl.includes('.m3u8')) {
       const text = await res.text()
-      const rewritten = rewriteM3u8Urls(text, decodedUrl)
+      const proxyBase = '/api/proxy'
+      const rewritten = rewriteM3u8Urls(text, decodedUrl, proxyBase, referer)
       return new NextResponse(rewritten, {
         headers: { 'Content-Type': contentType, ...corsHeaders() },
       })
@@ -217,18 +218,30 @@ function corsHeaders(): Record<string, string> {
   }
 }
 
-function rewriteM3u8Urls(text: string, originalUrl: string): string {
+function rewriteM3u8Urls(
+  text: string,
+  originalUrl: string,
+  proxyBase: string,
+  referer: string | null
+): string {
   try {
     const { protocol, host, pathname } = new URL(originalUrl)
     const base = `${protocol}//${host}${pathname.substring(0, pathname.lastIndexOf('/') + 1)}`
+
+    const proxyPrefix = referer
+      ? `${proxyBase}?referer=${encodeURIComponent(referer)}&url=`
+      : `${proxyBase}?url=`
 
     return text
       .split('\n')
       .map((line) => {
         if (!line?.trim() || line.startsWith('#')) return line ?? ''
-        if (line.startsWith('http')) return line
-        if (line.startsWith('/')) return `${protocol}//${host}${line}`
-        return `${base}${line}`
+        const absoluteUrl = line.startsWith('http')
+          ? line
+          : line.startsWith('/')
+            ? `${protocol}//${host}${line}`
+            : `${base}${line}`
+        return `${proxyPrefix}${encodeURIComponent(absoluteUrl)}`
       })
       .join('\n')
   } catch {

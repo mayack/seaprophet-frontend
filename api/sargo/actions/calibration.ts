@@ -3,13 +3,6 @@
 import { sargoClient } from '../client'
 import type { SubmitCalibrationObservationInput } from '../interfaces/calibration'
 
-export type {
-  HeightBand,
-  WindFeel,
-  CalibrationUiSnapshot,
-  SubmitCalibrationObservationInput,
-} from '../interfaces/calibration'
-
 export async function submitCalibrationObservation(
   input: SubmitCalibrationObservationInput
 ) {
