@@ -8,7 +8,6 @@ import type {
   MapSpotsCacheConfig,
   MapUserMarkerConfig,
   MapMarkersConfig,
-  MapMapStateConfig,
   MapboxStylesConfig,
   Coordinates,
 } from '@/types/map'
@@ -163,7 +162,6 @@ export const CONFIG = {
       debounce: {
         mapMovement: 500, // ms - delay before loading spots after map movement
         moveHandler: 300, // ms - delay for onMove callback
-        mapStatePersist: 1000, // ms - delay before persisting center/zoom to sessionStorage
       },
     } satisfies MapInteractionConfig,
     carousel: {
@@ -206,9 +204,6 @@ export const CONFIG = {
       resizeStartZoom: 12, // markers stay full size at this zoom and above
       resizeEndZoom: 5, // markers reach minSize at this zoom and below
     } satisfies MapMarkersConfig,
-    mapState: {
-      maxAge: 30 * 60 * 1000, // 30 minutes — persisted map state TTL
-    } satisfies MapMapStateConfig,
   } satisfies MapConfig,
   // Enhanced Mapbox configuration
   mapbox: {

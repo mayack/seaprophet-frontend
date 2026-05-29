@@ -100,6 +100,7 @@ export async function updatePassword(formData: FormData) {
         cookieStore.set({
           name: CONFIG.api.tokens.sargoOptions.key,
           value: JSON.stringify({
+            id: response.user.id,
             username: response.user.username,
             email: response.user.email,
             settings: response.user.settings || CONFIG.settings.default,
@@ -142,12 +143,14 @@ export async function updateUserSettings(settings: UserSettings) {
       }
     }
 
-    // Use the API response settings (not the caller-supplied object) so the
-    // cookie reflects what the server actually persisted.
+    // Update the options cookie so the next page load reads fresh data
+    // without hitting Sargo.  Include `id` so getCurrentUser() can build
+    // a complete User from the cookie alone.
     const cookieStore = await cookies()
     cookieStore.set({
       name: CONFIG.api.tokens.sargoOptions.key,
       value: JSON.stringify({
+        id: updatedUser.id,
         username: updatedUser.username,
         email: updatedUser.email,
         settings: updatedUser.settings || settings,
@@ -318,6 +321,7 @@ export async function toggleFavorite(spotId: number) {
       cookieStore.set({
         name: CONFIG.api.tokens.sargoOptions.key,
         value: JSON.stringify({
+          id: finalUser.id,
           username: finalUser.username,
           email: finalUser.email,
           settings: finalUser.settings,

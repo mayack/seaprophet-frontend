@@ -27,60 +27,28 @@ import { SpotCard } from '@/components/spot/SpotCard'
 import { Button } from '@/components/ui/button'
 import useEmblaCarousel from 'embla-carousel-react'
 import { calculateBounds, formatDistance } from '@/utils/location'
-import { GeographicBounds, Coordinates } from '@/types/map'
+import { GeographicBounds } from '@/types/map'
 import { SpotSummary } from '@/api/sargo/interfaces/spot'
 import { CONFIG } from '@/constants/config'
 import type { MapNavigatorProps } from '@/types/map'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
-
-// Map state persistence for instant back-navigation.
-interface PersistedMapState {
-  center: Coordinates
-  zoom: number
-  timestamp: number
-}
-
-const MAP_STATE_KEY = CONFIG.api.tokens.geolocation.map_state_key
-const MAP_STATE_MAX_AGE = CONFIG.map.mapState.maxAge
-
-function saveMapState(center: Coordinates, zoom: number): void {
-  try {
-    const state: PersistedMapState = { center, zoom, timestamp: Date.now() }
-    sessionStorage.setItem(MAP_STATE_KEY, JSON.stringify(state))
-  } catch {
-    // sessionStorage full or unavailable — non-critical
-  }
-}
-
-function getSavedMapState(): PersistedMapState | null {
-  try {
-    const raw = sessionStorage.getItem(MAP_STATE_KEY)
-    if (!raw) return null
-    const state = JSON.parse(raw) as PersistedMapState
-    if (Date.now() - state.timestamp > MAP_STATE_MAX_AGE) {
-      sessionStorage.removeItem(MAP_STATE_KEY)
-      return null
-    }
-    return state
-  } catch {
-    return null
-  }
-}
-
-function clearMapState(): void {
-  try {
-    sessionStorage.removeItem(MAP_STATE_KEY)
-  } catch {
-    // non-critical
-  }
-}
 
 // User-facing message used when getSpotsByBounds fails. Kept as a module
 // constant so the toast wording stays consistent across the two fetch
 // paths (initial load + map-movement) and matches what we tell users.
 const SPOT_FETCH_ERROR_MESSAGE =
   'Failed to load spots in this area. Try moving the map.'
+
+// Module-level memory for the map view + last visible spots. Unlike React
+// state, these persist across client-side navigations (the module stays
+// loaded for the SPA session) but are wiped on a full page reload — which
+// is exactly the lifetime we want. They let us re-open the map exactly
+// where the user left it, with the carousel already populated, when they
+// navigate back from a spot page. No sessionStorage / serialization needed.
+let rememberedView: { center: [number, number]; zoom: number } | null = null
+let rememberedSpots: SpotSummary[] = []
 
 export function MapNavigator({
   className = '',
@@ -90,8 +58,14 @@ export function MapNavigator({
   initialZoom = CONFIG.map.defaults.zoom,
 }: MapNavigatorProps): React.JSX.Element {
   const [isLoading, setIsLoading] = useState(false)
-  const [visibleSpots, setVisibleSpots] = useState<SpotSummary[]>([])
-  const [showCarousel, setShowCarousel] = useState(false)
+  // Seed from the remembered spots so the carousel is already populated on
+  // the first paint after navigating back, with no empty → populated flash.
+  const [visibleSpots, setVisibleSpots] = useState<SpotSummary[]>(
+    () => rememberedSpots
+  )
+  const [showCarousel, setShowCarousel] = useState(
+    () => rememberedSpots.length > 0
+  )
   const [isFetching, setIsFetching] = useState(false)
   const [canScrollPrev, setCanScrollPrev] = useState(false)
   const [canScrollNext, setCanScrollNext] = useState(false)
@@ -105,6 +79,8 @@ export function MapNavigator({
   // (or on unmount/mount) so users don't get a wall of identical toasts
   // when the network keeps failing on every map move.
   const hasShownFetchErrorRef = useRef(false)
+
+  const router = useRouter()
 
   // Carousel setup
   const [emblaRef, emblaApi] = useEmblaCarousel({
@@ -122,26 +98,33 @@ export function MapNavigator({
   const hasUserLocation =
     userData.latitude !== undefined && userData.longitude !== undefined
 
-  // Simple function to clear spots when flyTo starts — but only after
-  // the first render cycle. On mount we restore cached spots from the
-  // surviving spotsCache; clearing them here would cause a visible flash
-  // before the cache repopulates the carousel.
-  const hasPopulatedOnce = useRef(false)
+  // Simple function to clear spots when flyTo starts
   const handleFlyStart = useCallback(() => {
-    if (!hasPopulatedOnce.current) return
     setVisibleSpots([])
   }, [])
 
-  // Restore persisted map state (center + zoom) so the map opens where the
-  // user left it after returning from a spot detail page. Falls back to the
-  // Portugal default on first visit or when the saved state is stale.
-  const savedState = useMemo(() => getSavedMapState(), [])
-  const restoredCenter = savedState?.center ?? CONFIG.map.defaults.center
-  const restoredZoom = savedState?.zoom ?? initialZoom
-  const hasRestoredState = savedState !== null
+  // Soft-navigate to a spot when a map marker popup is clicked. Using the
+  // Next.js router (instead of a bare <a>) means the navigation is
+  // intercepted by the @modal/(.)spot/[id] route and opens as an overlay
+  // over the still-mounted map.
+  const handleSpotClick = useCallback(
+    (spotId: number) => {
+      router.push(`/spot/${spotId}`)
+    },
+    [router]
+  )
 
-  // Use centralized map hook — init at the restored position so we
-  // never flash the Portugal default before flying to the user's area.
+  const defaultCenter = CONFIG.map.defaults.center
+
+  // Read the remembered view once on mount. When present (i.e. the user is
+  // navigating back to the map), we initialize Mapbox directly at that
+  // position and skip the automatic flyTo, so the map opens exactly where
+  // it was left. On a fresh session this is null and we use the default.
+  const initialView = useMemo(() => rememberedView, [])
+
+  // Use centralized map hook. Initialize at the remembered position when
+  // returning to the map; otherwise at the configured default and let the
+  // flyTo effect below animate to the user's location once it resolves.
   const {
     mapRef,
     map,
@@ -155,49 +138,44 @@ export function MapNavigator({
     recenterToUser,
     retryCount,
   } = useMapbox({
-    center: restoredCenter,
-    zoom: restoredZoom,
+    center: initialView?.center ?? defaultCenter,
+    zoom: initialView?.zoom ?? initialZoom,
     showUserLocation: true,
-    skipInitialFlyTo: hasRestoredState,
+    skipInitialFlyTo: initialView !== null,
     onFlyStart: handleFlyStart,
+    onSpotClick: handleSpotClick,
   })
 
   // Compute the effective initial center for spot loading: prefer the
-  // restored map position, then the user's live location, and finally
-  // the Portugal default.
+  // remembered view, then the user's location, then the default.
   const initialCenter = useMemo((): [number, number] => {
-    if (hasRestoredState) return restoredCenter
+    if (initialView) return initialView.center
     if (userData.latitude !== undefined && userData.longitude !== undefined) {
       return [userData.longitude, userData.latitude]
     }
-    return CONFIG.map.defaults.center
-  }, [userData.latitude, userData.longitude, hasRestoredState, restoredCenter])
+    return defaultCenter
+  }, [userData.latitude, userData.longitude, defaultCenter, initialView])
 
-  // Keep the module-level spotsCache alive across navigations so the user
-  // doesn't re-fetch the same spots after visiting a spot detail page.
-  // Only clear map state (sessionStorage) on unmount so a stale position
-  // isn't restored after the user explicitly navigated away or logged out.
-  // The spotsCache resets itself when the module is garbage-collected on
-  // a full page reload / new session.
+  // Clear the fetch-error toast flag on mount so a new mount starts fresh.
+  // NOTE: we deliberately do NOT reset `spotsCache` here. The cache is a
+  // module-level singleton that survives client-side navigation, so keeping
+  // it means returning to the map doesn't trigger a rescan of spots we
+  // already loaded. It is naturally cleared on a full page reload.
   useEffect(() => {
     hasShownFetchErrorRef.current = false
     return (): void => {
       hasShownFetchErrorRef.current = false
-      clearMapState()
     }
   }, [])
 
-  // When the user's location resolves after first paint, fly the map to
-  // it — but only if we didn't restore a saved map position (in that case
-  // the map is already where the user left it and flying would yank the
-  // view away from the area they were browsing).
+  // When the user's location resolves after first paint, fly the (already
+  // initialized) map to it instead of recreating the Mapbox instance.
+  // Skipped entirely when we restored a remembered view, so we don't yank
+  // the map away from where the user left it.
   const hasFlownToUserRef = useRef(false)
   useEffect(() => {
     if (hasFlownToUserRef.current) return
-    if (hasRestoredState) {
-      // Saved state was restored — skip the automatic flyTo so the map
-      // stays exactly where the user left it. The user-location marker
-      // is still created by useMapbox via a separate effect.
+    if (initialView) {
       hasFlownToUserRef.current = true
       return
     }
@@ -207,7 +185,7 @@ export function MapNavigator({
     }
     hasFlownToUserRef.current = true
     flyTo([userData.longitude, userData.latitude])
-  }, [map, userData.latitude, userData.longitude, flyTo, hasRestoredState])
+  }, [map, userData.latitude, userData.longitude, flyTo, initialView])
 
   const getVisibleSlides = useCallback((): number => {
     if (typeof window === 'undefined')
@@ -286,14 +264,14 @@ export function MapNavigator({
     }
   }, [locationState, recenterToUser, requestUserLocation])
 
-  // Handle carousel fade in/out animation
+  // Handle carousel fade in/out animation. Visibility is driven purely by
+  // whether we have spots to show — NOT by `isLoading`. A background scan
+  // (e.g. after panning) keeps the current spots on screen and surfaces
+  // its progress via the separate "Scanning..." pill, instead of hiding
+  // the carousel and causing a hide/show flash.
   useEffect(() => {
-    const shouldShow = visibleSpots.length > 0 && !isLoading
-    setShowCarousel(shouldShow)
-    if (visibleSpots.length > 0) {
-      hasPopulatedOnce.current = true
-    }
-  }, [visibleSpots.length, isLoading])
+    setShowCarousel(visibleSpots.length > 0)
+  }, [visibleSpots.length])
 
   const scrollPrev = useCallback((): void => {
     emblaApi?.scrollPrev()
@@ -338,6 +316,9 @@ export function MapNavigator({
         : undefined
     )
 
+    // Remember the in-view spots so the carousel can be seeded instantly
+    // when the user navigates back to the map.
+    rememberedSpots = sortedSpots
     setVisibleSpots(sortedSpots)
   }, [
     map,
@@ -519,26 +500,29 @@ export function MapNavigator({
     updateSpotsInView,
   ])
 
-  // Persist the current map center and zoom to sessionStorage so the map
-  // can be restored instantly when the user returns from a spot detail.
-  // Debounced to avoid thrashing sessionStorage on rapid pans.
+  // Remember the current map center/zoom so we can re-open the map exactly
+  // here when the user navigates back. Stored in module memory (survives
+  // client navigation, wiped on full reload). Tracked on every move/zoom so
+  // it's always current — including the position right before navigating
+  // away to a spot.
   useEffect(() => {
     if (!map) return
 
-    const persistState = (): void => {
+    const rememberView = (): void => {
       const center = map.getCenter()
-      const zoom = map.getZoom()
-      saveMapState([center.lng, center.lat], zoom)
+      rememberedView = { center: [center.lng, center.lat], zoom: map.getZoom() }
     }
 
-    const debouncedPersist = debounce(persistState, CONFIG.map.interaction.debounce.mapStatePersist)
-    map.on('moveend', debouncedPersist)
-    map.on('zoomend', debouncedPersist)
+    // Capture the initial view immediately so a navigation that happens
+    // before any move still has something to restore.
+    rememberView()
+
+    map.on('moveend', rememberView)
+    map.on('zoomend', rememberView)
 
     return (): void => {
-      map.off('moveend', debouncedPersist)
-      map.off('zoomend', debouncedPersist)
-      debouncedPersist.cancel()
+      map.off('moveend', rememberView)
+      map.off('zoomend', rememberView)
     }
   }, [map])
 
@@ -627,10 +611,6 @@ export function MapNavigator({
         } ${showCarousel ? 'pointer-events-auto' : 'pointer-events-none'}`}
       >
         <div className="hidden items-center justify-end px-4 md:flex">
-          {/* <h3 className="text-lg font-semibold">
-            {visibleSpots.length} {visibleSpots.length === 1 ? 'spot' : 'spots'}{' '}
-            in view
-          </h3> */}
           {visibleSpots.length > getVisibleSlides() && (
             <div className="flex rounded-md shadow-map">
               <Button

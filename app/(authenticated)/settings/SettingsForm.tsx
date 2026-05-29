@@ -89,7 +89,7 @@ export function SettingsForms({
   email: initialEmail,
   settings: initialSettings,
 }: SettingsFormsProps): React.JSX.Element {
-  const { setUserData } = useUser()
+  const { userData, setUserData } = useUser()
   const [activeFormId, setActiveFormId] = useState<string | null>(null)
   const [state, optimisticState] = useOptimistic({
     username: initialUsername,
@@ -97,8 +97,8 @@ export function SettingsForms({
     settings: initialSettings,
   })
   const [, startTransition] = useTransition()
-  // Monotonically increasing id so out-of-order unit-update responses
-  // can be discarded and only the latest user intent wins.
+  // Monotonically increasing id so out-of-order save failures only revert
+  // if no newer change has superseded them.
   const unitRequestIdRef = useRef(0)
 
   const handleUsernameSubmit = async (formData: FormData): Promise<void> => {
@@ -142,58 +142,66 @@ export function SettingsForms({
     }
   }
 
-  const handleUnitChange = async (
+  const handleUnitChange = (
     unit: keyof UserSettings['units'],
     value: string
-  ): Promise<void> => {
+  ): void => {
     const previousUnits = state.settings.units
     const newUnits = { ...previousUnits, [unit]: value }
     const newSettings = { ...state.settings, units: newUnits }
     const myRequestId = ++unitRequestIdRef.current
 
-    // Update optimistic state immediately
+    // Apply instantly — optimistic UI + context update.
     startTransition(() => {
       optimisticState((prev) => ({
         ...prev,
         settings: newSettings,
       }))
     })
+    setUserData({
+      username: userData.username,
+      email: userData.email,
+      settings: newSettings,
+    })
 
-    try {
-      const result = await updateUserSettings(newSettings)
+    // Fire-and-forget persist to server. Only surface errors.
+    updateUserSettings(newSettings)
+      .then((result) => {
+        if (myRequestId !== unitRequestIdRef.current) return
 
-      // Discard stale responses; a newer toggle has already superseded this one.
-      if (myRequestId !== unitRequestIdRef.current) return
+        if (!result.success) {
+          toast.error(result.error || 'Settings could not be saved')
+          startTransition(() => {
+            optimisticState((prev) => ({
+              ...prev,
+              settings: { ...prev.settings, units: previousUnits },
+            }))
+          })
+          setUserData({
+            username: userData.username,
+            email: userData.email,
+            settings: { ...userData.settings, units: previousUnits },
+          })
+        }
+      })
+      .catch((error) => {
+        if (myRequestId !== unitRequestIdRef.current) return
 
-      if (result.success && result.settings) {
-        setUserData({
-          username: state.username,
-          email: state.email,
-          settings: result.settings,
-        })
-        toast.success('Units updated!')
-      } else {
-        toast.error(result.error || 'Failed to update settings')
+        toast.error(
+          error instanceof Error ? error.message : 'Settings could not be saved'
+        )
         startTransition(() => {
           optimisticState((prev) => ({
             ...prev,
             settings: { ...prev.settings, units: previousUnits },
           }))
         })
-      }
-    } catch (error) {
-      if (myRequestId !== unitRequestIdRef.current) return
-
-      toast.error(
-        error instanceof Error ? error.message : 'Failed to update settings'
-      )
-      startTransition(() => {
-        optimisticState((prev) => ({
-          ...prev,
-          settings: { ...prev.settings, units: previousUnits },
-        }))
+        setUserData({
+          username: userData.username,
+          email: userData.email,
+          settings: { ...userData.settings, units: previousUnits },
+        })
       })
-    }
   }
 
   return (

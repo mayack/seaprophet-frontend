@@ -528,9 +528,9 @@ export function addDistanceToSpots(
 
 // Simple spots cache implementation.
 // Bounded by `CONFIG.map.spotsCache.maxLoadedRegions` so a long-lived
-// session can't grow `loadedRegions` unbounded; consumers should also call
-// `reset()` on MapNavigator mount/unmount to scope the cache to a single
-// map session.
+// session can't grow `loadedRegions` unbounded. The cache is a module-level
+// singleton; it survives across the spot-detail overlay (which keeps the
+// MapNavigator mounted) and is reset when MapNavigator genuinely unmounts.
 const MAX_LOADED_REGIONS = CONFIG.map.spotsCache.maxLoadedRegions
 
 const spotsCache = {

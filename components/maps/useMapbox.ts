@@ -40,14 +40,23 @@ export function useMapbox(options: UseMapboxOptions = {}): UseMapboxReturn {
     center = CONFIG.map.defaults.center,
     zoom = CONFIG.map.defaults.zoom,
     showUserLocation = false,
-    skipInitialFlyTo = false,
     disablePanning = false,
     disableZooming = false,
     onMapLoad,
     onMapError,
     onMove,
     onFlyStart,
+    onSpotClick,
+    skipInitialFlyTo = false,
   } = options
+
+  // Keep the latest spot-click handler in a ref so the memoized
+  // `addSpotMarkers` (which only re-creates on theme change) always calls
+  // the current callback without needing it as a dependency.
+  const onSpotClickRef = useRef(onSpotClick)
+  useEffect(() => {
+    onSpotClickRef.current = onSpotClick
+  }, [onSpotClick])
 
   const mapRef = useRef<HTMLDivElement>(null)
   // Live handle used by every callback in this hook. Kept as a ref to
@@ -273,6 +282,16 @@ export function useMapbox(options: UseMapboxOptions = {}): UseMapboxReturn {
           const nameSpan = document.createElement('span')
           nameSpan.textContent = spot.name
           link.appendChild(nameSpan)
+          // Prefer a soft (client-side) navigation so the intercepting
+          // spot route opens as an overlay over the still-mounted map.
+          // A bare <a> would hard-navigate and bypass interception,
+          // unmounting the map. Falls back to the href if no handler.
+          link.addEventListener('click', (e) => {
+            if (onSpotClickRef.current) {
+              e.preventDefault()
+              onSpotClickRef.current(spot.id)
+            }
+          })
           popup.setDOMContent(link)
 
           // Remove any prior marker with the same key before overwriting
@@ -494,11 +513,10 @@ export function useMapbox(options: UseMapboxOptions = {}): UseMapboxReturn {
             initLocationTimeoutRef.current = null
             if (!mapInstance.current || !isMountedRef.current) return
             if (userData.latitude && userData.longitude) {
-              // Always create the user-location marker and set up the
-              // move handler — but only flyTo the user's position when
-              // the map wasn't restored from a saved state. On restore
-              // the map is already where the user left it, and flying
-              // would cause an unwanted animation + carousel flicker.
+              // Create the user-location marker and set up the move
+              // handler. Only flyTo when the map isn't already at the
+              // user's position (e.g. first load starts at the Portugal
+              // default, so we animate to the user's area).
               createUserLocationMarkerWrapper({
                 latitude: userData.latitude,
                 longitude: userData.longitude,
@@ -508,9 +526,11 @@ export function useMapbox(options: UseMapboxOptions = {}): UseMapboxReturn {
                 longitude: userData.longitude,
               })
 
-              if (skipInitialFlyTo) {
-                setLocationState('centered')
-              } else {
+              // Skip the flyTo when the map was initialized at a
+              // remembered position — otherwise we'd yank the view away
+              // from where the user left it when returning from another
+              // page.
+              if (!skipInitialFlyTo) {
                 const mapCenter = mapInstance.current.getCenter()
                 if (
                   !isUserCloseToLocation(
@@ -522,8 +542,8 @@ export function useMapbox(options: UseMapboxOptions = {}): UseMapboxReturn {
                 ) {
                   flyTo([userData.longitude, userData.latitude])
                 }
-                setLocationState('centered')
               }
+              setLocationState('centered')
             } else {
               // First-time user - request location and flyTo when found
               requestUserLocation()

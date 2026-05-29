@@ -123,7 +123,13 @@ export interface UseMapboxOptions
     MapCallbackProps {
   /** Show user location marker */
   showUserLocation?: boolean
-  /** When true, skip the automatic flyTo to user location on load (map was restored from a saved position) */
+  /** Soft-navigate to a spot when its marker popup is clicked */
+  onSpotClick?: (spotId: number) => void
+  /**
+   * Skip the automatic flyTo to the user's location on load. Used when the
+   * map is initialized at a remembered position (returning from another
+   * page) so the view isn't yanked away from where the user left it.
+   */
   skipInitialFlyTo?: boolean
 }
 
@@ -226,8 +232,6 @@ export interface MapInteractionConfig {
   debounce: {
     mapMovement: number
     moveHandler: number
-    /** Delay before persisting map center/zoom to sessionStorage */
-    mapStatePersist: number
   }
 }
 
@@ -275,11 +279,6 @@ export interface MapUserMarkerConfig {
   retryDelayMs: number
 }
 
-export interface MapMapStateConfig {
-  /** How long a persisted map state is considered valid (ms) */
-  maxAge: number
-}
-
 export interface MapMarkersConfig {
   /** Default marker size in px (used at and above `resizeStartZoom`) */
   baseSize: number
@@ -301,7 +300,6 @@ export interface MapConfig {
   spotsCache: MapSpotsCacheConfig
   userMarker: MapUserMarkerConfig
   markers: MapMarkersConfig
-  mapState: MapMapStateConfig
 }
 
 // Utility types

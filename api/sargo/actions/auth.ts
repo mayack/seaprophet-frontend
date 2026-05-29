@@ -1,62 +1,11 @@
 'use server'
 
-import { cache } from 'react'
 import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { revalidatePath } from 'next/cache'
 import { sargoClient } from '../client'
 import { CONFIG } from '@/constants/config'
 import type { User, UserAuthResponse } from '../interfaces/user'
-
-// Cached Sargo user fetch — deduplicated within a single server render pass
-// so that layout.tsx + page.tsx (or multiple pages) sharing one request
-// don't each trigger a separate GET /api/users/me round-trip.
-const fetchCurrentUser = cache(async (): Promise<User | null> => {
-  const cookieStore = await cookies()
-  const jwt = cookieStore.get(CONFIG.api.tokens.sargo.key)?.value
-
-  if (!jwt) return null
-
-  try {
-    const freshUser = await sargoClient.getCurrentUser()
-    if (!freshUser) return null
-
-    return {
-      id: freshUser.id,
-      username: freshUser.username || '',
-      email: freshUser.email || '',
-      settings: freshUser.settings || CONFIG.settings.default,
-      calibrationReporter: !!freshUser.calibrationReporter,
-    }
-  } catch (error) {
-    const isAuthError = error instanceof Error && error.name === 'auth'
-    if (isAuthError) return null
-
-    console.error(
-      'Sargo unreachable, falling back to cookie cache:',
-      error
-    )
-
-    const optionsCookie = cookieStore.get(
-      CONFIG.api.tokens.sargoOptions.key
-    )?.value
-    if (optionsCookie) {
-      try {
-        const userOptions = JSON.parse(optionsCookie) as User
-        return {
-          username: userOptions.username || '',
-          email: userOptions.email || '',
-          settings: userOptions.settings || CONFIG.settings.default,
-          calibrationReporter: !!userOptions.calibrationReporter,
-        }
-      } catch (parseError) {
-        console.error('Failed to parse sargoOptions cookie:', parseError)
-      }
-    }
-
-    return null
-  }
-})
 
 export async function signIn(formData: FormData) {
   const identifier = formData.get('identifier')
@@ -92,6 +41,7 @@ export async function signIn(formData: FormData) {
     cookieStore.set({
       name: CONFIG.api.tokens.sargoOptions.key,
       value: JSON.stringify({
+        id: sargoResponse.user.id,
         username: sargoResponse.user.username,
         email: sargoResponse.user.email,
         settings: sargoResponse.user.settings || CONFIG.settings.default,
@@ -157,29 +107,71 @@ export async function signOut() {
   }
 }
 
+// Reads user data from the TOKEN_SARGO_OPTIONS cookie (fast path).
+// The options cookie is written on sign-in and updated on every settings
+// mutation, so it's always fresh enough for page-render reads.  Only when
+// the cookie is missing or corrupt do we fall back to a Sargo API call.
 export async function getCurrentUser(): Promise<User | null> {
-  return fetchCurrentUser()
-}
-
-export async function fetchSargoOptionsAction() {
   const cookieStore = await cookies()
-  try {
-    const user = await sargoClient.getCurrentUser()
-    if (!user) throw new Error('No user data returned')
-    const options = {
-      username: user.username,
-      email: user.email,
-      settings: user.settings || CONFIG.settings.default,
-      calibrationReporter: !!user.calibrationReporter,
+
+  // Must have a JWT at all — if it's gone the session is dead.
+  const jwt = cookieStore.get(CONFIG.api.tokens.sargo.key)?.value
+  if (!jwt) return null
+
+  const optionsCookie = cookieStore.get(
+    CONFIG.api.tokens.sargoOptions.key
+  )?.value
+
+  if (optionsCookie) {
+    try {
+      const cached = JSON.parse(optionsCookie) as User
+      if (cached.username) {
+        return {
+          id: cached.id,
+          username: cached.username,
+          email: cached.email || '',
+          settings: cached.settings || CONFIG.settings.default,
+          calibrationReporter: !!cached.calibrationReporter,
+        }
+      }
+    } catch (parseError) {
+      console.error('Failed to parse sargoOptions cookie:', parseError)
     }
-    cookieStore.set({
-      name: CONFIG.api.tokens.sargoOptions.key,
-      value: JSON.stringify(options),
-      ...CONFIG.api.tokens.sargoOptions.options,
-    })
-    return { success: true, options }
+  }
+
+  // Cookie missing or invalid — fetch from Sargo and populate it.
+  try {
+    const freshUser = await sargoClient.getCurrentUser()
+    if (!freshUser) return null
+
+    const userData: User = {
+      id: freshUser.id,
+      username: freshUser.username || '',
+      email: freshUser.email || '',
+      settings: freshUser.settings || CONFIG.settings.default,
+      calibrationReporter: !!freshUser.calibrationReporter,
+    }
+
+    // NOTE: getCurrentUser is called from Server Components, which
+    // Next.js forbids from writing cookies. The options cookie is only
+    // written here as a best-effort — if it throws, we still return the
+    // user data so the page renders correctly.
+    try {
+      cookieStore.set({
+        name: CONFIG.api.tokens.sargoOptions.key,
+        value: JSON.stringify(userData),
+        ...CONFIG.api.tokens.sargoOptions.options,
+      })
+    } catch {
+      // Server Component context — cookie write not allowed, that's fine.
+    }
+
+    return userData
   } catch (error) {
-    console.error('Sargo options fetch failed:', error)
-    return { success: false, error: 'Failed to fetch Sargo options' }
+    const isAuthError = error instanceof Error && error.name === 'auth'
+    if (isAuthError) return null
+
+    console.error('Sargo unreachable and no cookie cache:', error)
+    return null
   }
 }
