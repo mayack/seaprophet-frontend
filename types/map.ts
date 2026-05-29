@@ -123,6 +123,8 @@ export interface UseMapboxOptions
     MapCallbackProps {
   /** Show user location marker */
   showUserLocation?: boolean
+  /** When true, skip the automatic flyTo to user location on load (map was restored from a saved position) */
+  skipInitialFlyTo?: boolean
 }
 
 export interface UseMapboxReturn {

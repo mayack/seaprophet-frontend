@@ -40,6 +40,7 @@ export function useMapbox(options: UseMapboxOptions = {}): UseMapboxReturn {
     center = CONFIG.map.defaults.center,
     zoom = CONFIG.map.defaults.zoom,
     showUserLocation = false,
+    skipInitialFlyTo = false,
     disablePanning = false,
     disableZooming = false,
     onMapLoad,
@@ -493,38 +494,34 @@ export function useMapbox(options: UseMapboxOptions = {}): UseMapboxReturn {
             initLocationTimeoutRef.current = null
             if (!mapInstance.current || !isMountedRef.current) return
             if (userData.latitude && userData.longitude) {
-              // Check if map was already initialized at user location
-              const mapCenter = mapInstance.current.getCenter()
+              // Always create the user-location marker and set up the
+              // move handler — but only flyTo the user's position when
+              // the map wasn't restored from a saved state. On restore
+              // the map is already where the user left it, and flying
+              // would cause an unwanted animation + carousel flicker.
+              createUserLocationMarkerWrapper({
+                latitude: userData.latitude,
+                longitude: userData.longitude,
+              })
+              setupMoveHandler({
+                latitude: userData.latitude,
+                longitude: userData.longitude,
+              })
 
-              if (
-                isUserCloseToLocation(
-                  userData.latitude,
-                  userData.longitude,
-                  mapCenter.lat,
-                  mapCenter.lng
-                )
-              ) {
-                // Map already initialized at user location - just create marker
-                createUserLocationMarkerWrapper({
-                  latitude: userData.latitude,
-                  longitude: userData.longitude,
-                })
-                setupMoveHandler({
-                  latitude: userData.latitude,
-                  longitude: userData.longitude,
-                })
+              if (skipInitialFlyTo) {
                 setLocationState('centered')
               } else {
-                // Map not at user location - flyTo required
-                createUserLocationMarkerWrapper({
-                  latitude: userData.latitude,
-                  longitude: userData.longitude,
-                })
-                setupMoveHandler({
-                  latitude: userData.latitude,
-                  longitude: userData.longitude,
-                })
-                flyTo([userData.longitude, userData.latitude])
+                const mapCenter = mapInstance.current.getCenter()
+                if (
+                  !isUserCloseToLocation(
+                    userData.latitude,
+                    userData.longitude,
+                    mapCenter.lat,
+                    mapCenter.lng
+                  )
+                ) {
+                  flyTo([userData.longitude, userData.latitude])
+                }
                 setLocationState('centered')
               }
             } else {

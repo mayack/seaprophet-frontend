@@ -122,8 +122,13 @@ export function MapNavigator({
   const hasUserLocation =
     userData.latitude !== undefined && userData.longitude !== undefined
 
-  // Simple function to clear spots when flyTo starts
+  // Simple function to clear spots when flyTo starts — but only after
+  // the first render cycle. On mount we restore cached spots from the
+  // surviving spotsCache; clearing them here would cause a visible flash
+  // before the cache repopulates the carousel.
+  const hasPopulatedOnce = useRef(false)
   const handleFlyStart = useCallback(() => {
+    if (!hasPopulatedOnce.current) return
     setVisibleSpots([])
   }, [])
 
@@ -153,6 +158,7 @@ export function MapNavigator({
     center: restoredCenter,
     zoom: restoredZoom,
     showUserLocation: true,
+    skipInitialFlyTo: hasRestoredState,
     onFlyStart: handleFlyStart,
   })
 
@@ -284,6 +290,9 @@ export function MapNavigator({
   useEffect(() => {
     const shouldShow = visibleSpots.length > 0 && !isLoading
     setShowCarousel(shouldShow)
+    if (visibleSpots.length > 0) {
+      hasPopulatedOnce.current = true
+    }
   }, [visibleSpots.length, isLoading])
 
   const scrollPrev = useCallback((): void => {
