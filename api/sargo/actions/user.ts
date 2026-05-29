@@ -120,83 +120,20 @@ export async function updatePassword(formData: FormData) {
   }
 }
 
-export async function updateUnits(formData: FormData) {
+// Accepts the full settings object from the client (which already knows the
+// current state via UserContext) so we can skip the read-before-write
+// getCurrentUser() round-trip that previously doubled the latency of every
+// unit toggle. The client is responsible for merging the new units into the
+// existing settings before calling this.
+export async function updateUserSettings(settings: UserSettings) {
   try {
-    const user = await sargoClient.getCurrentUser()
-    if (!user) throw new Error('User not found')
-
-    const currentUnits = user.settings?.units || CONFIG.settings.default.units
-
-    const units: UserSettings['units'] = {
-      wind_speed: (getStringField(formData, 'units.wind_speed') ||
-        currentUnits.wind_speed) as UserSettings['units']['wind_speed'],
-      surf_height: (getStringField(formData, 'units.surf_height') ||
-        currentUnits.surf_height) as UserSettings['units']['surf_height'],
-      swell_height: (getStringField(formData, 'units.swell_height') ||
-        currentUnits.swell_height) as UserSettings['units']['swell_height'],
-      tide_height: (getStringField(formData, 'units.tide_height') ||
-        currentUnits.tide_height) as UserSettings['units']['tide_height'],
-      temperature: (getStringField(formData, 'units.temperature') ||
-        currentUnits.temperature) as UserSettings['units']['temperature'],
-    }
-
-    const updatedSettings: UserSettings = {
-      ...user.settings,
-      units: units,
-    }
-
     const updatedUser = await sargoClient.updateUserProfile({
-      settings: updatedSettings,
+      settings,
     })
 
-    // Update cached user options
-    const cookieStore = await cookies()
-    cookieStore.set({
-      name: CONFIG.api.tokens.sargoOptions.key,
-      value: JSON.stringify({
-        username: updatedUser.username,
-        email: updatedUser.email,
-        settings: updatedSettings,
-      }),
-      ...CONFIG.api.tokens.sargoOptions.options,
-    })
-
-    revalidatePath('/settings')
-    return {
-      success: true,
-      units: units,
-      user: updatedUser,
-    }
-  } catch (error) {
-    console.error('Failed to update units:', error)
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : 'Failed to update units',
-    }
-  }
-}
-
-// New server action that accepts plain objects (no FormData)
-export async function updateUserUnits(units: UserSettings['units']) {
-  try {
-    const user = await sargoClient.getCurrentUser()
-    if (!user) throw new Error('User not found')
-
-    const updatedSettings: UserSettings = {
-      ...(user.settings || {}),
-      units: units,
-    }
-
-    const updatedUser = await sargoClient.updateUserProfile({
-      settings: updatedSettings,
-    })
-
-    // If the API came back without the fields we need, surface that as a
-    // failure rather than fabricating a fake user from local state — callers
-    // were treating `success: true` as a guarantee the server agreed.
     if (!updatedUser || !updatedUser.username) {
       console.error(
-        'updateUserUnits: API returned incomplete user data',
+        'updateUserSettings: API returned incomplete user data',
         updatedUser
       )
       return {
@@ -205,30 +142,33 @@ export async function updateUserUnits(units: UserSettings['units']) {
       }
     }
 
-    // Update cached user options with the response from API
+    // Use the API response settings (not the caller-supplied object) so the
+    // cookie reflects what the server actually persisted.
     const cookieStore = await cookies()
     cookieStore.set({
       name: CONFIG.api.tokens.sargoOptions.key,
       value: JSON.stringify({
         username: updatedUser.username,
         email: updatedUser.email,
-        settings: updatedSettings,
+        settings: updatedUser.settings || settings,
       }),
       ...CONFIG.api.tokens.sargoOptions.options,
     })
 
-    revalidatePath('/settings')
+    // No revalidatePath here — the client already updates optimistically via
+    // useOptimistic + setUserData.  revalidatePath('/settings') would trigger
+    // a redundant server re-render + another Sargo getCurrentUser() call.
     return {
       success: true,
-      units: units,
+      settings: updatedUser.settings || settings,
       user: updatedUser,
     }
   } catch (error) {
-    console.error('Failed to update user units:', error)
+    console.error('Failed to update user settings:', error)
     return {
       success: false,
       error:
-        error instanceof Error ? error.message : 'Failed to update user units',
+        error instanceof Error ? error.message : 'Failed to update settings',
     }
   }
 }
@@ -364,13 +304,13 @@ export async function toggleFavorite(spotId: number) {
         }
       }
 
-      // Ensure the returned user has the updated settings.
-      // Sometimes the API might not return the complete settings object
-      // so always use our calculated settings to ensure consistency.
+      // Use the API response as the source of truth, falling back to the
+      // locally-computed settings only when the response is missing them.
+      const finalSettings = updatedUser.settings || updatedSettings
       const finalUser = {
         ...updatedUser,
         settings: {
-          ...updatedUser.settings,
+          ...finalSettings,
           favorites: uniqueFavorites,
         },
       }

@@ -12,7 +12,7 @@ import type { UserSettings } from '@/api/sargo/interfaces/user'
 import {
   updateUsername,
   updatePassword,
-  updateUserUnits,
+  updateUserSettings,
 } from '@/api/sargo/actions/user'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 
@@ -148,27 +148,28 @@ export function SettingsForms({
   ): Promise<void> => {
     const previousUnits = state.settings.units
     const newUnits = { ...previousUnits, [unit]: value }
+    const newSettings = { ...state.settings, units: newUnits }
     const myRequestId = ++unitRequestIdRef.current
 
     // Update optimistic state immediately
     startTransition(() => {
       optimisticState((prev) => ({
         ...prev,
-        settings: { ...prev.settings, units: newUnits },
+        settings: newSettings,
       }))
     })
 
     try {
-      const result = await updateUserUnits(newUnits)
+      const result = await updateUserSettings(newSettings)
 
       // Discard stale responses; a newer toggle has already superseded this one.
       if (myRequestId !== unitRequestIdRef.current) return
 
-      if (result.success && result.units) {
+      if (result.success && result.settings) {
         setUserData({
           username: state.username,
           email: state.email,
-          settings: { ...state.settings, units: result.units },
+          settings: result.settings,
         })
         toast.success('Units updated!')
       } else {

@@ -27,12 +27,54 @@ import { SpotCard } from '@/components/spot/SpotCard'
 import { Button } from '@/components/ui/button'
 import useEmblaCarousel from 'embla-carousel-react'
 import { calculateBounds, formatDistance } from '@/utils/location'
-import { GeographicBounds } from '@/types/map'
+import { GeographicBounds, Coordinates } from '@/types/map'
 import { SpotSummary } from '@/api/sargo/interfaces/spot'
 import { CONFIG } from '@/constants/config'
 import type { MapNavigatorProps } from '@/types/map'
 import Link from 'next/link'
 import { toast } from 'sonner'
+
+// Map state persistence for instant back-navigation.
+interface PersistedMapState {
+  center: Coordinates
+  zoom: number
+  timestamp: number
+}
+
+const MAP_STATE_KEY = CONFIG.api.tokens.geolocation.map_state_key
+const MAP_STATE_MAX_AGE = CONFIG.map.mapState.maxAge
+
+function saveMapState(center: Coordinates, zoom: number): void {
+  try {
+    const state: PersistedMapState = { center, zoom, timestamp: Date.now() }
+    sessionStorage.setItem(MAP_STATE_KEY, JSON.stringify(state))
+  } catch {
+    // sessionStorage full or unavailable — non-critical
+  }
+}
+
+function getSavedMapState(): PersistedMapState | null {
+  try {
+    const raw = sessionStorage.getItem(MAP_STATE_KEY)
+    if (!raw) return null
+    const state = JSON.parse(raw) as PersistedMapState
+    if (Date.now() - state.timestamp > MAP_STATE_MAX_AGE) {
+      sessionStorage.removeItem(MAP_STATE_KEY)
+      return null
+    }
+    return state
+  } catch {
+    return null
+  }
+}
+
+function clearMapState(): void {
+  try {
+    sessionStorage.removeItem(MAP_STATE_KEY)
+  } catch {
+    // non-critical
+  }
+}
 
 // User-facing message used when getSpotsByBounds fails. Kept as a module
 // constant so the toast wording stays consistent across the two fetch
@@ -85,14 +127,16 @@ export function MapNavigator({
     setVisibleSpots([])
   }, [])
 
-  // Pass a STABLE default center to useMapbox. We used to derive this from
-  // `userData.latitude/longitude` via useMemo, but that caused the entire
-  // Mapbox instance to be torn down and rebuilt when geolocation resolved
-  // after first paint. Instead we keep the default constant and `flyTo`
-  // the resolved user location in a dedicated effect below.
-  const defaultCenter = CONFIG.map.defaults.center
+  // Restore persisted map state (center + zoom) so the map opens where the
+  // user left it after returning from a spot detail page. Falls back to the
+  // Portugal default on first visit or when the saved state is stale.
+  const savedState = useMemo(() => getSavedMapState(), [])
+  const restoredCenter = savedState?.center ?? CONFIG.map.defaults.center
+  const restoredZoom = savedState?.zoom ?? initialZoom
+  const hasRestoredState = savedState !== null
 
-  // Use centralized map hook
+  // Use centralized map hook — init at the restored position so we
+  // never flash the Portugal default before flying to the user's area.
   const {
     mapRef,
     map,
@@ -106,47 +150,58 @@ export function MapNavigator({
     recenterToUser,
     retryCount,
   } = useMapbox({
-    center: defaultCenter,
-    zoom: initialZoom,
+    center: restoredCenter,
+    zoom: restoredZoom,
     showUserLocation: true,
     onFlyStart: handleFlyStart,
   })
 
-  // Compute the effective initial center for spot loading: prefer the user's
-  // location once it resolves, otherwise fall back to the configured default.
+  // Compute the effective initial center for spot loading: prefer the
+  // restored map position, then the user's live location, and finally
+  // the Portugal default.
   const initialCenter = useMemo((): [number, number] => {
+    if (hasRestoredState) return restoredCenter
     if (userData.latitude !== undefined && userData.longitude !== undefined) {
       return [userData.longitude, userData.latitude]
     }
-    return defaultCenter
-  }, [userData.latitude, userData.longitude, defaultCenter])
+    return CONFIG.map.defaults.center
+  }, [userData.latitude, userData.longitude, hasRestoredState, restoredCenter])
 
-  // Bound the spots cache to a single map session so it doesn't survive
-  // logout or grow unbounded across navigations. Also clear the
-  // fetch-error toast flag so a new mount starts fresh.
+  // Keep the module-level spotsCache alive across navigations so the user
+  // doesn't re-fetch the same spots after visiting a spot detail page.
+  // Only clear map state (sessionStorage) on unmount so a stale position
+  // isn't restored after the user explicitly navigated away or logged out.
+  // The spotsCache resets itself when the module is garbage-collected on
+  // a full page reload / new session.
   useEffect(() => {
-    spotsCache.reset()
     hasShownFetchErrorRef.current = false
     return (): void => {
-      spotsCache.reset()
       hasShownFetchErrorRef.current = false
+      clearMapState()
     }
   }, [])
 
-  // When the user's location resolves after first paint, fly the (already
-  // initialized) map to it instead of recreating the Mapbox instance.
-  // Tracks whether we've already done the first fly so subsequent userData
-  // updates don't keep yanking the view around.
+  // When the user's location resolves after first paint, fly the map to
+  // it — but only if we didn't restore a saved map position (in that case
+  // the map is already where the user left it and flying would yank the
+  // view away from the area they were browsing).
   const hasFlownToUserRef = useRef(false)
   useEffect(() => {
     if (hasFlownToUserRef.current) return
+    if (hasRestoredState) {
+      // Saved state was restored — skip the automatic flyTo so the map
+      // stays exactly where the user left it. The user-location marker
+      // is still created by useMapbox via a separate effect.
+      hasFlownToUserRef.current = true
+      return
+    }
     if (!map) return
     if (userData.latitude === undefined || userData.longitude === undefined) {
       return
     }
     hasFlownToUserRef.current = true
     flyTo([userData.longitude, userData.latitude])
-  }, [map, userData.latitude, userData.longitude, flyTo])
+  }, [map, userData.latitude, userData.longitude, flyTo, hasRestoredState])
 
   const getVisibleSlides = useCallback((): number => {
     if (typeof window === 'undefined')
@@ -454,6 +509,29 @@ export function MapNavigator({
     userData.longitude,
     updateSpotsInView,
   ])
+
+  // Persist the current map center and zoom to sessionStorage so the map
+  // can be restored instantly when the user returns from a spot detail.
+  // Debounced to avoid thrashing sessionStorage on rapid pans.
+  useEffect(() => {
+    if (!map) return
+
+    const persistState = (): void => {
+      const center = map.getCenter()
+      const zoom = map.getZoom()
+      saveMapState([center.lng, center.lat], zoom)
+    }
+
+    const debouncedPersist = debounce(persistState, CONFIG.map.interaction.debounce.mapStatePersist)
+    map.on('moveend', debouncedPersist)
+    map.on('zoomend', debouncedPersist)
+
+    return (): void => {
+      map.off('moveend', debouncedPersist)
+      map.off('zoomend', debouncedPersist)
+      debouncedPersist.cancel()
+    }
+  }, [map])
 
   // Bump the request id on unmount so any in-flight responses become stale
   // and skip the post-await state updates.

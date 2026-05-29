@@ -8,6 +8,7 @@ export interface SpotIndexEntry {
   id: number
   name: string
   name_normalized: string
+  slug: string
   location_lat: number
   location_long: number
   country: string | null

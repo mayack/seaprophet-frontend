@@ -224,6 +224,8 @@ export interface MapInteractionConfig {
   debounce: {
     mapMovement: number
     moveHandler: number
+    /** Delay before persisting map center/zoom to sessionStorage */
+    mapStatePersist: number
   }
 }
 
@@ -271,6 +273,11 @@ export interface MapUserMarkerConfig {
   retryDelayMs: number
 }
 
+export interface MapMapStateConfig {
+  /** How long a persisted map state is considered valid (ms) */
+  maxAge: number
+}
+
 export interface MapMarkersConfig {
   /** Default marker size in px (used at and above `resizeStartZoom`) */
   baseSize: number
@@ -292,6 +299,7 @@ export interface MapConfig {
   spotsCache: MapSpotsCacheConfig
   userMarker: MapUserMarkerConfig
   markers: MapMarkersConfig
+  mapState: MapMapStateConfig
 }
 
 // Utility types
