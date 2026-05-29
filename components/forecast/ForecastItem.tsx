@@ -76,7 +76,9 @@ export function ForecastItem({
               height={forecast.windWaveHeight}
               period={forecast.windWavePeriod}
               direction={forecast.windWaveDirection}
-              unit={units.swell_height}
+              // Wind-wave height is converted with surf units on the
+              // backend (convertForecastUnits), so its label must match.
+              unit={units.surf_height}
             />
             <WindItem
               className="w-20"

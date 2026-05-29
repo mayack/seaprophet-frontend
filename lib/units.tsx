@@ -1,19 +1,8 @@
 import React from 'react'
+import { UNIT_SYMBOLS } from '@/constants/units'
 
 export function formatUnit(unit: string): string {
-  const unitMap: Record<string, string> = {
-    celsius: '°C',
-    fahrenheit: '°F',
-    feet: 'ft',
-    meters: 'm',
-    knots: 'kts',
-    mph: 'mph',
-    kph: 'kph',
-    mps: 'm/s',
-    seconds: 's',
-    kilojoules: 'kJ',
-  }
-  return unitMap[unit.toLowerCase()] || unit // Fallback to raw unit if not mapped
+  return UNIT_SYMBOLS[unit.toLowerCase()] || unit // Fallback to raw unit if not mapped
 }
 
 export function formatValueWithUnit(value: number, unit: string): string {

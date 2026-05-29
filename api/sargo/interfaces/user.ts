@@ -1,3 +1,13 @@
+// `UserUnits` and the per-setting unit unions are owned by the units
+// single-source module. Re-exported here so existing
+// `@/api/sargo/interfaces/user` importers keep working.
+export type {
+  UserUnits,
+  WindSpeedUnit,
+  HeightUnit,
+  TemperatureUnit,
+} from '@/constants/units'
+
 export interface UserAuthResponse {
   jwt: string
   user: User
@@ -12,16 +22,8 @@ export interface User {
 }
 
 export interface UserSettings {
-  units: UserUnits
+  units: import('@/constants/units').UserUnits
   // Theme is now optional since it's managed by next-themes
   theme?: 'light' | 'dark' | 'system'
   favorites?: number[] // Array of spot IDs
-}
-
-export interface UserUnits {
-  wind_speed: 'knots' | 'mph' | 'kph' | 'mps'
-  surf_height: 'feet' | 'meters'
-  swell_height: 'feet' | 'meters'
-  tide_height: 'feet' | 'meters'
-  temperature: 'celsius' | 'fahrenheit'
 }

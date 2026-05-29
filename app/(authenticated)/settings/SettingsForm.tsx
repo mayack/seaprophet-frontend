@@ -1,6 +1,7 @@
 'use client'
 
 import { useRef, useState, useOptimistic, useTransition } from 'react'
+import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -9,6 +10,12 @@ import { Asterisk, X } from 'lucide-react'
 import { toast } from 'sonner'
 import { useUser } from '@/contexts/UserContext'
 import type { UserSettings } from '@/api/sargo/interfaces/user'
+import {
+  WIND_SPEED_OPTIONS,
+  HEIGHT_OPTIONS,
+  TEMPERATURE_OPTIONS,
+  type UnitOption,
+} from '@/constants/units'
 import {
   updateUsername,
   updatePassword,
@@ -84,11 +91,53 @@ function CollapsibleField({
   )
 }
 
+interface UnitSettingProps {
+  label: string
+  value: string
+  options: readonly UnitOption<string>[]
+  onChange: (value: string) => void
+}
+
+function UnitSetting({
+  label,
+  value,
+  options,
+  onChange,
+}: UnitSettingProps): React.JSX.Element {
+  return (
+    <div className="flex items-center">
+      <Label className="flex-1">{label}</Label>
+      <Tabs value={value} onValueChange={onChange}>
+        <TabsList>
+          {options.map((option) => (
+            <TabsTrigger key={option.value} value={option.value}>
+              {option.label}
+            </TabsTrigger>
+          ))}
+        </TabsList>
+      </Tabs>
+    </div>
+  )
+}
+
+const UNIT_SETTINGS = [
+  { key: 'wind_speed', label: 'Wind speed', options: WIND_SPEED_OPTIONS },
+  { key: 'surf_height', label: 'Surf height', options: HEIGHT_OPTIONS },
+  { key: 'swell_height', label: 'Swell height', options: HEIGHT_OPTIONS },
+  { key: 'tide_height', label: 'Tide height', options: HEIGHT_OPTIONS },
+  { key: 'temperature', label: 'Temperature', options: TEMPERATURE_OPTIONS },
+] as const satisfies readonly {
+  key: keyof UserSettings['units']
+  label: string
+  options: readonly UnitOption<string>[]
+}[]
+
 export function SettingsForms({
   username: initialUsername,
   email: initialEmail,
   settings: initialSettings,
 }: SettingsFormsProps): React.JSX.Element {
+  const router = useRouter()
   const { userData, setUserData } = useUser()
   const [activeFormId, setActiveFormId] = useState<string | null>(null)
   const [state, optimisticState] = useOptimistic({
@@ -164,43 +213,45 @@ export function SettingsForms({
       settings: newSettings,
     })
 
+    // Roll both the optimistic UI and the shared context back to the
+    // pre-change units. Used by both the failure and the thrown-error
+    // paths below.
+    const revert = (message: string): void => {
+      if (myRequestId !== unitRequestIdRef.current) return
+      toast.error(message)
+      startTransition(() => {
+        optimisticState((prev) => ({
+          ...prev,
+          settings: { ...prev.settings, units: previousUnits },
+        }))
+      })
+      setUserData({
+        username: userData.username,
+        email: userData.email,
+        settings: { ...userData.settings, units: previousUnits },
+      })
+    }
+
     // Fire-and-forget persist to server. Only surface errors.
     updateUserSettings(newSettings)
       .then((result) => {
         if (myRequestId !== unitRequestIdRef.current) return
 
         if (!result.success) {
-          toast.error(result.error || 'Settings could not be saved')
-          startTransition(() => {
-            optimisticState((prev) => ({
-              ...prev,
-              settings: { ...prev.settings, units: previousUnits },
-            }))
-          })
-          setUserData({
-            username: userData.username,
-            email: userData.email,
-            settings: { ...userData.settings, units: previousUnits },
-          })
+          revert(result.error || 'Settings could not be saved')
+          return
         }
+
+        // Re-run server components (e.g. an open spot page) so the
+        // forecast is refetched from Polvo with the new units — values
+        // are converted server-side, so without this the numbers and
+        // their labels would disagree until a manual reload.
+        router.refresh()
       })
       .catch((error) => {
-        if (myRequestId !== unitRequestIdRef.current) return
-
-        toast.error(
+        revert(
           error instanceof Error ? error.message : 'Settings could not be saved'
         )
-        startTransition(() => {
-          optimisticState((prev) => ({
-            ...prev,
-            settings: { ...prev.settings, units: previousUnits },
-          }))
-        })
-        setUserData({
-          username: userData.username,
-          email: userData.email,
-          settings: { ...userData.settings, units: previousUnits },
-        })
       })
   }
 
@@ -257,83 +308,17 @@ export function SettingsForms({
         </CollapsibleField>
       </div>
       <div className="space-y-4">
-        <Separator />
-        <div className="flex items-center">
-          <Label htmlFor="units.wind_speed" className="flex-1">
-            Wind speed
-          </Label>
-          <Tabs
-            value={state.settings.units.wind_speed}
-            onValueChange={(value) => handleUnitChange('wind_speed', value)}
-          >
-            <TabsList>
-              <TabsTrigger value="knots">Kts</TabsTrigger>
-              <TabsTrigger value="mph">Mph</TabsTrigger>
-              <TabsTrigger value="kph">Kph</TabsTrigger>
-              <TabsTrigger value="mps">M/s</TabsTrigger>
-            </TabsList>
-          </Tabs>
-        </div>
-        <Separator />
-        <div className="flex items-center">
-          <Label htmlFor="units.surf_height" className="flex-1">
-            Surf height
-          </Label>
-          <Tabs
-            value={state.settings.units.surf_height}
-            onValueChange={(value) => handleUnitChange('surf_height', value)}
-          >
-            <TabsList>
-              <TabsTrigger value="feet">Feet</TabsTrigger>
-              <TabsTrigger value="meters">Meters</TabsTrigger>
-            </TabsList>
-          </Tabs>
-        </div>
-        <Separator />
-        <div className="flex items-center">
-          <Label htmlFor="units.swell_height" className="flex-1">
-            Swell height
-          </Label>
-          <Tabs
-            value={state.settings.units.swell_height}
-            onValueChange={(value) => handleUnitChange('swell_height', value)}
-          >
-            <TabsList>
-              <TabsTrigger value="feet">Feet</TabsTrigger>
-              <TabsTrigger value="meters">Meters</TabsTrigger>
-            </TabsList>
-          </Tabs>
-        </div>
-        <Separator />
-        <div className="flex items-center">
-          <Label htmlFor="units.tide_height" className="flex-1">
-            Tide height
-          </Label>
-          <Tabs
-            value={state.settings.units.tide_height}
-            onValueChange={(value) => handleUnitChange('tide_height', value)}
-          >
-            <TabsList>
-              <TabsTrigger value="feet">Feet</TabsTrigger>
-              <TabsTrigger value="meters">Meters</TabsTrigger>
-            </TabsList>
-          </Tabs>
-        </div>
-        <Separator />
-        <div className="flex items-center">
-          <Label htmlFor="units.temperature" className="flex-1">
-            Temperature
-          </Label>
-          <Tabs
-            value={state.settings.units.temperature}
-            onValueChange={(value) => handleUnitChange('temperature', value)}
-          >
-            <TabsList>
-              <TabsTrigger value="celsius">Celsius</TabsTrigger>
-              <TabsTrigger value="fahrenheit">Fahrenheit</TabsTrigger>
-            </TabsList>
-          </Tabs>
-        </div>
+        {UNIT_SETTINGS.map(({ key, label, options }) => (
+          <div key={key} className="space-y-4">
+            <Separator />
+            <UnitSetting
+              label={label}
+              value={state.settings.units[key]}
+              options={options}
+              onChange={(value) => handleUnitChange(key, value)}
+            />
+          </div>
+        ))}
       </div>
     </div>
   )

@@ -1,4 +1,9 @@
 import { ActionResponse } from '@/types/api'
+import type {
+  WindSpeedUnit,
+  HeightUnit,
+  TemperatureUnit,
+} from '@/constants/units'
 
 export type ForecastActionResponse = ActionResponse<ForecastResponse>
 
@@ -26,12 +31,14 @@ export interface ForecastParams {
   waveFactor?: number | null
   adjustmentFactor?: number | null
   spotId?: number
-  // Make units optional since they'll be handled by the action
-  windUnits?: string
-  swellUnits?: string
-  tideUnits?: string
-  tempUnits?: string
-  surfUnits?: string
+  // Optional because the forecast action fills in defaults when absent.
+  // Typed against the unit unions (not bare `string`) so a mismatched
+  // unit can't be wired to the wrong field.
+  windUnits?: WindSpeedUnit
+  swellUnits?: HeightUnit
+  tideUnits?: HeightUnit
+  tempUnits?: TemperatureUnit
+  surfUnits?: HeightUnit
 }
 
 export interface ForecastDay {

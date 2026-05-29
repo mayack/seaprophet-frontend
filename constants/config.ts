@@ -12,6 +12,7 @@ import type {
   Coordinates,
 } from '@/types/map'
 import packageJson from '@/package.json'
+import { DEFAULT_UNITS } from '@/constants/units'
 
 export const CONFIG = {
   // Single source of truth is package.json — bump `version` there only.
@@ -98,15 +99,12 @@ export const CONFIG = {
     maxRetries: 3,
   },
   settings: {
+    // Unit defaults live in the units single-source module
+    // (`constants/units`) so they can't drift from the settings UI,
+    // the forecast display, or the user settings types.
     default: {
-      units: {
-        wind_speed: 'knots',
-        surf_height: 'feet',
-        swell_height: 'feet',
-        tide_height: 'feet',
-        temperature: 'celsius',
-      },
-    } as const,
+      units: DEFAULT_UNITS,
+    },
   },
   webcam: {
     afk_timer: 5 * 60 * 1000, // 5 minutes — pause stream after this much inactivity
