@@ -22,6 +22,7 @@ import {
 } from '@/api/sargo/actions/user'
 import { normalizeUserSettings } from '@/lib/userSettings'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Switch } from '@/components/ui/switch'
 
 interface SettingsFormsProps {
   username: string
@@ -152,6 +153,10 @@ export function SettingsForms({
   const [username, setUsername] = useState(initialUsername)
   // Tabs render from context (single source of truth for the live UI).
   const units = userData.settings.units
+  const camObserverEnabled = normalizeUserSettings(
+    userData.settings
+  ).camObserverEnabled
+  const [isCamObserverSaving, setIsCamObserverSaving] = useState(false)
   // Authoritative working copy of settings, updated synchronously on every
   // toggle so a rapid burst of changes merges correctly. React state
   // snapshots can lag behind a flurry of clicks; a ref never does.
@@ -315,6 +320,44 @@ export function SettingsForms({
     saveTimeoutRef.current = setTimeout(runUnitsSave, SAVE_DELAY_MS)
   }
 
+  const handleCamObserverChange = (enabled: boolean): void => {
+    const previous = workingSettingsRef.current
+    const newSettings = normalizeUserSettings({
+      ...workingSettingsRef.current,
+      camObserverEnabled: enabled,
+    })
+
+    commitSettings(newSettings)
+    setIsCamObserverSaving(true)
+
+    updateUserSettings(newSettings)
+      .then((result) => {
+        if (!result.success) {
+          commitSettings(previous)
+          toast.error(result.error || 'Settings could not be saved')
+          return
+        }
+
+        const persisted = normalizeUserSettings(
+          result.settings ?? newSettings
+        )
+        lastSavedSettingsRef.current = persisted
+        commitSettings(persisted)
+        toast.success(
+          enabled ? 'Cam Observer enabled' : 'Cam Observer disabled'
+        )
+      })
+      .catch((error) => {
+        commitSettings(previous)
+        toast.error(
+          error instanceof Error ? error.message : 'Settings could not be saved'
+        )
+      })
+      .finally(() => {
+        setIsCamObserverSaving(false)
+      })
+  }
+
   return (
     <div className="space-y-4">
       <div className="space-y-4">
@@ -379,6 +422,22 @@ export function SettingsForms({
             />
           </div>
         ))}
+        {userData.calibrationReporter ? (
+          <div className="space-y-4">
+            <Separator />
+            <div className="flex items-center">
+              <Label htmlFor="cam-observer" className="flex-1">
+                Cam Observer
+              </Label>
+              <Switch
+                id="cam-observer"
+                checked={camObserverEnabled}
+                disabled={isCamObserverSaving}
+                onCheckedChange={handleCamObserverChange}
+              />
+            </div>
+          </div>
+        ) : null}
       </div>
     </div>
   )

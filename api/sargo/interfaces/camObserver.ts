@@ -10,7 +10,7 @@ export type HeightBand =
 
 export type WindFeel = 'clean' | 'textured' | 'blown'
 
-export interface CalibrationUiSnapshot {
+export interface CamObserverUiSnapshot {
   forecastDate?: string
   forecastHour?: string
   waveHeight?: number
@@ -29,12 +29,12 @@ export interface CalibrationUiSnapshot {
   windRating?: number
 }
 
-export interface SubmitCalibrationObservationInput {
+export interface SubmitCamObserverReportInput {
   spotId: number
   spotName: string
   heightBand: HeightBand
   windFeel?: WindFeel
   notes?: string
   observedAt?: string
-  uiSnapshot?: CalibrationUiSnapshot
+  uiSnapshot?: CamObserverUiSnapshot
 }

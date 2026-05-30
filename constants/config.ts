@@ -41,7 +41,7 @@ export const CONFIG = {
             '/api/spots?filters[name][$containsi]=:query&fields[0]=name&populate[webcam]=true',
           searchIndex: '/api/spots/search-index',
         },
-        calibration: {
+        camObserver: {
           observations: '/api/calibration/observations',
         },
       },

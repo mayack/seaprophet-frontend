@@ -18,7 +18,7 @@ import { User } from '@/api/sargo/interfaces/user'
 import { ForecastParams } from '@/api/polvo/interfaces/forecast'
 import { applyUnitsToForecastParams } from '@/lib/forecastParams'
 import { normalizeUserSettings } from '@/lib/userSettings'
-import { CalibrationToolbar } from '@/components/calibration/CalibrationToolbar'
+import { CamObserverGate } from '@/components/cam-observer/CamObserverGate'
 
 interface SpotPageProps {
   params: Promise<{ id: string }>
@@ -126,22 +126,22 @@ function ForecastFallback(): React.JSX.Element {
   )
 }
 
-interface CalibrationSectionProps {
+interface CamObserverSectionProps {
   forecastParams: ForecastParams
   spotId: number
   spotName: string
 }
 
-async function CalibrationSection({
+async function CamObserverSection({
   forecastParams,
   spotId,
   spotName,
-}: CalibrationSectionProps): Promise<React.JSX.Element | null> {
+}: CamObserverSectionProps): Promise<React.JSX.Element | null> {
   const res = await loadForecast(forecastParams)
   const todayDay = res.data?.days[0]
 
   return (
-    <CalibrationToolbar
+    <CamObserverGate
       spotId={spotId}
       spotName={spotName}
       todayDate={todayDay?.date}
@@ -198,7 +198,7 @@ export default async function SpotPage({
         : []
 
     const forecastParams = buildForecastParams(spot, spotId, user)
-    const showCalibrationToolbar = user.calibrationReporter === true
+    const showCamObserver = user.calibrationReporter === true
 
     return (
       <div className="wrapper-spacing mobile-safe-bottom py-4 sm:py-6 xl:py-8">
@@ -224,9 +224,9 @@ export default async function SpotPage({
         <Suspense fallback={<ForecastFallback />}>
           <SpotForecastSection forecastParams={forecastParams} />
         </Suspense>
-        {showCalibrationToolbar ? (
+        {showCamObserver ? (
           <Suspense fallback={null}>
-            <CalibrationSection
+            <CamObserverSection
               forecastParams={forecastParams}
               spotId={spotId}
               spotName={spot.name}

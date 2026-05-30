@@ -4,7 +4,7 @@ import { createError } from '@/utils/error'
 import { cookies } from 'next/headers'
 import { User, UserAuthResponse, UserSettings } from './interfaces/user'
 import { Spot } from './interfaces/spot'
-import type { SubmitCalibrationObservationInput } from './interfaces/calibration'
+import type { SubmitCamObserverReportInput } from './interfaces/camObserver'
 import { GeographicBounds } from '@/types/map'
 import { KM_PER_LAT_DEGREE } from '@/utils/location'
 
@@ -306,17 +306,17 @@ export class SargoClient extends BaseApiClient {
     )
   }
 
-  async submitCalibrationObservation(
-    payload: SubmitCalibrationObservationInput
+  async submitCamObserverReport(
+    payload: SubmitCamObserverReportInput
   ): Promise<{ id: string; observedAt: string }> {
     const headers = await this.getHeaders(
-      CONFIG.api.endpoints.sargo.calibration.observations
+      CONFIG.api.endpoints.sargo.camObserver.observations
     )
 
     const response = await this.fetch<{
       success?: boolean
       data?: { id: string; observedAt: string }
-    }>(CONFIG.api.endpoints.sargo.calibration.observations, {
+    }>(CONFIG.api.endpoints.sargo.camObserver.observations, {
       init: {
         method: 'POST',
         headers,
@@ -326,7 +326,7 @@ export class SargoClient extends BaseApiClient {
     })
 
     if (!response?.data?.id) {
-      throw createError('Invalid calibration response', 'unknown')
+      throw createError('Invalid cam observer response', 'unknown')
     }
 
     return response.data

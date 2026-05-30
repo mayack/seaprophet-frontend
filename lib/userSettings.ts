@@ -11,5 +11,16 @@ export function normalizeUserSettings(
     ...base,
     favorites: Array.isArray(base.favorites) ? base.favorites : [],
     units: normalizeUserUnits(base.units),
+    camObserverEnabled: base.camObserverEnabled !== false,
   }
+}
+
+export function isCamObserverVisible(user: {
+  calibrationReporter?: boolean
+  settings?: Partial<UserSettings> | null
+}): boolean {
+  return (
+    user.calibrationReporter === true &&
+    normalizeUserSettings(user.settings).camObserverEnabled
+  )
 }

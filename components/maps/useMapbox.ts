@@ -209,6 +209,26 @@ export function useMapbox(options: UseMapboxOptions = {}): UseMapboxReturn {
     [] // No dependencies - using refs to avoid stale closures
   )
 
+  // Align the locate-button state with where the map actually is. We used
+  // to always set `centered` after creating the user marker, which was
+  // wrong when returning from a spot page with a remembered pan position
+  // far from the user's GPS fix — the button looked locked until the
+  // user panned and moveend flipped the state.
+  const syncLocationStateToMapCenter = useCallback(() => {
+    const map = mapInstance.current
+    const userLocation = userLocationRef.current
+    if (!map || !userLocation) return
+
+    const center = map.getCenter()
+    const isClose = isUserCloseToLocation(
+      userLocation.latitude,
+      userLocation.longitude,
+      center.lat,
+      center.lng
+    )
+    setLocationState(isClose ? 'centered' : 'off-center')
+  }, [])
+
   // Public API functions with updated types
   const addMarker = useCallback(
     (
@@ -526,24 +546,30 @@ export function useMapbox(options: UseMapboxOptions = {}): UseMapboxReturn {
                 longitude: userData.longitude,
               })
 
-              // Skip the flyTo when the map was initialized at a
-              // remembered position — otherwise we'd yank the view away
-              // from where the user left it when returning from another
-              // page.
-              if (!skipInitialFlyTo) {
-                const mapCenter = mapInstance.current.getCenter()
-                if (
-                  !isUserCloseToLocation(
-                    userData.latitude,
-                    userData.longitude,
-                    mapCenter.lat,
-                    mapCenter.lng
-                  )
-                ) {
-                  flyTo([userData.longitude, userData.latitude])
-                }
+              // Decide whether to animate to the user. We skip the flyTo
+              // when the map was initialized at a remembered position
+              // (returning from another page) so we don't yank the view
+              // away from where the user left it.
+              const mapCenter = mapInstance.current.getCenter()
+              const atUser = isUserCloseToLocation(
+                userData.latitude,
+                userData.longitude,
+                mapCenter.lat,
+                mapCenter.lng
+              )
+
+              if (!skipInitialFlyTo && !atUser) {
+                // Animate to the user; the view ends up centered. Set the
+                // state now (rather than syncing) because getCenter() still
+                // reports the pre-animation center mid-flight.
+                flyTo([userData.longitude, userData.latitude])
+                setLocationState('centered')
+              } else {
+                // Already at the user, or restored a remembered pan
+                // position — derive the button state from the real map
+                // center so it's clickable when we're away from the user.
+                syncLocationStateToMapCenter()
               }
-              setLocationState('centered')
             } else {
               // First-time user - request location and flyTo when found
               requestUserLocation()
@@ -733,7 +759,7 @@ export function useMapbox(options: UseMapboxOptions = {}): UseMapboxReturn {
         latitude: userData.latitude,
         longitude: userData.longitude,
       })
-      setLocationState('centered')
+      syncLocationStateToMapCenter()
     }
   }, [
     userData.latitude,
@@ -742,6 +768,7 @@ export function useMapbox(options: UseMapboxOptions = {}): UseMapboxReturn {
     showUserLocation,
     createUserLocationMarkerWrapper,
     setupMoveHandler,
+    syncLocationStateToMapCenter,
   ])
 
   // Handle theme changes (simplified)
