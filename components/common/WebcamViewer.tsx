@@ -36,6 +36,9 @@ export function WebcamViewer({ config }: WebcamViewerProps): React.JSX.Element {
   const hlsRef = useRef<Hls | null>(null)
   const afkTimerRef = useRef<ReturnType<typeof setTimeout>>(null)
   const streamIdRef = useRef(0)
+  // iOS native video fullscreen (webkitEnterFullscreen) does not update
+  // document.fullscreenElement — track it separately for toggle + icon sync.
+  const isVideoFullscreenRef = useRef(false)
   // Mirror `isAfk` into a ref so callbacks captured by the effect (e.g.
   // `isStale`) always see the latest value instead of the stale closure
   // value from when the effect first ran.
@@ -271,19 +274,54 @@ export function WebcamViewer({ config }: WebcamViewerProps): React.JSX.Element {
     initStream()
   }, [initStream])
 
-  // Keep the icon in sync with the actual fullscreen state, including exits
-  // triggered outside our button (ESC, browser chrome, iOS native controls).
+  // Keep the icon in sync with fullscreen state. Standard Fullscreen API events
+  // cover desktop; iOS uses webkitEnterFullscreen on the <video>, which fires
+  // webkitbeginfullscreen / webkitendfullscreen instead.
   useEffect(() => {
+    const video = videoRef.current
     const doc = document as Document & { webkitFullscreenElement?: Element }
-    const sync = (): void =>
-      setIsFullscreen(!!(doc.fullscreenElement || doc.webkitFullscreenElement))
 
-    sync()
-    document.addEventListener('fullscreenchange', sync)
-    document.addEventListener('webkitfullscreenchange', sync)
+    const syncDocumentFullscreen = (): void => {
+      setIsFullscreen(
+        !!(doc.fullscreenElement || doc.webkitFullscreenElement) ||
+          isVideoFullscreenRef.current
+      )
+    }
+
+    const onWebkitBeginFullscreen = (): void => {
+      isVideoFullscreenRef.current = true
+      syncDocumentFullscreen()
+    }
+
+    const onWebkitEndFullscreen = (): void => {
+      isVideoFullscreenRef.current = false
+      syncDocumentFullscreen()
+
+      // iOS Safari pauses on exit — resume if needed.
+      if (!video?.paused) return
+      void video.play().catch(() => {
+        // Ignore — user may have paused intentionally or autoplay was blocked.
+      })
+    }
+
+    syncDocumentFullscreen()
+    document.addEventListener('fullscreenchange', syncDocumentFullscreen)
+    document.addEventListener('webkitfullscreenchange', syncDocumentFullscreen)
+
+    video?.addEventListener('webkitbeginfullscreen', onWebkitBeginFullscreen)
+    video?.addEventListener('webkitendfullscreen', onWebkitEndFullscreen)
+
     return (): void => {
-      document.removeEventListener('fullscreenchange', sync)
-      document.removeEventListener('webkitfullscreenchange', sync)
+      document.removeEventListener('fullscreenchange', syncDocumentFullscreen)
+      document.removeEventListener(
+        'webkitfullscreenchange',
+        syncDocumentFullscreen
+      )
+      video?.removeEventListener(
+        'webkitbeginfullscreen',
+        onWebkitBeginFullscreen
+      )
+      video?.removeEventListener('webkitendfullscreen', onWebkitEndFullscreen)
     }
   }, [])
 
@@ -297,7 +335,11 @@ export function WebcamViewer({ config }: WebcamViewerProps): React.JSX.Element {
       webkitExitFullscreen?: () => void
     }
 
-    if (doc.fullscreenElement || doc.webkitFullscreenElement) {
+    if (
+      doc.fullscreenElement ||
+      doc.webkitFullscreenElement ||
+      isVideoFullscreenRef.current
+    ) {
       doc.exitFullscreen?.() || vid.webkitExitFullscreen?.()
     } else {
       vid.webkitEnterFullscreen?.() || video.requestFullscreen?.()
@@ -317,10 +359,12 @@ export function WebcamViewer({ config }: WebcamViewerProps): React.JSX.Element {
     const handler = (): void => startAfkTimer()
     window.addEventListener('mousemove', handler)
     window.addEventListener('keydown', handler)
+    window.addEventListener('touchstart', handler, { passive: true })
 
     return (): void => {
       window.removeEventListener('mousemove', handler)
       window.removeEventListener('keydown', handler)
+      window.removeEventListener('touchstart', handler)
     }
   }, [isLoading, error, isAfk, startAfkTimer])
 
