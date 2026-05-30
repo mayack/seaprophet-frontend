@@ -2,13 +2,16 @@
 
 import React, { useEffect, useRef, useState, useTransition } from 'react'
 import { submitCamObserverReport } from '@/api/sargo/actions/camObserver'
-import type { HeightBand, WindFeel } from '@/api/sargo/interfaces/camObserver'
-import type { CamObserverUiSnapshot } from '@/api/sargo/interfaces/camObserver'
+import type {
+  HeightBand,
+  WindFeel,
+  CamObserverUiSnapshot,
+} from '@/api/sargo/interfaces/camObserver'
 import { Button } from '@/components/ui/button'
 import { Slider } from '@/components/ui/slider'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Textarea } from '@/components/ui/textarea'
-import { HourlyForecast } from '@/api/polvo/interfaces/forecast'
+import type { HourlyForecast } from '@/api/polvo/interfaces/forecast'
 import type { HeightUnit } from '@/constants/units'
 import { normalizeUserUnits } from '@/constants/units'
 import { useUser } from '@/contexts/UserContext'
@@ -128,7 +131,9 @@ export function CamObserverToolbar({
   todayHours = {},
 }: CamObserverToolbarProps): React.JSX.Element {
   const { userData } = useUser()
-  const surfHeightUnit = normalizeUserUnits(userData.settings?.units).surf_height
+  const surfHeightUnit = normalizeUserUnits(
+    userData.settings?.units
+  ).surf_height
   const [expanded, setExpanded] = useState(false)
   const [heightIndex, setHeightIndex] = useState<number | null>(null)
   const [windFeel, setWindFeel] = useState<WindFeel | null>(null)
@@ -155,9 +160,8 @@ export function CamObserverToolbar({
   }, [status])
 
   const heightBand =
-    heightIndex !== null ? HEIGHT_BANDS[heightIndex]?.id ?? null : null
-  const selectedBand =
-    heightIndex !== null ? HEIGHT_BANDS[heightIndex] : null
+    heightIndex !== null ? (HEIGHT_BANDS[heightIndex]?.id ?? null) : null
+  const selectedBand = heightIndex !== null ? HEIGHT_BANDS[heightIndex] : null
   const thumbLeft =
     heightIndex !== null
       ? `calc(${(heightIndex / HEIGHT_BAND_MAX) * 100}% + ${THUMB_SIZE_PX / 2}px - ${(heightIndex / HEIGHT_BAND_MAX) * THUMB_SIZE_PX}px)`
@@ -226,7 +230,7 @@ export function CamObserverToolbar({
               type="button"
               variant="ghost"
               size="icon"
-              className="size-7 shrink-0 absolute top-2 right-2"
+              className="absolute right-2 top-2 size-7 shrink-0"
               aria-label="Close Cam Observer"
               onClick={() => setExpanded(false)}
             >
@@ -256,7 +260,7 @@ export function CamObserverToolbar({
                 <div className="relative mt-3 h-6">
                   {selectedBand && thumbLeft ? (
                     <div
-                      className="absolute top-0 -translate-x-1/2 text-center whitespace-nowrap"
+                      className="absolute top-0 -translate-x-1/2 whitespace-nowrap text-center"
                       style={{ left: thumbLeft }}
                     >
                       <p className="text-xs font-medium leading-none">
@@ -308,7 +312,7 @@ export function CamObserverToolbar({
                     type="button"
                     variant="ghost"
                     size="sm"
-                    className="h-auto px-0 py-0 text-xs font-normal text-muted-foreground hover:bg-transparent hover:text-foreground"
+                    className="h-auto p-0 text-xs font-normal text-muted-foreground hover:bg-transparent hover:text-foreground"
                     onClick={() => {
                       setShowNotes(false)
                       setNotes('')

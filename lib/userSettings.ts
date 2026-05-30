@@ -2,10 +2,17 @@ import type { UserSettings } from '@/api/sargo/interfaces/user'
 import { CONFIG } from '@/constants/config'
 import { normalizeUserUnits } from '@/constants/units'
 
+export type NormalizedUserSettings = Omit<
+  UserSettings,
+  'camObserverEnabled'
+> & {
+  camObserverEnabled: boolean
+}
+
 /** Ensure settings always include a full units object and favorites array. */
 export function normalizeUserSettings(
   settings?: Partial<UserSettings> | null
-): UserSettings {
+): NormalizedUserSettings {
   const base: Partial<UserSettings> = settings ?? CONFIG.settings.default
   return {
     ...base,
