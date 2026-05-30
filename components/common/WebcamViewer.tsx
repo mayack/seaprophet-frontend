@@ -14,8 +14,6 @@ import {
 import { extractWebcamUrl } from '@/api/polvo/actions/webcam'
 import { WebcamConfig } from '@/api/sargo/interfaces/webcam'
 import { CONFIG } from '@/constants/config'
-import { useVideoFullscreen } from '@/hooks/useVideoFullscreen'
-import { resumeInlinePlayback } from '@/lib/webcam/resumePlayback'
 
 const AFK_TIMEOUT_MS = CONFIG.webcam.afk_timer
 
@@ -32,13 +30,18 @@ export function WebcamViewer({ config }: WebcamViewerProps): React.JSX.Element {
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [isAfk, setIsAfk] = useState(false)
+  const [isFullscreen, setIsFullscreen] = useState(false)
 
   const videoRef = useRef<HTMLVideoElement>(null)
   const hlsRef = useRef<Hls | null>(null)
   const afkTimerRef = useRef<ReturnType<typeof setTimeout>>(null)
   const streamIdRef = useRef(0)
-  const playbackUrlRef = useRef<string | null>(null)
-  const usesNativeHlsRef = useRef(false)
+  // iOS native fullscreen (webkitEnterFullscreen) doesn't update
+  // document.fullscreenElement, so track it separately for the toggle + icon.
+  const isNativeFullscreenRef = useRef(false)
+  // Lets the fullscreen effect call the latest initStream without
+  // re-subscribing its listeners on every render.
+  const initStreamRef = useRef<() => void>(() => {})
   // Mirror `isAfk` into a ref so callbacks captured by the effect (e.g.
   // `isStale`) always see the latest value instead of the stale closure
   // value from when the effect first ran.
@@ -46,24 +49,6 @@ export function WebcamViewer({ config }: WebcamViewerProps): React.JSX.Element {
   useEffect(() => {
     isAfkRef.current = isAfk
   }, [isAfk])
-
-  const resumePlayback = useCallback((): void => {
-    const video = videoRef.current
-    const url = playbackUrlRef.current
-    if (!video || !url) return
-
-    void resumeInlinePlayback(
-      video,
-      url,
-      hlsRef.current,
-      usesNativeHlsRef.current
-    )
-  }, [])
-
-  const { isFullscreen, toggleFullscreen } = useVideoFullscreen({
-    videoRef,
-    onExitFullscreen: resumePlayback,
-  })
 
   // Track HLS event handlers and video listeners so cleanup can fully
   // detach them — `hls.destroy()` alone leaves listeners and the <video>
@@ -187,7 +172,6 @@ export function WebcamViewer({ config }: WebcamViewerProps): React.JSX.Element {
 
     // Step 2: Initialize HLS
     const finalUrl = getStreamUrl(streamUrl, config.referer)
-    playbackUrlRef.current = finalUrl
 
     const onPlaybackStarted = (): void => {
       if (isStale()) return
@@ -221,7 +205,6 @@ export function WebcamViewer({ config }: WebcamViewerProps): React.JSX.Element {
     }
 
     if (Hls.isSupported()) {
-      usesNativeHlsRef.current = false
       const hls = new Hls({
         xhrSetup: config.referer
           ? (xhr, url): void => {
@@ -267,7 +250,6 @@ export function WebcamViewer({ config }: WebcamViewerProps): React.JSX.Element {
       hls.on(Hls.Events.MANIFEST_PARSED, onManifestParsed)
       hls.on(Hls.Events.ERROR, onHlsError)
     } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
-      usesNativeHlsRef.current = true
       video.src = finalUrl
       const onLoadedMetadata = (): void => {
         void handleReady()
@@ -294,6 +276,73 @@ export function WebcamViewer({ config }: WebcamViewerProps): React.JSX.Element {
     setIsAfk(false)
     initStream()
   }, [initStream])
+
+  // Keep the ref pointed at the latest initStream so the fullscreen effect
+  // (which subscribes once) always calls the current implementation.
+  useEffect(() => {
+    initStreamRef.current = initStream
+  }, [initStream])
+
+  const toggleFullscreen = useCallback(() => {
+    const video = videoRef.current
+    if (!video) return
+
+    const doc = document as Document & { webkitFullscreenElement?: Element }
+    const vid = video as HTMLVideoElement & {
+      webkitEnterFullscreen?: () => void
+      webkitExitFullscreen?: () => void
+    }
+
+    if (
+      doc.fullscreenElement ||
+      doc.webkitFullscreenElement ||
+      isNativeFullscreenRef.current
+    ) {
+      doc.exitFullscreen?.() || vid.webkitExitFullscreen?.()
+    } else {
+      vid.webkitEnterFullscreen?.() || video.requestFullscreen?.()
+    }
+  }, [])
+
+  // Sync the fullscreen icon and recover playback on exit. iOS uses native
+  // video fullscreen (webkitbegin/endfullscreen) and reliably pauses — and
+  // sometimes drops — the stream when it closes, so we reload it outright
+  // rather than guess whether it's still playing.
+  useEffect(() => {
+    const video = videoRef.current
+    if (!video) return
+
+    const doc = document as Document & { webkitFullscreenElement?: Element }
+    const syncIcon = (): void => {
+      setIsFullscreen(
+        !!(doc.fullscreenElement || doc.webkitFullscreenElement) ||
+          isNativeFullscreenRef.current
+      )
+    }
+
+    const onBegin = (): void => {
+      isNativeFullscreenRef.current = true
+      syncIcon()
+    }
+    const onEnd = (): void => {
+      isNativeFullscreenRef.current = false
+      syncIcon()
+      initStreamRef.current()
+    }
+
+    syncIcon()
+    document.addEventListener('fullscreenchange', syncIcon)
+    document.addEventListener('webkitfullscreenchange', syncIcon)
+    video.addEventListener('webkitbeginfullscreen', onBegin)
+    video.addEventListener('webkitendfullscreen', onEnd)
+
+    return (): void => {
+      document.removeEventListener('fullscreenchange', syncIcon)
+      document.removeEventListener('webkitfullscreenchange', syncIcon)
+      video.removeEventListener('webkitbeginfullscreen', onBegin)
+      video.removeEventListener('webkitendfullscreen', onEnd)
+    }
+  }, [])
 
   // Initialize on mount and config change
   useEffect(() => {
