@@ -295,12 +295,15 @@ export function WebcamViewer({ config }: WebcamViewerProps): React.JSX.Element {
     }
   }, [])
 
-  // Sync the fullscreen icon and resume inline playback on exit. iOS (Safari
-  // and Chrome, both WebKit) opens a native fullscreen player and pauses the
-  // inline <video> when it closes. The element is muted, so WebKit lets us
-  // call play() without a fresh user gesture; a short delay lets the
-  // fullscreen transition settle before we resume.
-  // https://webkit.org/blog/6784/new-video-policies-for-ios/
+  // Track fullscreen state for the toggle button + icon.
+  //
+  // iOS uses its native video fullscreen player (webkitbegin/endfullscreen),
+  // which doesn't update document.fullscreenElement — hence the ref. When that
+  // player closes, iOS tears down the hls.js MediaSource pipeline and leaves
+  // the inline <video> dead, so we re-init the stream to recover it (the
+  // loading spinner shows while it reconnects). This is keyed off the native
+  // fullscreen event itself, not the OS: desktop and Android use the standard
+  // Fullscreen API, where playback keeps running and no reload is needed.
   useEffect(() => {
     const video = videoRef.current
     if (!video) return
@@ -313,35 +316,29 @@ export function WebcamViewer({ config }: WebcamViewerProps): React.JSX.Element {
       )
     }
 
-    let resumeTimer: ReturnType<typeof setTimeout> | null = null
-    const onBegin = (): void => {
+    const onNativeBegin = (): void => {
       isNativeFullscreenRef.current = true
       syncIcon()
     }
-    const onEnd = (): void => {
+    const onNativeEnd = (): void => {
       isNativeFullscreenRef.current = false
       syncIcon()
-      resumeTimer = setTimeout(() => {
-        void video.play().catch(() => {
-          // Ignore — user may have paused intentionally.
-        })
-      }, 100)
+      initStream()
     }
 
     syncIcon()
     document.addEventListener('fullscreenchange', syncIcon)
     document.addEventListener('webkitfullscreenchange', syncIcon)
-    video.addEventListener('webkitbeginfullscreen', onBegin)
-    video.addEventListener('webkitendfullscreen', onEnd)
+    video.addEventListener('webkitbeginfullscreen', onNativeBegin)
+    video.addEventListener('webkitendfullscreen', onNativeEnd)
 
     return (): void => {
-      if (resumeTimer) clearTimeout(resumeTimer)
       document.removeEventListener('fullscreenchange', syncIcon)
       document.removeEventListener('webkitfullscreenchange', syncIcon)
-      video.removeEventListener('webkitbeginfullscreen', onBegin)
-      video.removeEventListener('webkitendfullscreen', onEnd)
+      video.removeEventListener('webkitbeginfullscreen', onNativeBegin)
+      video.removeEventListener('webkitendfullscreen', onNativeEnd)
     }
-  }, [])
+  }, [initStream])
 
   // Initialize on mount and config change
   useEffect(() => {
