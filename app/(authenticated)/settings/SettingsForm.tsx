@@ -338,9 +338,7 @@ export function SettingsForms({
           return
         }
 
-        const persisted = normalizeUserSettings(
-          result.settings ?? newSettings
-        )
+        const persisted = normalizeUserSettings(result.settings ?? newSettings)
         lastSavedSettingsRef.current = persisted
         commitSettings(persisted)
         toast.success(
