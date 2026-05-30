@@ -44,6 +44,27 @@ const minutesToTime = (minutes: number): string => {
   return `${hours.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}`
 }
 
+// Cosine-interpolate the tide height (meters, model units) at a given minute
+// of the day across the processed tide segments. Shared by the rendered curve
+// and the hover readout so the two can never disagree.
+const interpolateTideHeight = (tideData: Tide[], minute: number): number => {
+  for (let i = 0; i < tideData.length - 1; i++) {
+    const start = tideData[i]
+    const end = tideData[i + 1]
+    let startMinutes = timeToMinutes(start.time)
+    let endMinutes = timeToMinutes(end.time)
+    if (start.type === 'prevExtreme') startMinutes -= 1440
+    if (end.type === 'nextExtreme') endMinutes += 1440
+    if (minute >= startMinutes && minute <= endMinutes) {
+      const totalMinutes = endMinutes - startMinutes
+      const progress = (minute - startMinutes) / totalMinutes
+      const t = (1 - Math.cos(progress * Math.PI)) / 2
+      return start.height * (1 - t) + end.height * t
+    }
+  }
+  return 0
+}
+
 export default function TideChart({
   data,
   astronomical,
@@ -55,7 +76,6 @@ export default function TideChart({
   const [width, setWidth] = useState(240)
   const [isClient, setIsClient] = useState(false)
   const [mousePosition, setMousePosition] = useState<number | null>(null)
-  const [currentTideValue, setCurrentTideValue] = useState<string | null>(null)
 
   // Memoize the tide-data preprocessing that is independent of width.
   // Splitting this out from the curve-point calculation lets a width
@@ -127,24 +147,7 @@ export default function TideChart({
   // ResizeObserver.
   const curveSamples = useMemo((): Array<{ minute: number; yPos: number }> => {
     return Array.from({ length: 1441 }, (_, minute) => {
-      let y = 0
-
-      for (let i = 0; i < tideData.length - 1; i++) {
-        const start = tideData[i]
-        const end = tideData[i + 1]
-        let startMinutes = timeToMinutes(start.time)
-        let endMinutes = timeToMinutes(end.time)
-        if (start.type === 'prevExtreme') startMinutes -= 1440
-        if (end.type === 'nextExtreme') endMinutes += 1440
-        if (minute >= startMinutes && minute <= endMinutes) {
-          const totalMinutes = endMinutes - startMinutes
-          const progress = (minute - startMinutes) / totalMinutes
-          const t = (1 - Math.cos(progress * Math.PI)) / 2
-          y = start.height * (1 - t) + end.height * t
-          break
-        }
-      }
-
+      const y = interpolateTideHeight(tideData, minute)
       const yPos = height - PADDING.bottom - (y - minHeight) * yScale
       return { minute, yPos }
     })
@@ -204,40 +207,22 @@ export default function TideChart({
     }
   }
 
+  // Tooltip value is fully derived from the hovered minute — no separate state.
+  const currentTideValue =
+    mousePosition === null
+      ? null
+      : formatValueWithUnit(
+          Number(interpolateTideHeight(tideData, mousePosition).toFixed(1)),
+          unit
+        )
+
   const handleMouseMove = (event: React.MouseEvent<SVGSVGElement>): void => {
     const rect = svgRef.current?.getBoundingClientRect()
     if (!rect) return
 
     const x = event.clientX - rect.left - PADDING.left
     const minutes = Math.round(x / xScale)
-
-    if (minutes < 0 || minutes > 1440) {
-      setMousePosition(null)
-      setCurrentTideValue(null)
-      return
-    }
-
-    setMousePosition(minutes)
-
-    let y = 0
-    for (let i = 0; i < tideData.length - 1; i++) {
-      const start = tideData[i]
-      const end = tideData[i + 1]
-      let startMinutes = timeToMinutes(start.time)
-      let endMinutes = timeToMinutes(end.time)
-      if (start.type === 'prevExtreme') startMinutes -= 1440
-      if (end.type === 'nextExtreme') endMinutes += 1440
-      if (minutes >= startMinutes && minutes <= endMinutes) {
-        const totalMinutes = endMinutes - startMinutes
-        const progress = (minutes - startMinutes) / totalMinutes
-        const t = (1 - Math.cos(progress * Math.PI)) / 2
-        y = start.height * (1 - t) + end.height * t
-        break
-      }
-    }
-
-    const roundedTideHeight = Number(y.toFixed(1))
-    setCurrentTideValue(formatValueWithUnit(roundedTideHeight, unit))
+    setMousePosition(minutes < 0 || minutes > 1440 ? null : minutes)
   }
 
   return (
@@ -249,10 +234,7 @@ export default function TideChart({
         viewBox={`0 0 ${width} ${height}`}
         preserveAspectRatio="xMidYMid meet"
         onMouseMove={handleMouseMove}
-        onMouseLeave={() => {
-          setMousePosition(null)
-          setCurrentTideValue(null)
-        }}
+        onMouseLeave={() => setMousePosition(null)}
         className="rounded-md bg-border"
       >
         {astronomical && (

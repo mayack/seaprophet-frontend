@@ -112,11 +112,6 @@ export type SpotsByCountry = {
   }
 }
 
-export interface SpotResponse {
-  spot: Spot | null
-  error: string | null
-}
-
 export interface SpotSummary {
   id: number
   name: string

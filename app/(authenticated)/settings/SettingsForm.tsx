@@ -1,7 +1,6 @@
 'use client'
 
 import { useRef, useState, useTransition, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -21,11 +20,11 @@ import {
   updatePassword,
   updateUserSettings,
 } from '@/api/sargo/actions/user'
+import { normalizeUserSettings } from '@/lib/userSettings'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 
 interface SettingsFormsProps {
   username: string
-  email: string
   settings: UserSettings
 }
 
@@ -35,9 +34,14 @@ const MESSAGES = {
   units: 'Units updated',
 } as const
 
-// Coalesce a burst of unit toggles into a single Sargo write. Long enough
-// to batch a "change all five" flurry, short enough to feel immediate.
-const SAVE_DELAY_MS = 600
+// Fixed id so a burst of toggles updates one toast in place instead of
+// stacking (sonner dedupes by id). Combined with the `myRequestId`
+// stale-request guard — only the latest in-flight save reaches this branch.
+const UNITS_TOAST_ID = 'units-updated'
+
+// Coalesce unit toggles into one Sargo write. Long enough to cover a slow
+// pass through all five rows (e.g. bottom → top ending on wind speed).
+const SAVE_DELAY_MS = 1000
 
 function Dots(): React.JSX.Element {
   return (
@@ -139,35 +143,31 @@ const UNIT_SETTINGS = [
 
 export function SettingsForms({
   username: initialUsername,
-  email: initialEmail,
   settings: initialSettings,
 }: SettingsFormsProps): React.JSX.Element {
-  const router = useRouter()
-  const { userData, setUserData } = useUser()
+  const normalizedInitial = normalizeUserSettings(initialSettings)
+  const { userData, updateUser } = useUser()
   const [activeFormId, setActiveFormId] = useState<string | null>(null)
   const [, startTransition] = useTransition()
   const [username, setUsername] = useState(initialUsername)
-  const [units, setUnits] = useState<UserSettings['units']>(
-    initialSettings.units
-  )
+  // Tabs render from context (single source of truth for the live UI).
+  const units = userData.settings.units
   // Authoritative working copy of settings, updated synchronously on every
   // toggle so a rapid burst of changes merges correctly. React state
   // snapshots can lag behind a flurry of clicks; a ref never does.
-  const workingSettingsRef = useRef<UserSettings>(initialSettings)
+  const workingSettingsRef = useRef<UserSettings>(normalizedInitial)
   // Last settings confirmed persisted by Sargo — the restore target if a
   // save fails.
-  const lastSavedSettingsRef = useRef<UserSettings>(initialSettings)
+  const lastSavedSettingsRef = useRef<UserSettings>(normalizedInitial)
   // Debounce timer for the coalesced Sargo write.
   const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  // Monotonically increasing id so out-of-order save failures only revert
-  // if no newer change has superseded them.
+  // Bumped on every toggle so a save that started before newer toggles
+  // cannot treat itself as authoritative when it lands.
   const unitRequestIdRef = useRef(0)
-
-  useEffect(() => {
-    return () => {
-      if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current)
-    }
-  }, [])
+  // Only one PUT in flight; further changes queue a follow-up save.
+  const saveInFlightRef = useRef(false)
+  const saveQueuedRef = useRef(false)
+  const runUnitsSaveRef = useRef<() => void>(() => {})
 
   const handleUsernameSubmit = async (formData: FormData): Promise<void> => {
     startTransition(async () => {
@@ -177,11 +177,7 @@ export function SettingsForms({
         const result = await updateUsername(formData)
         if (result.success) {
           setUsername(newUsername)
-          setUserData({
-            username: newUsername,
-            email: initialEmail,
-            settings: workingSettingsRef.current,
-          })
+          updateUser({ username: newUsername })
           toast.success(MESSAGES.username)
         } else {
           toast.error(result.error || 'Failed to update username')
@@ -210,26 +206,48 @@ export function SettingsForms({
     }
   }
 
-  // Restore the UI + context to the last settings Sargo confirmed, used
-  // when a coalesced save fails.
-  const revertUnits = (message: string): void => {
-    toast.error(message)
-    const restored = lastSavedSettingsRef.current
-    workingSettingsRef.current = restored
-    setUnits(restored.units)
-    setUserData({
-      username: userData.username,
-      email: userData.email,
-      settings: restored,
-    })
+  // Push a settings snapshot to the synchronous working copy + shared
+  // context (the live UI). The single write path for both success and revert.
+  const commitSettings = (next: UserSettings): void => {
+    workingSettingsRef.current = next
+    updateUser({ settings: next })
   }
 
-  // Persist the accumulated working settings as a single write. Runs once
-  // per debounce window, so a "change all five" burst is one PUT + one
-  // refresh instead of five racing server actions.
-  const persistUnits = (): void => {
-    const settingsToSave = workingSettingsRef.current
-    const myRequestId = ++unitRequestIdRef.current
+  // Roll the UI back to the last Sargo-confirmed settings after a failed save.
+  const revertUnits = (message: string): void => {
+    toast.error(message)
+    commitSettings(lastSavedSettingsRef.current)
+  }
+
+  const unitsEqual = (
+    a: UserSettings['units'],
+    b: UserSettings['units']
+  ): boolean =>
+    (UNIT_SETTINGS as readonly { key: keyof UserSettings['units'] }[]).every(
+      ({ key }) => a[key] === b[key]
+    )
+
+  // Persist working settings. Serialized so an older in-flight PUT cannot
+  // land after a newer one and clobber units the user already changed.
+  const runUnitsSave = (): void => {
+    if (
+      unitsEqual(
+        workingSettingsRef.current.units,
+        lastSavedSettingsRef.current.units
+      )
+    ) {
+      return
+    }
+
+    if (saveInFlightRef.current) {
+      saveQueuedRef.current = true
+      return
+    }
+
+    const myRequestId = unitRequestIdRef.current
+    saveInFlightRef.current = true
+    // Read + normalize at send time so wind (often changed last) is included.
+    const settingsToSave = normalizeUserSettings(workingSettingsRef.current)
 
     updateUserSettings(settingsToSave)
       .then((result) => {
@@ -240,14 +258,12 @@ export function SettingsForms({
           return
         }
 
-        lastSavedSettingsRef.current = settingsToSave
-        toast.success(MESSAGES.units)
-
-        // Re-run server components (e.g. an open spot page) so the
-        // forecast is refetched from Polvo with the new units — values
-        // are converted server-side, so without this the numbers and
-        // their labels would disagree until a manual reload.
-        router.refresh()
+        const persisted = normalizeUserSettings(
+          result.settings ?? settingsToSave
+        )
+        lastSavedSettingsRef.current = persisted
+        commitSettings(persisted)
+        toast.success(MESSAGES.units, { id: UNITS_TOAST_ID })
       })
       .catch((error) => {
         if (myRequestId !== unitRequestIdRef.current) return
@@ -255,7 +271,30 @@ export function SettingsForms({
           error instanceof Error ? error.message : 'Settings could not be saved'
         )
       })
+      .finally(() => {
+        saveInFlightRef.current = false
+        const stillDirty = !unitsEqual(
+          workingSettingsRef.current.units,
+          lastSavedSettingsRef.current.units
+        )
+        if (saveQueuedRef.current || stillDirty) {
+          saveQueuedRef.current = false
+          runUnitsSave()
+        }
+      })
   }
+
+  runUnitsSaveRef.current = runUnitsSave
+
+  useEffect(() => {
+    return () => {
+      if (saveTimeoutRef.current) {
+        clearTimeout(saveTimeoutRef.current)
+        saveTimeoutRef.current = null
+        runUnitsSaveRef.current()
+      }
+    }
+  }, [])
 
   const handleUnitChange = (
     unit: keyof UserSettings['units'],
@@ -264,23 +303,16 @@ export function SettingsForms({
     // Merge onto the synchronous working copy so every toggle in a burst
     // builds on the previous one instead of off a stale React snapshot —
     // that stale-base race is why bulk changes used to lose writes.
-    const newUnits = { ...workingSettingsRef.current.units, [unit]: value }
-    const newSettings = { ...workingSettingsRef.current, units: newUnits }
-    workingSettingsRef.current = newSettings
-
-    // Instant UI: local tab state + shared context for the rest of the app.
-    setUnits(newSettings.units)
-    setUserData({
-      username: userData.username,
-      email: userData.email,
-      settings: newSettings,
+    const newSettings = normalizeUserSettings({
+      ...workingSettingsRef.current,
+      units: { ...workingSettingsRef.current.units, [unit]: value },
     })
+    unitRequestIdRef.current += 1
 
-    // Coalesce the network write. One PUT to Sargo + one router.refresh()
-    // per burst; this also avoids queuing several server actions, which
-    // is what blocked navigation while a bulk change was in flight.
+    // Instant UI via shared context; coalesce the network write after.
+    commitSettings(newSettings)
     if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current)
-    saveTimeoutRef.current = setTimeout(persistUnits, SAVE_DELAY_MS)
+    saveTimeoutRef.current = setTimeout(runUnitsSave, SAVE_DELAY_MS)
   }
 
   return (

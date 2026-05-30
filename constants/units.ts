@@ -50,6 +50,13 @@ export const DEFAULT_UNITS: UserUnits = {
   temperature: 'celsius',
 }
 
+/** Fill any missing unit keys (legacy/partial Strapi JSON or stale cookies). */
+export function normalizeUserUnits(
+  units: Partial<UserUnits> | undefined | null
+): UserUnits {
+  return { ...DEFAULT_UNITS, ...units }
+}
+
 // Display symbols shown next to forecast values. Includes a couple of
 // display-only units (`seconds` for period, `kilojoules` for wave
 // energy) that are not user-configurable but share the same formatting

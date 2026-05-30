@@ -12,26 +12,39 @@ import type { LocationInfo } from '../interfaces/spot'
 import { organizeSpotsByCountry } from '../utils/organizeSpotsByCountry'
 import { GeographicBounds } from '@/types/map'
 
+// Map a raw Spot into the lightweight SpotSummary used by lists/carousels.
+// `origin` adds a distance (km) from that point when provided.
+function toSpotSummary(
+  spot: Spot,
+  origin?: { lat: number; lon: number }
+): SpotSummary {
+  const { name, location_lat, location_long, webcam } = spot.attributes
+  return {
+    id: spot.id,
+    name,
+    location: { lat: location_lat, long: location_long },
+    webcam: webcam || null,
+    ...(origin && {
+      distance: calculateDistance(
+        origin.lat,
+        origin.lon,
+        location_lat,
+        location_long
+      ),
+    }),
+  }
+}
+
 // Caching note: sargoClient.getSpot already uses
 // `fetch(..., { next: { revalidate: 3600 } })` so the Next.js Data Cache
 // handles deduping + cross-request caching automatically. We deliberately do
-// NOT wrap this in `unstable_cache` — that would double-cache and (because
-// the client returns `{ spot: null, error }` instead of throwing) would also
-// pin transient failures as "Spot not found" for the whole TTL.
+// NOT wrap this in `unstable_cache` — that would double-cache and pin
+// transient failures as "Spot not found" for the whole TTL.
 export async function getSpot(id: number): Promise<SpotActionResponse<Spot>> {
   const timestamp = new Date().toISOString()
   try {
-    const response = await sargoClient.getSpot(id, true)
+    const spot = await sargoClient.getSpot(id, true)
 
-    if (response.error || !response.spot) {
-      return {
-        data: null,
-        error: response.error || 'Spot not found',
-        meta: { timestamp, source: 'spot-detail', success: false },
-      }
-    }
-
-    const spot = response.spot
     if (spot.attributes) {
       const m = spot.attributes.municipality?.data?.attributes
       const d = m?.district?.data?.attributes
@@ -91,21 +104,9 @@ export async function getNearbySpots(
   const timestamp = new Date().toISOString()
   try {
     const response = await sargoClient.getNearbySpots(lat, lon, radiusKm, true)
-    const nearbySpots: SpotSummary[] = response.data.map((spot) => ({
-      id: spot.id,
-      name: spot.attributes.name,
-      location: {
-        lat: spot.attributes.location_lat,
-        long: spot.attributes.location_long,
-      },
-      distance: calculateDistance(
-        lat,
-        lon,
-        spot.attributes.location_lat,
-        spot.attributes.location_long
-      ),
-      webcam: spot.attributes.webcam || null,
-    }))
+    const nearbySpots = response.data.map((spot) =>
+      toSpotSummary(spot, { lat, lon })
+    )
     return {
       data: nearbySpots,
       error: null,
@@ -129,28 +130,14 @@ export async function getSpotsByBounds(
   const timestamp = new Date().toISOString()
 
   try {
-    // Calculate center of bounds for distance calculation
+    // Distance is measured from the viewport center.
     const centerLat = (bounds.north + bounds.south) / 2
     const centerLng = (bounds.east + bounds.west) / 2
 
     const response = await sargoClient.getSpotsByBounds(bounds, pageSize, true)
-
-    // Transform response to NearbySpot format
-    const nearbySpots: SpotSummary[] = response.data.map((spot) => ({
-      id: spot.id,
-      name: spot.attributes.name,
-      location: {
-        lat: spot.attributes.location_lat,
-        long: spot.attributes.location_long,
-      },
-      distance: calculateDistance(
-        centerLat,
-        centerLng,
-        spot.attributes.location_lat,
-        spot.attributes.location_long
-      ),
-      webcam: spot.attributes.webcam || null,
-    }))
+    const nearbySpots = response.data.map((spot) =>
+      toSpotSummary(spot, { lat: centerLat, lon: centerLng })
+    )
 
     return {
       data: nearbySpots,
@@ -195,17 +182,7 @@ export async function searchSpots(
   try {
     // Single backend search; server rewrites to name_normalized for accent-insensitive matching
     const response = await sargoClient.searchSpots(query, isPublic)
-    const spots: SpotSummary[] = response.data.map((spot) => ({
-      id: spot.id,
-      name: spot.attributes.name,
-      location: {
-        lat: spot.attributes.location_lat,
-        long: spot.attributes.location_long,
-      },
-      webcam: spot.attributes.webcam || null,
-    }))
-
-    // No client-side diacritics filtering needed; server handles accent-insensitive search
+    const spots = response.data.map((spot) => toSpotSummary(spot))
 
     spots.sort((a, b) =>
       a.name.localeCompare(b.name, undefined, {

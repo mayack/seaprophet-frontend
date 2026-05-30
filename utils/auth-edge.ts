@@ -6,13 +6,8 @@
 // can fail the build.
 
 import { NextRequest, NextResponse } from 'next/server'
-import { jwtDecode } from 'jwt-decode'
+import { hasJwtShape, isJwtExpired } from '@/lib/jwt'
 import { CONFIG } from '@/constants/config'
-
-interface JwtPayload {
-  exp?: number
-  [key: string]: unknown
-}
 
 /**
  * Structural validity check for the Sargo JWT.
@@ -30,38 +25,8 @@ interface JwtPayload {
  *
  * Do NOT treat a `true` return from this function as proof of identity.
  */
-export async function isTokenStructurallyValid(token: string): Promise<boolean> {
-  try {
-    if (!token || typeof token !== 'string') {
-      return false
-    }
-
-    const tokenParts = token.split('.')
-    if (tokenParts.length !== 3) {
-      return false
-    }
-
-    for (const part of tokenParts) {
-      if (!part || !/^[A-Za-z0-9_-]+$/.test(part)) {
-        return false
-      }
-    }
-
-    const decoded = jwtDecode<JwtPayload>(token)
-
-    if (!decoded || typeof decoded !== 'object') {
-      return false
-    }
-
-    const currentTime = Math.floor(Date.now() / 1000)
-    return decoded.exp !== undefined && decoded.exp > currentTime
-  } catch (error) {
-    console.error(
-      'Edge token decode error:',
-      error instanceof Error ? error.message : 'Unknown error'
-    )
-    return false
-  }
+export function isTokenStructurallyValid(token: string): boolean {
+  return hasJwtShape(token) && !isJwtExpired(token)
 }
 
 // Resolve a `/auth/signin` redirect target that works in every env we

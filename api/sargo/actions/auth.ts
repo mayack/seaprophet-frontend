@@ -5,6 +5,8 @@ import { redirect } from 'next/navigation'
 import { revalidatePath } from 'next/cache'
 import { sargoClient } from '../client'
 import { CONFIG } from '@/constants/config'
+import { normalizeUserSettings } from '@/lib/userSettings'
+import { readSargoOptions, writeSargoOptions } from '../cookies'
 import type { User, UserAuthResponse } from '../interfaces/user'
 
 export async function signIn(formData: FormData) {
@@ -38,16 +40,12 @@ export async function signIn(formData: FormData) {
       value: sargoResponse.jwt,
       ...CONFIG.api.tokens.sargo.options,
     })
-    cookieStore.set({
-      name: CONFIG.api.tokens.sargoOptions.key,
-      value: JSON.stringify({
-        id: sargoResponse.user.id,
-        username: sargoResponse.user.username,
-        email: sargoResponse.user.email,
-        settings: sargoResponse.user.settings || CONFIG.settings.default,
-        calibrationReporter: !!sargoResponse.user.calibrationReporter,
-      }),
-      ...CONFIG.api.tokens.sargoOptions.options,
+    await writeSargoOptions({
+      id: sargoResponse.user.id,
+      username: sargoResponse.user.username,
+      email: sargoResponse.user.email,
+      settings: sargoResponse.user.settings,
+      calibrationReporter: sargoResponse.user.calibrationReporter,
     })
 
     return { success: true }
@@ -118,24 +116,14 @@ export async function getCurrentUser(): Promise<User | null> {
   const jwt = cookieStore.get(CONFIG.api.tokens.sargo.key)?.value
   if (!jwt) return null
 
-  const optionsCookie = cookieStore.get(
-    CONFIG.api.tokens.sargoOptions.key
-  )?.value
-
-  if (optionsCookie) {
-    try {
-      const cached = JSON.parse(optionsCookie) as User
-      if (cached.username) {
-        return {
-          id: cached.id,
-          username: cached.username,
-          email: cached.email || '',
-          settings: cached.settings || CONFIG.settings.default,
-          calibrationReporter: !!cached.calibrationReporter,
-        }
-      }
-    } catch (parseError) {
-      console.error('Failed to parse sargoOptions cookie:', parseError)
+  const cached = await readSargoOptions()
+  if (cached?.username) {
+    return {
+      id: cached.id,
+      username: cached.username,
+      email: cached.email || '',
+      settings: normalizeUserSettings(cached.settings),
+      calibrationReporter: !!cached.calibrationReporter,
     }
   }
 
@@ -148,23 +136,12 @@ export async function getCurrentUser(): Promise<User | null> {
       id: freshUser.id,
       username: freshUser.username || '',
       email: freshUser.email || '',
-      settings: freshUser.settings || CONFIG.settings.default,
+      settings: normalizeUserSettings(freshUser.settings),
       calibrationReporter: !!freshUser.calibrationReporter,
     }
 
-    // NOTE: getCurrentUser is called from Server Components, which
-    // Next.js forbids from writing cookies. The options cookie is only
-    // written here as a best-effort — if it throws, we still return the
-    // user data so the page renders correctly.
-    try {
-      cookieStore.set({
-        name: CONFIG.api.tokens.sargoOptions.key,
-        value: JSON.stringify(userData),
-        ...CONFIG.api.tokens.sargoOptions.options,
-      })
-    } catch {
-      // Server Component context — cookie write not allowed, that's fine.
-    }
+    // Best-effort cookie refresh (no-op in Server Component render context).
+    await writeSargoOptions(userData)
 
     return userData
   } catch (error) {

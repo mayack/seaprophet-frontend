@@ -1,13 +1,13 @@
 'use client'
 
-import { useCallback, useState, useRef, useEffect } from 'react'
+import { useCallback, useState, useRef, useEffect, useMemo } from 'react'
 import { Search, SearchX, X } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { SpotCard } from '../SpotCard'
 import { searchSpots } from '@/api/sargo/actions/spot'
 import { SpotSummary } from '@/api/sargo/interfaces/spot'
-import { debounce } from '@/components/maps/utils'
+import { debounce } from '@/lib/debounce'
 import { Skeleton } from '@/components/ui/skeleton'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
@@ -157,16 +157,6 @@ export function SearchSpots({
     }
   }, [fallbackSearch])
 
-  // If the index finishes loading while the user is mid-query, re-run
-  // the search locally so they get instant results.
-  useEffect((): void => {
-    if (!spotIndex || !query.trim()) return
-    fallbackSearch.cancel()
-    setSpots(searchLocalIndex(spotIndex, query))
-    setError(null)
-    setIsLoading(false)
-  }, [spotIndex, query, fallbackSearch])
-
   useEffect((): (() => void) => {
     const handleClickOutside = (event: MouseEvent): void => {
       if (
@@ -201,10 +191,10 @@ export function SearchSpots({
       setIsOpen(true)
 
       if (spotIndex) {
-        // Hot path: synchronous local filter, no spinner needed.
+        // Hot path: results come from the synchronous `displayedSpots` memo,
+        // so we only reset transient fallback state here.
         fallbackSearch.cancel()
         fallbackRequestIdRef.current += 1
-        setSpots(searchLocalIndex(spotIndex, newQuery))
         setError(null)
         setIsLoading(false)
         return
@@ -225,8 +215,18 @@ export function SearchSpots({
     }
   }, [query])
 
+  // When the in-memory index is available we filter it synchronously; the
+  // `spots` state only holds cold-start server-action results. Deriving here
+  // (rather than writing state on every keystroke) avoids searching twice.
+  const displayedSpots = useMemo<SearchResultSpot[]>(() => {
+    if (spotIndex && query.trim()) {
+      return searchLocalIndex(spotIndex, query)
+    }
+    return spots
+  }, [spotIndex, query, spots])
+
   const showDropdown = isOpen && query.length > 0
-  const groupedSpots = groupByCountry(spots)
+  const groupedSpots = groupByCountry(displayedSpots)
   // Hide the section label when there's only one group of results without a
   // country (typical of the cold-start fallback path).
   const showGroupLabels =
@@ -278,7 +278,7 @@ export function SearchSpots({
             </div>
           )}
 
-          {!isLoading && !error && spots.length === 0 && (
+          {!isLoading && !error && displayedSpots.length === 0 && (
             <div className="flex h-12 flex-col items-center justify-center gap-px rounded-lg bg-muted text-center">
               <div className="mb-0.5 flex items-center gap-2 font-medium">
                 <SearchX className="size-4" strokeWidth="2" />
@@ -287,7 +287,7 @@ export function SearchSpots({
             </div>
           )}
 
-          {!isLoading && spots.length > 0 && (
+          {!isLoading && displayedSpots.length > 0 && (
             <div className="space-y-3">
               {groupedSpots.map((group) => (
                 <div key={group.key}>

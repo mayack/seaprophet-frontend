@@ -13,18 +13,20 @@ import {
   ReactNode,
 } from 'react'
 
+type UserWithLocation = User & { latitude?: number; longitude?: number }
+
 interface UserContextType {
-  userData: User & { latitude?: number; longitude?: number }
-  setUserData: (data: User & { latitude?: number; longitude?: number }) => void
+  userData: UserWithLocation
+  // Merge a partial update onto the current user. Always use this instead of a
+  // wholesale replace so location/id/calibrationReporter survive a settings or
+  // favorites update.
+  updateUser: (patch: Partial<UserWithLocation>) => void
   requestLocation: (
     highAccuracy?: boolean
   ) => Promise<
     | { latitude: number; longitude: number }
     | { error: 'permission' | 'unavailable' | 'timeout' | 'unsupported' }
   >
-  locationError: string | null
-  isLocating: boolean
-  lastLocationUpdate: number | null
 }
 
 interface StoredLocation {
@@ -71,19 +73,18 @@ export function UserProvider({
 }) {
   const storedLocation = getStoredLocation()
 
-  const [userData, setUserData] = useState<
-    User & { latitude?: number; longitude?: number }
-  >(() => ({
+  const [userData, setUserData] = useState<UserWithLocation>(() => ({
     ...initialUserData,
     latitude: storedLocation.latitude,
     longitude: storedLocation.longitude,
   }))
 
-  const [locationError, setLocationError] = useState<string | null>(null)
-  const [isLocating, setIsLocating] = useState(false)
-  // Synchronous mirror of `isLocating` so concurrent callers of
-  // `requestLocation` actually observe the in-flight request without
-  // waiting for a state update to flush.
+  const updateUser = useCallback((patch: Partial<UserWithLocation>) => {
+    setUserData((prev) => ({ ...prev, ...patch }))
+  }, [])
+
+  // Synchronous in-flight guard so concurrent callers of `requestLocation`
+  // observe the active request without waiting for a state flush.
   const isLocatingRef = useRef(false)
   const [lastLocationUpdate, setLastLocationUpdate] = useState<number | null>(
     storedLocation.timestamp || null
@@ -102,38 +103,29 @@ export function UserProvider({
 
   const requestLocation = useCallback(
     async (highAccuracy: boolean = false) => {
-      // Check current state values directly instead of relying on dependencies
-      const currentUserData = userData
-      const currentLastLocationUpdate = lastLocationUpdate
-
-      // Return cached location if still valid
-      if (
-        currentUserData.latitude !== undefined &&
-        currentUserData.longitude !== undefined &&
-        currentLastLocationUpdate &&
-        Date.now() - currentLastLocationUpdate < LOCATION_CACHE_MAX_AGE
-      ) {
-        return {
-          latitude: currentUserData.latitude,
-          longitude: currentUserData.longitude,
-        }
+      // Read the cache from sessionStorage (always fresh) rather than closed-over
+      // state, which would go stale since this callback is memoized at mount.
+      // getStoredLocation() already drops entries past LOCATION_CACHE_MAX_AGE.
+      const cached = getStoredLocation()
+      if (cached.latitude !== undefined && cached.longitude !== undefined) {
+        return { latitude: cached.latitude, longitude: cached.longitude }
       }
 
       if (!navigator.geolocation) {
-        setLocationError('Geolocation is not supported by this browser.')
         return { error: 'unsupported' as const }
       }
 
       // Synchronous guard against concurrent calls.
       if (isLocatingRef.current) return { error: 'unavailable' as const }
       isLocatingRef.current = true
-      setIsLocating(true)
-      setLocationError(null)
 
+      const { timeouts } = CONFIG.map.location
       try {
         const position = await new Promise<GeolocationPosition>(
           (resolve, reject) => {
-            const timeout = highAccuracy ? 15000 : 10000
+            const timeout = highAccuracy
+              ? timeouts.highAccuracy
+              : timeouts.standard
             const timeoutId = setTimeout(() => {
               reject(new Error('Location request timed out'))
             }, timeout + 2000)
@@ -149,8 +141,10 @@ export function UserProvider({
               },
               {
                 enableHighAccuracy: highAccuracy,
-                timeout: timeout,
-                maximumAge: highAccuracy ? 60000 : 300000, // 1 min vs 5 min
+                timeout,
+                maximumAge: highAccuracy
+                  ? timeouts.maxAge.highAccuracy
+                  : timeouts.maxAge.standard,
               }
             )
           }
@@ -161,34 +155,14 @@ export function UserProvider({
         setUserData((prev) => ({ ...prev, latitude, longitude }))
         storeLocation(latitude, longitude)
         isLocatingRef.current = false
-        setIsLocating(false)
 
         return { latitude, longitude }
       } catch (error) {
-        let errorMessage = 'Unknown error accessing location'
-
-        if (error instanceof GeolocationPositionError) {
-          switch (error.code) {
-            case error.PERMISSION_DENIED:
-              errorMessage =
-                'Location access denied. Please enable location services in your browser.'
-              break
-            case error.POSITION_UNAVAILABLE:
-              errorMessage =
-                'Location information is unavailable. Please check your internet connection.'
-              break
-            case error.TIMEOUT:
-              errorMessage = 'Location request timed out. Please try again.'
-              break
-          }
-        } else if (error instanceof Error) {
-          errorMessage = error.message
-        }
-
-        console.error('Location error:', errorMessage)
-        setLocationError(errorMessage)
+        console.error(
+          'Location error:',
+          error instanceof Error ? error.message : 'Unknown error'
+        )
         isLocatingRef.current = false
-        setIsLocating(false)
 
         if (error instanceof GeolocationPositionError) {
           switch (error.code) {
@@ -229,13 +203,10 @@ export function UserProvider({
   const contextValue = useMemo<UserContextType>(
     () => ({
       userData,
-      setUserData,
+      updateUser,
       requestLocation,
-      locationError,
-      isLocating,
-      lastLocationUpdate,
     }),
-    [userData, requestLocation, locationError, isLocating, lastLocationUpdate]
+    [userData, updateUser, requestLocation]
   )
 
   return (

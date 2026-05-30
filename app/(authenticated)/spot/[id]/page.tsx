@@ -4,7 +4,7 @@ import { getForecast } from '@/api/polvo/actions/forecast'
 import { getSpot, getNearbySpots } from '@/api/sargo/actions/spot'
 import { SpotsDetails } from '@/components/spot/SpotsDetails'
 import { SpotsDetailsMeta } from '@/components/spot/SpotsDetails/Meta'
-import { Forecast } from '@/components/forecast/Forecast'
+import { ForecastContainer } from '@/components/forecast/ForecastContainer'
 import { SpotsNearby } from '@/components/spot/SpotsNearby'
 import { getCurrentUser } from '@/api/sargo/actions/auth'
 import { calculateDistance } from '@/utils/location'
@@ -13,10 +13,11 @@ import { notFound, redirect } from 'next/navigation'
 import React, { Suspense, cache } from 'react'
 import type { Metadata } from 'next'
 import { ReloadButton } from '@/components/common/ReloadButton'
-import { CONFIG } from '@/constants/config'
 import { Spinner } from '@/components/ui/spinner'
 import { User } from '@/api/sargo/interfaces/user'
 import { ForecastParams } from '@/api/polvo/interfaces/forecast'
+import { applyUnitsToForecastParams } from '@/lib/forecastParams'
+import { normalizeUserSettings } from '@/lib/userSettings'
 import { CalibrationToolbar } from '@/components/calibration/CalibrationToolbar'
 
 interface SpotPageProps {
@@ -61,8 +62,7 @@ function buildForecastParams(
   spotId: number,
   user: User
 ): ForecastParams {
-  const units = user.settings?.units || CONFIG.settings.default.units
-  return {
+  const base: ForecastParams = {
     lat: spot.location_lat,
     lon: spot.location_long,
     spotId,
@@ -71,17 +71,15 @@ function buildForecastParams(
     orientationTo: spot.beach_orientation_to,
     waveFactor: spot.wave_factor,
     adjustmentFactor: spot.adjustment_factor,
-    windUnits: units.wind_speed,
-    swellUnits: units.swell_height,
-    tideUnits: units.tide_height,
-    tempUnits: units.temperature,
-    surfUnits: units.surf_height,
   }
+  return applyUnitsToForecastParams(
+    base,
+    normalizeUserSettings(user.settings).units
+  )
 }
 
 interface SectionProps {
   forecastParams: ForecastParams
-  user: User
 }
 
 async function SpotMetaSection({
@@ -100,7 +98,6 @@ async function SpotMetaSection({
 
 async function SpotForecastSection({
   forecastParams,
-  user,
 }: SectionProps): Promise<React.JSX.Element> {
   const res = await loadForecast(forecastParams)
   if (!res.data) {
@@ -113,7 +110,12 @@ async function SpotForecastSection({
       </div>
     )
   }
-  return <Forecast days={res.data.days} user={user} />
+  return (
+    <ForecastContainer
+      initialDays={res.data.days}
+      forecastParams={forecastParams}
+    />
+  )
 }
 
 function ForecastFallback(): React.JSX.Element {
@@ -210,7 +212,7 @@ export default async function SpotPage({
               locationPath={spot.locationInfo}
             />
             <Suspense fallback={null}>
-              <SpotMetaSection forecastParams={forecastParams} user={user} />
+              <SpotMetaSection forecastParams={forecastParams} />
             </Suspense>
           </div>
           <SpotsNearby
@@ -220,7 +222,7 @@ export default async function SpotPage({
           />
         </div>
         <Suspense fallback={<ForecastFallback />}>
-          <SpotForecastSection forecastParams={forecastParams} user={user} />
+          <SpotForecastSection forecastParams={forecastParams} />
         </Suspense>
         {showCalibrationToolbar ? (
           <Suspense fallback={null}>

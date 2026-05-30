@@ -5,6 +5,8 @@ import { revalidatePath } from 'next/cache'
 import { sargoClient } from '../client'
 import { CONFIG } from '@/constants/config'
 import type { UserSettings } from '../interfaces/user'
+import { normalizeUserSettings } from '@/lib/userSettings'
+import { readSargoOptions, mergeSargoOptions } from '../cookies'
 
 // FormData.get returns `FormDataEntryValue | null`, which can be a `File`
 // (e.g. if the form was tampered with). Always validate to `string` before
@@ -22,38 +24,19 @@ export async function updateUsername(formData: FormData) {
       return { success: false, error: 'Username is required' }
     }
 
-    const updatedUser = await sargoClient.updateUserProfile({
-      username: username.trim(),
+    return await withUserLock(async () => {
+      const updatedUser = await sargoClient.updateUserProfile({
+        username: username.trim(),
+      })
+
+      await mergeSargoOptions({ username: updatedUser.username })
+      revalidatePath('/settings')
+      return { success: true as const, user: updatedUser }
     })
-
-    // Update cached user options
-    const cookieStore = await cookies()
-    const existingOptionsStr = cookieStore.get(
-      CONFIG.api.tokens.sargoOptions.key
-    )?.value
-
-    if (existingOptionsStr) {
-      try {
-        const existingOptions = JSON.parse(existingOptionsStr)
-        cookieStore.set({
-          name: CONFIG.api.tokens.sargoOptions.key,
-          value: JSON.stringify({
-            ...existingOptions,
-            username: updatedUser.username,
-          }),
-          ...CONFIG.api.tokens.sargoOptions.options,
-        })
-      } catch (error) {
-        console.error('Failed to update cached username:', error)
-      }
-    }
-
-    revalidatePath('/settings')
-    return { success: true, user: updatedUser }
   } catch (error) {
     console.error('Failed to update username:', error)
     return {
-      success: false,
+      success: false as const,
       error:
         error instanceof Error ? error.message : 'Failed to update username',
     }
@@ -97,15 +80,11 @@ export async function updatePassword(formData: FormData) {
       })
 
       if (response.user?.username) {
-        cookieStore.set({
-          name: CONFIG.api.tokens.sargoOptions.key,
-          value: JSON.stringify({
-            id: response.user.id,
-            username: response.user.username,
-            email: response.user.email,
-            settings: response.user.settings || CONFIG.settings.default,
-          }),
-          ...CONFIG.api.tokens.sargoOptions.options,
+        await mergeSargoOptions({
+          id: response.user.id,
+          username: response.user.username,
+          email: response.user.email,
+          settings: response.user.settings,
         })
       }
     }
@@ -128,174 +107,125 @@ export async function updatePassword(formData: FormData) {
 // existing settings before calling this.
 export async function updateUserSettings(settings: UserSettings) {
   try {
-    const updatedUser = await sargoClient.updateUserProfile({
-      settings,
-    })
+    const normalized = normalizeUserSettings(settings)
 
-    if (!updatedUser || !updatedUser.username) {
-      console.error(
-        'updateUserSettings: API returned incomplete user data',
-        updatedUser
-      )
-      return {
-        success: false,
-        error: 'Incomplete user data from server',
+    return await withUserLock(async () => {
+      const updatedUser = await sargoClient.updateUserProfile({
+        settings: normalized,
+      })
+
+      if (!updatedUser || !updatedUser.username) {
+        console.error(
+          'updateUserSettings: API returned incomplete user data',
+          updatedUser
+        )
+        return {
+          success: false as const,
+          error: 'Incomplete user data from server',
+        }
       }
-    }
 
-    // Update the options cookie so the next page load reads fresh data
-    // without hitting Sargo.  Include `id` so getCurrentUser() can build
-    // a complete User from the cookie alone.
-    const cookieStore = await cookies()
-    cookieStore.set({
-      name: CONFIG.api.tokens.sargoOptions.key,
-      value: JSON.stringify({
+      const persistedSettings = normalizeUserSettings(
+        updatedUser.settings || normalized
+      )
+      // Refresh the cookie so the next render reads new units without hitting
+      // Sargo. Merge keeps fields this action doesn't own (calibrationReporter).
+      await mergeSargoOptions({
         id: updatedUser.id,
         username: updatedUser.username,
         email: updatedUser.email,
-        settings: updatedUser.settings || settings,
-      }),
-      ...CONFIG.api.tokens.sargoOptions.options,
-    })
+        settings: persistedSettings,
+      })
 
-    // No revalidatePath here — the client already updates optimistically via
-    // useOptimistic + setUserData.  revalidatePath('/settings') would trigger
-    // a redundant server re-render + another Sargo getCurrentUser() call.
-    return {
-      success: true,
-      settings: updatedUser.settings || settings,
-      user: updatedUser,
-    }
+      return {
+        success: true as const,
+        settings: persistedSettings,
+        user: updatedUser,
+      }
+    })
   } catch (error) {
     console.error('Failed to update user settings:', error)
     return {
-      success: false,
+      success: false as const,
       error:
         error instanceof Error ? error.message : 'Failed to update settings',
     }
   }
 }
 
-// Per-user serialization for the read-modify-write favourites flow.
+// Per-user serialization for read-modify-write settings mutations.
 //
-// Sargo doesn't expose atomic add/remove-favorite endpoints — the only way
-// to mutate favorites is `PUT /api/user/me` with the full settings.favorites
-// array. Two concurrent toggles can therefore both read the same baseline
-// and the second write clobbers the first.
+// Sargo only mutates the user via `PUT /api/user/me` with the full settings
+// object (no atomic favorite/username/unit endpoints). Two concurrent writes
+// can both read the same baseline and the second clobbers the first.
 //
-// Within a single Next.js server instance this map serializes toggles for a
-// given user so the second toggle awaits the first's resolution before
-// reading the current value. Multi-instance deployments still race, but
-// that requires a backend-side fix (add a dedicated endpoint, or use
-// optimistic concurrency on the settings field) — see M6 in the bug log.
-const toggleFavoriteLocks = new Map<string, Promise<unknown>>()
+// Within a single Next.js server instance this map serializes a user's writes
+// so the second awaits the first before reading current state. Multi-instance
+// deployments still race — that needs a backend fix (dedicated endpoint or
+// optimistic concurrency on the settings field). See M6 in the bug log.
+const userMutationLocks = new Map<string, Promise<unknown>>()
 
 async function runWithUserLock<T>(
   userKey: string,
   fn: () => Promise<T>
 ): Promise<T> {
-  const prev = toggleFavoriteLocks.get(userKey) ?? Promise.resolve()
+  const prev = userMutationLocks.get(userKey) ?? Promise.resolve()
   // Chain on prev's settled state (success OR failure) so a thrown error
   // doesn't deadlock subsequent calls.
   const next = prev.then(
     () => fn(),
     () => fn()
   )
-  toggleFavoriteLocks.set(userKey, next)
+  userMutationLocks.set(userKey, next)
   try {
     return await next
   } finally {
     // Only clear if no later caller has chained on top of us, otherwise
     // we'd drop the serialization order.
-    if (toggleFavoriteLocks.get(userKey) === next) {
-      toggleFavoriteLocks.delete(userKey)
+    if (userMutationLocks.get(userKey) === next) {
+      userMutationLocks.delete(userKey)
     }
   }
 }
 
+// Serialize on the JWT cookie: stable per session, no extra round-trip.
+async function withUserLock<T>(fn: () => Promise<T>): Promise<T> {
+  const cookieStore = await cookies()
+  const lockKey =
+    cookieStore.get(CONFIG.api.tokens.sargo.key)?.value ?? 'anonymous'
+  return runWithUserLock(lockKey, fn)
+}
+
 export async function toggleFavorite(spotId: number) {
   try {
-    const cookieStore = await cookies()
-    // Use the JWT cookie value as the per-user serialization key. It is
-    // stable per session and avoids needing the user id up front (which
-    // would require an extra round-trip and defeat the cookie fast path).
-    const lockKey =
-      cookieStore.get(CONFIG.api.tokens.sargo.key)?.value ?? 'anonymous'
-
-    return await runWithUserLock(lockKey, async () => {
-      // Re-read cookies inside the lock so a previous concurrent toggle's
-      // refreshed sargoOptions cookie is visible to this iteration.
-      const cookieStore = await cookies()
-
-      // First, try to read from cookie cache (most up-to-date)
-      let user: {
-        username: string
-        email: string
-        settings: UserSettings
-      } | null = null
-      const optionsCookie = cookieStore.get(
-        CONFIG.api.tokens.sargoOptions.key
-      )?.value
-
-      if (optionsCookie) {
-        try {
-          const cachedUser = JSON.parse(optionsCookie) as {
-            username: string
-            email: string
-            settings: UserSettings
-          }
-          user = cachedUser
-        } catch (error) {
-          console.error('Failed to parse sargoOptions cookie:', error)
-        }
-      }
-
-      // Fall back to API if cookie doesn't exist or is invalid
-      if (!user) {
+    return await withUserLock(async () => {
+      // Read the cached snapshot inside the lock so a prior concurrent toggle's
+      // cookie write is visible; fall back to the API if it's missing/corrupt.
+      const cached = await readSargoOptions()
+      let user = cached
+      if (!user?.username) {
         const apiUser = await sargoClient.getCurrentUser()
         if (!apiUser) throw new Error('User not found')
-        user = {
-          username: apiUser.username,
-          email: apiUser.email,
-          settings: apiUser.settings || CONFIG.settings.default,
-        }
+        user = apiUser
       }
 
-      // Ensure we have a proper favorites array
-      // Handle cases where favorites might be undefined, null, or not an array
-      let currentFavorites: number[] = []
-      if (user.settings.favorites) {
-        if (Array.isArray(user.settings.favorites)) {
-          // Ensure all items are numbers
-          currentFavorites = user.settings.favorites
-            .map((id) => Number(id))
-            .filter((id) => !isNaN(id))
-        }
-      }
-
+      const settings = normalizeUserSettings(user.settings)
+      const currentFavorites = settings.favorites ?? []
       const isFavorite = currentFavorites.includes(spotId)
-
-      // Create updated favorites array
-      const updatedFavorites = isFavorite
-        ? currentFavorites.filter((id) => id !== spotId)
-        : [...currentFavorites, spotId]
-
-      // Remove duplicates just in case
-      const uniqueFavorites = Array.from(new Set(updatedFavorites))
-
-      // Ensure we preserve all existing settings
-      const updatedSettings: UserSettings = {
-        ...user.settings,
-        favorites: uniqueFavorites,
-      }
+      const uniqueFavorites = Array.from(
+        new Set(
+          isFavorite
+            ? currentFavorites.filter((id) => id !== spotId)
+            : [...currentFavorites, spotId]
+        )
+      )
 
       const updatedUser = await sargoClient.updateUserProfile({
-        settings: updatedSettings,
+        settings: { ...settings, favorites: uniqueFavorites },
       })
 
-      // If the API came back without the fields we need, surface that as a
-      // failure rather than fabricating a fake user from local state — callers
-      // were treating `success: true` as a guarantee the server agreed.
+      // Treat a thin API response as failure rather than fabricating a user
+      // from local state — callers read `success: true` as server agreement.
       if (!updatedUser || !updatedUser.username) {
         console.error(
           'toggleFavorite: API returned incomplete user data',
@@ -307,26 +237,15 @@ export async function toggleFavorite(spotId: number) {
         }
       }
 
-      // Use the API response as the source of truth, falling back to the
-      // locally-computed settings only when the response is missing them.
-      const finalSettings = updatedUser.settings || updatedSettings
-      const finalUser = {
-        ...updatedUser,
-        settings: {
-          ...finalSettings,
-          favorites: uniqueFavorites,
-        },
-      }
-
-      cookieStore.set({
-        name: CONFIG.api.tokens.sargoOptions.key,
-        value: JSON.stringify({
-          id: finalUser.id,
-          username: finalUser.username,
-          email: finalUser.email,
-          settings: finalUser.settings,
-        }),
-        ...CONFIG.api.tokens.sargoOptions.options,
+      const finalSettings = normalizeUserSettings({
+        ...(updatedUser.settings || settings),
+        favorites: uniqueFavorites,
+      })
+      await mergeSargoOptions({
+        id: updatedUser.id,
+        username: updatedUser.username,
+        email: updatedUser.email,
+        settings: finalSettings,
       })
 
       revalidatePath('/')
@@ -334,7 +253,7 @@ export async function toggleFavorite(spotId: number) {
         success: true as const,
         isFavorite: !isFavorite,
         favorites: uniqueFavorites,
-        user: finalUser,
+        user: { ...updatedUser, settings: finalSettings },
       }
     })
   } catch (error) {

@@ -2,134 +2,59 @@
 
 import { CONFIG } from '@/constants/config'
 import { polvoClient } from '@/api/polvo/client'
-import { jwtDecode } from 'jwt-decode'
+import { isJwtExpired } from '@/lib/jwt'
 
-interface TokenPayload {
-  exp?: number
-  iat?: number
-  [key: string]: unknown
-}
-
-// In-memory cache for the current server session
+// In-memory cache for the current server instance.
 let tokenCache: { token: string; timestamp: number } | null = null
+// In-flight fetch shared across concurrent callers to avoid a thundering herd.
+let pending: Promise<string | null> | null = null
 
-// Convert seconds to milliseconds for comparison
-const TOKEN_CACHE_DURATION = CONFIG.api.tokens.polvo.cacheDuration * 1000 // 15 minutes in ms
+const TOKEN_CACHE_DURATION = CONFIG.api.tokens.polvo.cacheDuration * 1000
 
-// Debug function to inspect tokens
-async function debugToken(token: string, context: string) {
-  try {
-    const decoded = jwtDecode<TokenPayload>(token)
-    const now = Math.floor(Date.now() / 1000)
-    const isExpired = decoded.exp ? decoded.exp < now : false
-    const timeToExpiry = decoded.exp ? decoded.exp - now : 0
-
-    return { isExpired, timeToExpiry }
-  } catch (error) {
-    return { isExpired: true, timeToExpiry: 0 }
+async function obtainToken(bypassCache: boolean): Promise<string | null> {
+  // Honor both the time-based cache window AND the token's own expiry — a JWT
+  // can expire inside the cache window, which previously slipped through.
+  if (
+    !bypassCache &&
+    tokenCache &&
+    Date.now() - tokenCache.timestamp < TOKEN_CACHE_DURATION &&
+    !isJwtExpired(tokenCache.token)
+  ) {
+    return tokenCache.token
   }
+
+  if (pending) return pending
+
+  pending = (async () => {
+    try {
+      const token = await polvoClient.getAuthToken()
+      if (!token || isJwtExpired(token)) {
+        tokenCache = null
+        return null
+      }
+      tokenCache = { token, timestamp: Date.now() }
+      return token
+    } catch {
+      return null
+    } finally {
+      pending = null
+    }
+  })()
+
+  return pending
 }
 
+/** Cached Polvo token, refetched when stale or expired. */
 export async function getPolvoToken(): Promise<string | null> {
-  try {
-    // Check in-memory cache first
-    if (
-      tokenCache &&
-      Date.now() - tokenCache.timestamp < TOKEN_CACHE_DURATION
-    ) {
-      await debugToken(tokenCache.token, 'CACHED')
-      return tokenCache.token
-    }
-
-    // If no cached token or expired, fetch a new one
-    const newToken = await polvoClient.getAuthToken()
-
-    if (newToken) {
-      // Debug the fresh token
-      const debugResult = await debugToken(newToken, 'FRESH')
-
-      if (debugResult.isExpired) {
-        return null
-      }
-
-      // Cache in memory
-      tokenCache = { token: newToken, timestamp: Date.now() }
-      return newToken
-    }
-
-    return null
-  } catch (error) {
-    return null
-  }
+  return obtainToken(false)
 }
 
-// Simple fetch function that caches the result
+/** Force a fresh token (used after an auth failure). */
 export async function fetchPolvoToken(): Promise<string | null> {
-  try {
-    const newToken = await polvoClient.getAuthToken()
-
-    if (newToken) {
-      const debugResult = await debugToken(newToken, 'RETRY_FRESH')
-
-      if (debugResult.isExpired) {
-        return null
-      }
-
-      // Cache the new token
-      tokenCache = { token: newToken, timestamp: Date.now() }
-      return newToken
-    }
-
-    return null
-  } catch (error) {
-    return null
-  }
+  return obtainToken(true)
 }
 
-// Clear the token cache (for when tokens expire)
-export async function clearPolvoTokenCache() {
+/** Clear the cache so the next request fetches a fresh token. */
+export async function clearPolvoTokenCache(): Promise<void> {
   tokenCache = null
-}
-
-// Server action for manual refresh (mainly for debugging/admin purposes)
-export async function refreshPolvoTokenAction() {
-  try {
-    // Clear existing cache first
-    await clearPolvoTokenCache()
-
-    // Fetch new token (which will cache it)
-    const newToken = await fetchPolvoToken()
-
-    if (!newToken) {
-      return {
-        success: false,
-        error: 'Failed to refresh Polvo token: Empty token',
-      }
-    }
-
-    return { success: true, token: newToken }
-  } catch (error) {
-    return {
-      success: false,
-      error:
-        'Failed to refresh Polvo token: ' +
-        (error instanceof Error ? error.message : 'Unknown error'),
-    }
-  }
-}
-
-// Utility function to check cache status (for debugging)
-export async function getPolvoTokenCacheStatus() {
-  if (!tokenCache) {
-    return { cached: false, age: 0, timeRemaining: 0 }
-  }
-
-  const age = Date.now() - tokenCache.timestamp
-  const timeRemaining = TOKEN_CACHE_DURATION - age
-
-  return {
-    cached: timeRemaining > 0,
-    age: Math.floor(age / 1000), // in seconds
-    timeRemaining: Math.floor(Math.max(0, timeRemaining) / 1000), // in seconds
-  }
 }

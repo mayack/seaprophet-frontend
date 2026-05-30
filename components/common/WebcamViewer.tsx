@@ -30,6 +30,7 @@ export function WebcamViewer({ config }: WebcamViewerProps): React.JSX.Element {
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [isAfk, setIsAfk] = useState(false)
+  const [isFullscreen, setIsFullscreen] = useState(false)
 
   const videoRef = useRef<HTMLVideoElement>(null)
   const hlsRef = useRef<Hls | null>(null)
@@ -270,6 +271,22 @@ export function WebcamViewer({ config }: WebcamViewerProps): React.JSX.Element {
     initStream()
   }, [initStream])
 
+  // Keep the icon in sync with the actual fullscreen state, including exits
+  // triggered outside our button (ESC, browser chrome, iOS native controls).
+  useEffect(() => {
+    const doc = document as Document & { webkitFullscreenElement?: Element }
+    const sync = (): void =>
+      setIsFullscreen(!!(doc.fullscreenElement || doc.webkitFullscreenElement))
+
+    sync()
+    document.addEventListener('fullscreenchange', sync)
+    document.addEventListener('webkitfullscreenchange', sync)
+    return (): void => {
+      document.removeEventListener('fullscreenchange', sync)
+      document.removeEventListener('webkitfullscreenchange', sync)
+    }
+  }, [])
+
   const toggleFullscreen = useCallback(() => {
     const video = videoRef.current
     if (!video) return
@@ -374,7 +391,7 @@ export function WebcamViewer({ config }: WebcamViewerProps): React.JSX.Element {
                 variant="overlay"
                 className="absolute bottom-4 right-4"
               >
-                {document.fullscreenElement ? <Shrink /> : <Expand />}
+                {isFullscreen ? <Shrink /> : <Expand />}
               </Button>
             </TooltipTrigger>
             <TooltipContent side="left" sideOffset={10}>

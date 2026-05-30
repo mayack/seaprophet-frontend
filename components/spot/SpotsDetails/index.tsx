@@ -47,7 +47,7 @@ export function SpotsDetails({
   spotId,
   locationPath,
 }: SpotsDetailsProps): React.JSX.Element {
-  const { userData, setUserData } = useUser()
+  const { userData, updateUser } = useUser()
   const router = useRouter()
   const [isToggling, setIsToggling] = useState(false)
 
@@ -64,7 +64,7 @@ export function SpotsDetails({
       // `success` alone so the `else` branch correctly sees the error
       // shape. `user` is always populated on success.
       if (result.success) {
-        setUserData(result.user)
+        updateUser({ settings: result.user.settings })
         router.refresh()
 
         // Show toast notification

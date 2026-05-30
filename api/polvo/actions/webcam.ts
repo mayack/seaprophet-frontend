@@ -2,7 +2,7 @@
 
 import { getErrorMessage } from '@/utils/error'
 import { polvoClient } from '../client'
-import { getPolvoToken, clearPolvoTokenCache, fetchPolvoToken } from './auth'
+import { withPolvoAuth } from './withPolvoAuth'
 
 export interface WebcamExtractionParams {
   websiteUrl: string
@@ -28,67 +28,20 @@ export async function extractWebcamUrl(
   const timestamp = new Date().toISOString()
 
   try {
-    const token = await getPolvoToken()
-
-    if (!token) {
-      return {
-        data: null,
-        error: 'Authentication token not available',
-        meta: { timestamp, source: 'polvo', success: false },
-      }
-    }
-
-    // Try webcam extraction request
-    try {
-      const m3u8Url = await polvoClient.getWebcamUrl(
+    const m3u8Url = await withPolvoAuth((token) =>
+      polvoClient.getWebcamUrl(
         params.websiteUrl,
         token,
         params.containerId,
         params.autoPlay,
         params.cacheExpiration
       )
+    )
 
-      return {
-        data: { m3u8Url },
-        error: null,
-        meta: { timestamp, source: 'polvo', success: true },
-      }
-    } catch (error) {
-      // If auth error, try once with fresh token
-      if (error instanceof Error && error.name === 'auth') {
-        await clearPolvoTokenCache()
-        const freshToken = await fetchPolvoToken()
-
-        if (freshToken) {
-          try {
-            const m3u8Url = await polvoClient.getWebcamUrl(
-              params.websiteUrl,
-              freshToken,
-              params.containerId,
-              params.autoPlay,
-              params.cacheExpiration
-            )
-
-            return {
-              data: { m3u8Url },
-              error: null,
-              meta: { timestamp, source: 'polvo', success: true },
-            }
-          } catch (retryError) {
-            return {
-              data: null,
-              error: `Webcam extraction failed: ${getErrorMessage(retryError)}`,
-              meta: { timestamp, source: 'polvo', success: false },
-            }
-          }
-        }
-      }
-
-      return {
-        data: null,
-        error: getErrorMessage(error),
-        meta: { timestamp, source: 'polvo', success: false },
-      }
+    return {
+      data: { m3u8Url },
+      error: null,
+      meta: { timestamp, source: 'polvo', success: true },
     }
   } catch (error) {
     return {

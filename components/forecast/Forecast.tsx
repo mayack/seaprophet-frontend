@@ -2,24 +2,22 @@
 import { useState, useRef, useEffect } from 'react'
 import { ForecastDay } from '@/api/polvo/interfaces/forecast'
 import { ForecastItem } from './ForecastItem'
-import { User } from '@/api/sargo/interfaces/user'
+import { useUser } from '@/contexts/UserContext'
 import React from 'react'
 import { CONFIG } from '@/constants/config'
 import { TooltipProvider } from '@/components/ui/tooltip'
 
 interface ForecastProps {
   days: ForecastDay[]
-  user: User
 }
 
 const INITIAL_VISIBLE_DAYS = CONFIG.forecast.initialVisibleDays
 
-export function Forecast({ days, user }: ForecastProps): React.JSX.Element {
+export function Forecast({ days }: ForecastProps): React.JSX.Element {
   const [visibleDays, setVisibleDays] = useState<number>(INITIAL_VISIBLE_DAYS)
   const loadMoreRef = useRef<HTMLDivElement>(null)
-
-  // Safely get units with fallback to defaults
-  const units = user.settings?.units || CONFIG.settings.default.units
+  const { userData } = useUser()
+  const units = userData.settings.units
 
   // Reset the visible-page count whenever the underlying days set changes
   // (e.g. user switches date range) so we don't carry over a stale scroll

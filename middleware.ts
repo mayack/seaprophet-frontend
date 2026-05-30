@@ -51,7 +51,7 @@ export async function middleware(request: NextRequest): Promise<NextResponse> {
     // Structural / expiry-only check; signature is NOT verified here
     // because we don't have JWT_SECRET at the edge. The real auth gate
     // is the /users/me call in server components / actions.
-    const isValid = await isTokenStructurallyValid(sargoToken)
+    const isValid = isTokenStructurallyValid(sargoToken)
 
     if (!isValid) {
       return clearTokensAndRedirect(request)

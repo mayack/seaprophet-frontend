@@ -27,7 +27,6 @@ export const CONFIG = {
       sargo: {
         auth: {
           login: '/api/auth/local',
-          register: '/api/auth/local/register',
           changePassword: '/api/auth/change-password',
         },
         user: {
@@ -86,17 +85,8 @@ export const CONFIG = {
       geolocation: {
         token: 'USER_LOCATION',
         maxAge: 5 * 60 * 1000, // 5 minutes in milliseconds
-        spots_cache_key: 'USER_LOCATION_SPOTS',
-        map_state_key: 'USER_MAP_STATE',
-      },
-      navigator: {
-        token: 'USER_NAVIGATOR',
-        maxAge: 5 * 60 * 1000, // 5 minutes in milliseconds
       },
     },
-  },
-  auth: {
-    maxRetries: 3,
   },
   settings: {
     // Unit defaults live in the units single-source module

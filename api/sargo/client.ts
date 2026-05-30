@@ -2,16 +2,16 @@ import { BaseApiClient } from '@/lib/baseApiClient'
 import { CONFIG } from '@/constants/config'
 import { createError } from '@/utils/error'
 import { cookies } from 'next/headers'
-import {
-  User,
-  UserAuthResponse,
-  UserSettings,
-  UserUnits,
-} from './interfaces/user'
-import { Spot, SpotResponse } from './interfaces/spot'
+import { User, UserAuthResponse, UserSettings } from './interfaces/user'
+import { Spot } from './interfaces/spot'
 import type { SubmitCalibrationObservationInput } from './interfaces/calibration'
 import { GeographicBounds } from '@/types/map'
 import { KM_PER_LAT_DEGREE } from '@/utils/location'
+
+// Strapi populate chain for the full municipality → country location tree.
+// Shared so the spot-detail, by-country, and by-id queries can't drift.
+const POPULATE_FULL_LOCATION =
+  'populate[municipality][populate][district][populate][region][populate][country]'
 
 export class SargoClient extends BaseApiClient {
   constructor() {
@@ -60,26 +60,6 @@ export class SargoClient extends BaseApiClient {
         headers,
         body: JSON.stringify({ identifier, password }),
         cache: 'no-store', // No caching for login
-      },
-    })
-  }
-
-  async register(
-    username: string,
-    email: string,
-    password: string
-  ): Promise<UserAuthResponse> {
-    const headers: HeadersInit = {
-      'Content-Type': 'application/json',
-      Accept: 'application/json',
-    }
-
-    return this.fetch(CONFIG.api.endpoints.sargo.auth.register, {
-      init: {
-        method: 'POST',
-        headers,
-        body: JSON.stringify({ username, email, password }),
-        cache: 'no-store', // No caching for registration
       },
     })
   }
@@ -153,40 +133,31 @@ export class SargoClient extends BaseApiClient {
   }
 
   // Spot Endpoints (Longer Caching)
-  async getSpot(id: number, isPublic = true): Promise<SpotResponse> {
-    try {
-      const queryParams = new URLSearchParams({
-        'populate[municipality][populate][district][populate][region][populate][country]':
-          'true',
-        'populate[webcam]': 'true',
-      }).toString()
+  //
+  // Throws on failure (via BaseApiClient) like every other method, so callers
+  // get a consistent error contract — the action layer maps it to a response.
+  async getSpot(id: number, isPublic = true): Promise<Spot> {
+    const queryParams = new URLSearchParams({
+      [POPULATE_FULL_LOCATION]: 'true',
+      'populate[webcam]': 'true',
+    }).toString()
 
-      const configured = CONFIG.api.endpoints.sargo.spots.detail(id)
-      const base = configured.split('?')[0]
-      const endpoint = `${base}?${queryParams}`
-      const headers = await this.getHeaders(endpoint, isPublic)
+    const base = CONFIG.api.endpoints.sargo.spots.detail(id).split('?')[0]
+    const endpoint = `${base}?${queryParams}`
+    const headers = await this.getHeaders(endpoint, isPublic)
 
-      const response = await this.fetch<{ data: Spot }>(endpoint, {
-        init: {
-          headers,
-          next: {
-            revalidate: 3600,
-          },
-        },
-      })
-      return { spot: response.data, error: null }
-    } catch (error) {
-      return {
-        spot: null,
-        error: error instanceof Error ? error.message : 'Failed to fetch spot',
-      }
-    }
+    const response = await this.fetch<{ data: Spot }>(endpoint, {
+      init: {
+        headers,
+        next: { revalidate: 3600 },
+      },
+    })
+    return response.data
   }
 
   async getSpotsByCountry(isPublic = true): Promise<{ data: Spot[] }> {
     const queryParams = new URLSearchParams({
-      'populate[municipality][populate][district][populate][region][populate][country]':
-        'true',
+      [POPULATE_FULL_LOCATION]: 'true',
       'populate[webcam]': 'true',
       'fields[0]': 'name',
       'fields[1]': 'location_lat',
@@ -371,8 +342,7 @@ export class SargoClient extends BaseApiClient {
 
     // Build query params with Strapi's $in filter syntax
     const queryParams = new URLSearchParams({
-      'populate[municipality][populate][district][populate][region][populate][country]':
-        'true',
+      [POPULATE_FULL_LOCATION]: 'true',
       'populate[webcam]': 'true',
       'fields[0]': 'name',
       'fields[1]': 'location_lat',
