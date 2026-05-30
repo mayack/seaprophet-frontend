@@ -39,9 +39,6 @@ export function WebcamViewer({ config }: WebcamViewerProps): React.JSX.Element {
   // iOS native fullscreen (webkitEnterFullscreen) doesn't update
   // document.fullscreenElement, so track it separately for the toggle + icon.
   const isNativeFullscreenRef = useRef(false)
-  // Lets the fullscreen effect call the latest initStream without
-  // re-subscribing its listeners on every render.
-  const initStreamRef = useRef<() => void>(() => {})
   // Mirror `isAfk` into a ref so callbacks captured by the effect (e.g.
   // `isStale`) always see the latest value instead of the stale closure
   // value from when the effect first ran.
@@ -277,12 +274,6 @@ export function WebcamViewer({ config }: WebcamViewerProps): React.JSX.Element {
     initStream()
   }, [initStream])
 
-  // Keep the ref pointed at the latest initStream so the fullscreen effect
-  // (which subscribes once) always calls the current implementation.
-  useEffect(() => {
-    initStreamRef.current = initStream
-  }, [initStream])
-
   const toggleFullscreen = useCallback(() => {
     const video = videoRef.current
     if (!video) return
@@ -304,10 +295,12 @@ export function WebcamViewer({ config }: WebcamViewerProps): React.JSX.Element {
     }
   }, [])
 
-  // Sync the fullscreen icon and recover playback on exit. iOS uses native
-  // video fullscreen (webkitbegin/endfullscreen) and reliably pauses — and
-  // sometimes drops — the stream when it closes, so we reload it outright
-  // rather than guess whether it's still playing.
+  // Sync the fullscreen icon and resume inline playback on exit. iOS (Safari
+  // and Chrome, both WebKit) opens a native fullscreen player and pauses the
+  // inline <video> when it closes. The element is muted, so WebKit lets us
+  // call play() without a fresh user gesture; a short delay lets the
+  // fullscreen transition settle before we resume.
+  // https://webkit.org/blog/6784/new-video-policies-for-ios/
   useEffect(() => {
     const video = videoRef.current
     if (!video) return
@@ -320,6 +313,7 @@ export function WebcamViewer({ config }: WebcamViewerProps): React.JSX.Element {
       )
     }
 
+    let resumeTimer: ReturnType<typeof setTimeout> | null = null
     const onBegin = (): void => {
       isNativeFullscreenRef.current = true
       syncIcon()
@@ -327,7 +321,11 @@ export function WebcamViewer({ config }: WebcamViewerProps): React.JSX.Element {
     const onEnd = (): void => {
       isNativeFullscreenRef.current = false
       syncIcon()
-      initStreamRef.current()
+      resumeTimer = setTimeout(() => {
+        void video.play().catch(() => {
+          // Ignore — user may have paused intentionally.
+        })
+      }, 100)
     }
 
     syncIcon()
@@ -337,6 +335,7 @@ export function WebcamViewer({ config }: WebcamViewerProps): React.JSX.Element {
     video.addEventListener('webkitendfullscreen', onEnd)
 
     return (): void => {
+      if (resumeTimer) clearTimeout(resumeTimer)
       document.removeEventListener('fullscreenchange', syncIcon)
       document.removeEventListener('webkitfullscreenchange', syncIcon)
       video.removeEventListener('webkitbeginfullscreen', onBegin)
