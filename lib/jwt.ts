@@ -30,7 +30,5 @@ export function isJwtExpired(token: string): boolean {
 export function hasJwtShape(token: string): boolean {
   if (!token || typeof token !== 'string') return false
   const parts = token.split('.')
-  return (
-    parts.length === 3 && parts.every((p) => /^[A-Za-z0-9_-]+$/.test(p))
-  )
+  return parts.length === 3 && parts.every((p) => /^[A-Za-z0-9_-]+$/.test(p))
 }

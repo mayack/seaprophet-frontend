@@ -74,7 +74,7 @@ export function ForecastContainer({
       setIsFetching(false)
     })
 
-    return () => {
+    return (): void => {
       cancelled = true
     }
   }, [clientUnitsKey, clientParams])

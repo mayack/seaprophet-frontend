@@ -287,7 +287,7 @@ export function SettingsForms({
   runUnitsSaveRef.current = runUnitsSave
 
   useEffect(() => {
-    return () => {
+    return (): void => {
       if (saveTimeoutRef.current) {
         clearTimeout(saveTimeoutRef.current)
         saveTimeoutRef.current = null
