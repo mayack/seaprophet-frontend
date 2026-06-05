@@ -1,4 +1,5 @@
 import { Spot, SpotsByCountry } from '../interfaces/spot'
+import { normalizeWebcams } from '../interfaces/webcam'
 
 export function organizeSpotsByCountry(spots: Spot[]): SpotsByCountry {
   return spots.reduce((acc: SpotsByCountry, spot: Spot) => {
@@ -29,7 +30,7 @@ export function organizeSpotsByCountry(spots: Spot[]): SpotsByCountry {
         long: spot.attributes.location_long,
       },
       municipality: municipality.name,
-      webcam: spot.attributes.webcam || null,
+      webcam: normalizeWebcams(spot.attributes.webcam)[0] || null,
     })
 
     return acc
