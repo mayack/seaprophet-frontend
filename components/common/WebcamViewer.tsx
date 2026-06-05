@@ -217,6 +217,16 @@ export function WebcamViewer({
 
     if (Hls.isSupported()) {
       const hls = new Hls({
+        // Start at the live edge with a small buffer and offload parsing to a
+        // worker so playback begins after a few segments instead of filling a
+        // large buffer first — much faster perceived startup for live cams.
+        enableWorker: true,
+        lowLatencyMode: true,
+        backBufferLength: 30,
+        maxBufferLength: 18,
+        maxMaxBufferLength: 30,
+        liveSyncDurationCount: 3,
+        liveMaxLatencyDurationCount: 8,
         xhrSetup: config.referer
           ? (xhr, url): void => {
               // Don't double-proxy: segments rewritten by the proxy already
@@ -400,7 +410,14 @@ export function WebcamViewer({
 
   return (
     <div className="relative size-full bg-black dark:bg-white/5">
-      <video ref={videoRef} className="size-full" playsInline muted />
+      <video
+        ref={videoRef}
+        className="size-full"
+        playsInline
+        muted
+        autoPlay
+        preload="metadata"
+      />
 
       {isLoading && !isAfk && (
         <Overlay>
