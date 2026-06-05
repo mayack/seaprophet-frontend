@@ -10,6 +10,7 @@ import type {
 } from '../interfaces/spot'
 import type { LocationInfo } from '../interfaces/spot'
 import { organizeSpotsByCountry } from '../utils/organizeSpotsByCountry'
+import { normalizeWebcams } from '../interfaces/webcam'
 import { GeographicBounds } from '@/types/map'
 
 // Map a raw Spot into the lightweight SpotSummary used by lists/carousels.
@@ -23,7 +24,7 @@ function toSpotSummary(
     id: spot.id,
     name,
     location: { lat: location_lat, long: location_long },
-    webcam: webcam?.[0] || null,
+    webcam: normalizeWebcams(webcam)[0] || null,
     ...(origin && {
       distance: calculateDistance(
         origin.lat,

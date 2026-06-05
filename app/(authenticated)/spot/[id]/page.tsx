@@ -19,6 +19,7 @@ import { ForecastParams } from '@/api/polvo/interfaces/forecast'
 import { applyUnitsToForecastParams } from '@/lib/forecastParams'
 import { normalizeUserSettings } from '@/lib/userSettings'
 import { CamObserverGate } from '@/components/cam-observer/CamObserverGate'
+import { normalizeWebcams } from '@/api/sargo/interfaces/webcam'
 
 interface SpotPageProps {
   params: Promise<{ id: string }>
@@ -206,7 +207,7 @@ export default async function SpotPage({
           <div>
             <SpotsDetails
               mapCenter={[spot.location_long, spot.location_lat]}
-              webcams={spot.webcam}
+              webcams={normalizeWebcams(spot.webcam)}
               spotName={spot.name}
               spotId={spotId}
               locationPath={spot.locationInfo}

@@ -1,4 +1,5 @@
 import { Spot, SpotSummary } from '../interfaces/spot'
+import { normalizeWebcams } from '../interfaces/webcam'
 
 export function transformSpotData(spot: Spot): SpotSummary {
   return {
@@ -9,6 +10,6 @@ export function transformSpotData(spot: Spot): SpotSummary {
       long: spot.attributes.location_long,
     },
     municipality: spot.attributes.municipality?.data?.attributes?.name || '',
-    webcam: spot.attributes.webcam?.[0] || null,
+    webcam: normalizeWebcams(spot.attributes.webcam)[0] || null,
   }
 }
