@@ -26,7 +26,9 @@ function getStreamUrl(url: string, referer?: string): string {
   return `/api/proxy?url=${encodeURIComponent(url)}&referer=${encodeURIComponent(referer)}`
 }
 
-export function WebcamViewer({ configs }: WebcamViewerProps): React.JSX.Element {
+export function WebcamViewer({
+  configs,
+}: WebcamViewerProps): React.JSX.Element {
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [isAfk, setIsAfk] = useState(false)
