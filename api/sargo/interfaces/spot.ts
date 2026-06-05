@@ -65,7 +65,7 @@ export interface SpotAttributes {
   createdAt: string
   updatedAt: string
   publishedAt: string
-  webcam: WebcamConfig
+  webcam: WebcamConfig[]
   // Keep the original nested structure for API compatibility
   // but add optional flattened location for easier access
   municipality?: {

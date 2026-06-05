@@ -9,6 +9,6 @@ export function transformSpotData(spot: Spot): SpotSummary {
       long: spot.attributes.location_long,
     },
     municipality: spot.attributes.municipality?.data?.attributes?.name || '',
-    webcam: spot.attributes.webcam || null,
+    webcam: spot.attributes.webcam?.[0] || null,
   }
 }

@@ -29,7 +29,7 @@ import { cn } from '@/lib/utils'
 
 interface SpotsDetailsProps {
   mapCenter: [number, number]
-  webcam?: WebcamConfig
+  webcams?: WebcamConfig[]
   spotName: string
   spotId?: number
   locationPath?: {
@@ -42,11 +42,12 @@ interface SpotsDetailsProps {
 
 export function SpotsDetails({
   mapCenter,
-  webcam,
+  webcams,
   spotName,
   spotId,
   locationPath,
 }: SpotsDetailsProps): React.JSX.Element {
+  const hasWebcam = !!webcams?.length
   const { userData, updateUser } = useUser()
   const router = useRouter()
   const [isToggling, setIsToggling] = useState(false)
@@ -89,7 +90,7 @@ export function SpotsDetails({
 
   return (
     <div>
-      <Tabs defaultValue={webcam ? 'webcam' : 'map'} className="w-full">
+      <Tabs defaultValue={hasWebcam ? 'webcam' : 'map'} className="w-full">
         <div className="wrapper">
           <div className="mb-4 flex w-full flex-col sm:mb-6">
             <div className="mb-3 flex flex-col items-start gap-2 sm:flex-row sm:items-center">
@@ -138,7 +139,7 @@ export function SpotsDetails({
             <div className="flex items-center gap-4">
               <h1 className="font-style-h1 flex-1 leading-none">{spotName}</h1>
               <div className="flex items-center gap-3">
-                {webcam && (
+                {hasWebcam && (
                   <TabsList>
                     <TabsTrigger
                       value="webcam"
@@ -187,12 +188,12 @@ export function SpotsDetails({
             </div>
           </div>
         </div>
-        {webcam && (
+        {hasWebcam && (
           <TabsContent
             value="webcam"
             className="aspect-video md:aspect-auto md:h-[60vh]"
           >
-            <WebcamViewer config={webcam} />
+            <WebcamViewer configs={webcams ?? []} />
           </TabsContent>
         )}
         <TabsContent

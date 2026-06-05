@@ -206,7 +206,7 @@ export default async function SpotPage({
           <div>
             <SpotsDetails
               mapCenter={[spot.location_long, spot.location_lat]}
-              webcam={spot.webcam}
+              webcams={spot.webcam}
               spotName={spot.name}
               spotId={spotId}
               locationPath={spot.locationInfo}

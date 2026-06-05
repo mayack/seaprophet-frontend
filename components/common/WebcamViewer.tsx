@@ -18,7 +18,7 @@ import { CONFIG } from '@/constants/config'
 const AFK_TIMEOUT_MS = CONFIG.webcam.afk_timer
 
 interface WebcamViewerProps {
-  config: WebcamConfig
+  configs: WebcamConfig[]
 }
 
 function getStreamUrl(url: string, referer?: string): string {
@@ -26,11 +26,14 @@ function getStreamUrl(url: string, referer?: string): string {
   return `/api/proxy?url=${encodeURIComponent(url)}&referer=${encodeURIComponent(referer)}`
 }
 
-export function WebcamViewer({ config }: WebcamViewerProps): React.JSX.Element {
+export function WebcamViewer({ configs }: WebcamViewerProps): React.JSX.Element {
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [isAfk, setIsAfk] = useState(false)
   const [isFullscreen, setIsFullscreen] = useState(false)
+  const [activeIndex, setActiveIndex] = useState(0)
+
+  const config = configs[activeIndex] ?? configs[0]
 
   const videoRef = useRef<HTMLVideoElement>(null)
   const hlsRef = useRef<Hls | null>(null)
@@ -430,6 +433,21 @@ export function WebcamViewer({ config }: WebcamViewerProps): React.JSX.Element {
             Continue
           </Button>
         </Overlay>
+      )}
+
+      {configs.length > 1 && !isAfk && (
+        <div className="absolute bottom-4 left-4 flex gap-2">
+          {configs.map((cam, i) => (
+            <Button
+              key={i}
+              onClick={() => setActiveIndex(i)}
+              size="xs"
+              variant={i === activeIndex ? 'accent' : 'overlay'}
+            >
+              {cam.name || `CAM ${i + 1}`}
+            </Button>
+          ))}
+        </div>
       )}
 
       {!isLoading && !error && !isAfk && (

@@ -23,7 +23,7 @@ function toSpotSummary(
     id: spot.id,
     name,
     location: { lat: location_lat, long: location_long },
-    webcam: webcam || null,
+    webcam: webcam?.[0] || null,
     ...(origin && {
       distance: calculateDistance(
         origin.lat,
