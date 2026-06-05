@@ -184,8 +184,17 @@ export function WebcamViewer({ config }: WebcamViewerProps): React.JSX.Element {
       try {
         await video.play()
       } catch (e) {
-        if (e instanceof Error && e.message.includes('interrupted')) return
         if (isStale()) return
+        // play() is rejected transiently when a new load interrupts it or the
+        // browser aborts it (common while iOS settles after exiting native
+        // fullscreen). These aren't real failures — the `playing` listener
+        // still fires once playback starts, so don't surface an error.
+        if (
+          e instanceof Error &&
+          (e.name === 'AbortError' || e.message.includes('interrupted'))
+        ) {
+          return
+        }
         video.removeEventListener('playing', onPlaybackStarted)
         videoHandlersRef.current.playing = undefined
         setError('Playback failed')
@@ -316,6 +325,7 @@ export function WebcamViewer({ config }: WebcamViewerProps): React.JSX.Element {
       )
     }
 
+    let reloadTimer: ReturnType<typeof setTimeout> | null = null
     const onNativeBegin = (): void => {
       isNativeFullscreenRef.current = true
       syncIcon()
@@ -323,7 +333,9 @@ export function WebcamViewer({ config }: WebcamViewerProps): React.JSX.Element {
     const onNativeEnd = (): void => {
       isNativeFullscreenRef.current = false
       syncIcon()
-      initStream()
+      // Let iOS finish tearing down its native player before we rebuild the
+      // stream — re-initializing mid-transition makes play() abort.
+      reloadTimer = setTimeout(() => initStream(), 300)
     }
 
     syncIcon()
@@ -333,6 +345,7 @@ export function WebcamViewer({ config }: WebcamViewerProps): React.JSX.Element {
     video.addEventListener('webkitendfullscreen', onNativeEnd)
 
     return (): void => {
+      if (reloadTimer) clearTimeout(reloadTimer)
       document.removeEventListener('fullscreenchange', syncIcon)
       document.removeEventListener('webkitfullscreenchange', syncIcon)
       video.removeEventListener('webkitbeginfullscreen', onNativeBegin)
