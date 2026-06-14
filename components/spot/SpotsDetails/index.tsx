@@ -1,8 +1,6 @@
 'use client'
 
 import { WebcamViewer } from '@/components/common/WebcamViewer'
-import { SimpleMap } from '@/components/maps/SimpleMap'
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import {
   Breadcrumb,
   BreadcrumbList,
@@ -11,7 +9,7 @@ import {
   BreadcrumbLink,
   BreadcrumbPage,
 } from '@/components/ui/breadcrumb'
-import { MapPin, Video, Heart, HeartCrack } from 'lucide-react'
+import { Heart, HeartCrack } from 'lucide-react'
 import { WebcamConfig } from '@/api/sargo/interfaces/webcam'
 import {
   Tooltip,
@@ -28,7 +26,6 @@ import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 
 interface SpotsDetailsProps {
-  mapCenter: [number, number]
   webcams?: WebcamConfig[]
   spotName: string
   spotId?: number
@@ -41,7 +38,6 @@ interface SpotsDetailsProps {
 }
 
 export function SpotsDetails({
-  mapCenter,
   webcams,
   spotName,
   spotId,
@@ -90,125 +86,80 @@ export function SpotsDetails({
 
   return (
     <div>
-      <Tabs defaultValue={hasWebcam ? 'webcam' : 'map'} className="w-full">
-        <div className="wrapper">
-          <div className="mb-4 flex w-full flex-col sm:mb-6">
-            <div className="mb-3 flex flex-col items-start gap-2 sm:flex-row sm:items-center">
-              {locationPath && (
-                <Breadcrumb className="flex-1">
-                  <BreadcrumbList>
-                    {locationPath.country && (
-                      <>
-                        <BreadcrumbItem>
-                          <BreadcrumbLink>
-                            {locationPath.country}
-                          </BreadcrumbLink>
-                        </BreadcrumbItem>
-                        <BreadcrumbSeparator />
-                      </>
-                    )}
-                    {locationPath.region && (
-                      <>
-                        <BreadcrumbItem>
-                          <BreadcrumbLink>{locationPath.region}</BreadcrumbLink>
-                        </BreadcrumbItem>
-                        <BreadcrumbSeparator />
-                      </>
-                    )}
-                    {locationPath.district && (
-                      <>
-                        <BreadcrumbItem>
-                          <BreadcrumbLink>
-                            {locationPath.district}
-                          </BreadcrumbLink>
-                        </BreadcrumbItem>
-                        <BreadcrumbSeparator />
-                      </>
-                    )}
-                    {locationPath.municipality && (
+      <div className="wrapper">
+        <div className="mb-4 flex w-full flex-col sm:mb-6">
+          <div className="mb-3 flex flex-col items-start gap-2 sm:flex-row sm:items-center">
+            {locationPath && (
+              <Breadcrumb className="flex-1">
+                <BreadcrumbList>
+                  {locationPath.country && (
+                    <>
                       <BreadcrumbItem>
-                        <BreadcrumbPage>
-                          {locationPath.municipality}
-                        </BreadcrumbPage>
+                        <BreadcrumbLink>{locationPath.country}</BreadcrumbLink>
                       </BreadcrumbItem>
-                    )}
-                  </BreadcrumbList>
-                </Breadcrumb>
-              )}
-            </div>
-            <div className="flex items-center gap-4">
-              <h1 className="font-style-h1 flex-1 leading-none">{spotName}</h1>
-              <div className="flex items-center gap-3">
-                {hasWebcam && (
-                  <TabsList>
-                    <TabsTrigger
-                      value="webcam"
-                      className="flex items-center gap-2"
+                      <BreadcrumbSeparator />
+                    </>
+                  )}
+                  {locationPath.region && (
+                    <>
+                      <BreadcrumbItem>
+                        <BreadcrumbLink>{locationPath.region}</BreadcrumbLink>
+                      </BreadcrumbItem>
+                      <BreadcrumbSeparator />
+                    </>
+                  )}
+                  {locationPath.district && (
+                    <>
+                      <BreadcrumbItem>
+                        <BreadcrumbLink>{locationPath.district}</BreadcrumbLink>
+                      </BreadcrumbItem>
+                      <BreadcrumbSeparator />
+                    </>
+                  )}
+                  {locationPath.municipality && (
+                    <BreadcrumbItem>
+                      <BreadcrumbPage>
+                        {locationPath.municipality}
+                      </BreadcrumbPage>
+                    </BreadcrumbItem>
+                  )}
+                </BreadcrumbList>
+              </Breadcrumb>
+            )}
+          </div>
+          <div className="flex items-center gap-4">
+            <h1 className="font-style-h1 flex-1 leading-none">{spotName}</h1>
+            {spotId && (
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={handleToggleFavorite}
+                      disabled={isToggling}
+                      className="shrink-0"
                     >
-                      <Video className="size-4" />
-                      <div className="hidden sm:block">Webcam</div>
-                    </TabsTrigger>
-                    <TabsTrigger
-                      value="map"
-                      className="flex items-center gap-2"
-                    >
-                      <MapPin className="size-4" />
-                      <div className="hidden sm:block">Map</div>
-                    </TabsTrigger>
-                  </TabsList>
-                )}
-                {spotId && (
-                  <TooltipProvider>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={handleToggleFavorite}
-                          disabled={isToggling}
-                          className="shrink-0"
-                        >
-                          <Heart
-                            className={cn(isFavorite && 'fill-foreground')}
-                          />
-                        </Button>
-                      </TooltipTrigger>
-                      <TooltipContent
-                        className="text-xs leading-none"
-                        sideOffset={10}
-                      >
-                        {isFavorite
-                          ? 'Remove from favorites'
-                          : 'Add to favorites'}
-                      </TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
-                )}
-              </div>
-            </div>
+                      <Heart className={cn(isFavorite && 'fill-foreground')} />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent
+                    className="text-xs leading-none"
+                    sideOffset={10}
+                  >
+                    {isFavorite ? 'Remove from favorites' : 'Add to favorites'}
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            )}
           </div>
         </div>
-        {hasWebcam && (
-          <TabsContent
-            value="webcam"
-            className="aspect-video md:aspect-auto md:h-[60vh]"
-          >
-            <WebcamViewer configs={webcams ?? []} />
-          </TabsContent>
-        )}
-        <TabsContent
-          value="map"
-          className="aspect-video md:aspect-auto md:h-[60vh]"
-        >
-          <SimpleMap
-            center={mapCenter}
-            zoom={13}
-            className="size-full"
-            spotId={spotId}
-            spotName={spotName}
-          />
-        </TabsContent>
-      </Tabs>
+      </div>
+      {hasWebcam && (
+        <div className="aspect-video md:aspect-auto md:h-[60vh]">
+          <WebcamViewer configs={webcams ?? []} />
+        </div>
+      )}
     </div>
   )
 }

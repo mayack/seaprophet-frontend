@@ -181,6 +181,11 @@ export interface UseMapboxReturn {
   retryCount: number
   /** Retry location request */
   retryLocation: () => void
+  /**
+   * Mark a spot as selected so its marker is scaled up (or pass null to
+   * clear). Survives panning and marker refreshes.
+   */
+  setSelectedSpotId: (id: number | null) => void
 }
 
 // Theme and styling

@@ -32,8 +32,22 @@ import { SpotSummary } from '@/api/sargo/interfaces/spot'
 import { CONFIG } from '@/constants/config'
 import type { MapNavigatorProps } from '@/types/map'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
+import { useRouter, usePathname } from 'next/navigation'
 import { toast } from 'sonner'
+import { useMapFocus } from '@/contexts/MapFocusContext'
+import { MapSearch } from '@/components/spot/SearchSpots/MapSearch'
+import { FavoritesPopover } from '@/components/common/FavoritesPopover'
+import { UserMenu } from '@/components/common/UserMenu'
+
+// The spot carousel that overlays the bottom of the map is hidden for now in
+// favor of the Google-Maps-style popover. The JSX is kept (gated on this flag)
+// so it can be re-enabled without rebuilding it.
+const SHOW_SPOT_CAROUSEL = false
+
+// Zoom level a spot is framed at when selected (browse default is 11, so this
+// zooms in ~1–2 levels). Only applied when the map is currently more zoomed
+// out than this, so switching between spots doesn't keep zooming in.
+const SELECTED_SPOT_ZOOM = 13
 
 // User-facing message used when getSpotsByBounds fails. Kept as a module
 // constant so the toast wording stays consistent across the two fetch
@@ -81,6 +95,7 @@ export function MapNavigator({
   const hasShownFetchErrorRef = useRef(false)
 
   const router = useRouter()
+  const pathname = usePathname()
 
   // Carousel setup
   const [emblaRef, emblaApi] = useEmblaCarousel({
@@ -103,15 +118,24 @@ export function MapNavigator({
     setVisibleSpots([])
   }, [])
 
-  // Soft-navigate to a spot when a map marker popup is clicked. Using the
-  // Next.js router (instead of a bare <a>) means the navigation is
-  // intercepted by the @modal/(.)spot/[id] route and opens as an overlay
-  // over the still-mounted map.
+  // Soft-navigate to a spot when a map marker is clicked. The navigation is
+  // intercepted by the @modal/(.)spot/[id] route and opens as an overlay over
+  // the still-mounted map.
+  //
+  // If a spot box is already open (URL is already /spot/...), `replace` it
+  // instead of pushing — switching spots then just reloads the single box
+  // rather than stacking a new history entry per spot (which would require
+  // one "close" per visited spot to get back to the map).
   const handleSpotClick = useCallback(
     (spotId: number) => {
-      router.push(`/spot/${spotId}`)
+      const target = `/spot/${spotId}`
+      if (pathname?.startsWith('/spot/')) {
+        router.replace(target)
+      } else {
+        router.push(target)
+      }
     },
-    [router]
+    [router, pathname]
   )
 
   const defaultCenter = CONFIG.map.defaults.center
@@ -128,6 +152,7 @@ export function MapNavigator({
   const {
     mapRef,
     map,
+    isLoaded,
     addSpotMarkers,
     clearSpotMarkers,
     zoomIn,
@@ -137,6 +162,7 @@ export function MapNavigator({
     requestUserLocation,
     recenterToUser,
     retryCount,
+    setSelectedSpotId,
   } = useMapbox({
     center: initialView?.center ?? defaultCenter,
     zoom: initialView?.zoom ?? initialZoom,
@@ -145,6 +171,87 @@ export function MapNavigator({
     onFlyStart: handleFlyStart,
     onSpotClick: handleSpotClick,
   })
+
+  // Bridge to the spot popover (SpotBox). When a popover opens it asks us to
+  // pan the selected spot into the still-visible map strip; when it closes it
+  // asks us to clear the camera offset. We pan with a Mapbox `padding` offset
+  // so the spot ends up centered in the uncovered area:
+  //  - desktop: popover covers the right 75%, so pad the right by 75vw → spot
+  //    centers in the left 25% strip.
+  //  - mobile: popover is a bottom sheet (~85vh), so pad the bottom → spot
+  //    centers in the top strip.
+  const mapFocus = useMapFocus()
+  const activeSpot = mapFocus?.activeSpot ?? null
+  // Zoom level the user was at before opening a spot, restored on close.
+  const preFocusZoomRef = useRef<number | null>(null)
+
+  const focusSpot = useCallback(
+    (coords: [number, number], instant?: boolean): void => {
+      if (!map) return
+      // Remember the zoom the user had before opening a spot, so closing can
+      // restore it. Captured only at the start of a session (not on switches),
+      // so switching spots doesn't overwrite it with the zoomed-in level.
+      if (preFocusZoomRef.current === null) {
+        preFocusZoomRef.current = map.getZoom()
+      }
+      const isDesktop =
+        typeof window !== 'undefined' &&
+        window.matchMedia('(min-width: 768px)').matches
+      const padding = isDesktop
+        ? {
+            top: 0,
+            bottom: 0,
+            left: 0,
+            right: Math.round(window.innerWidth * 0.75),
+          }
+        : {
+            top: 0,
+            bottom: Math.round(window.innerHeight * 0.85),
+            left: 0,
+            right: 0,
+          }
+      // Zoom in on the selected spot (1–2 levels from the browse default).
+      // `Math.max` keeps the current zoom if the user is already closer in, so
+      // switching spots doesn't keep zooming further each time.
+      const zoom = Math.max(map.getZoom(), SELECTED_SPOT_ZOOM)
+      // Instant when framing a just-loaded map (direct load); animated when
+      // panning between spots on an already-visible map.
+      if (instant) {
+        map.jumpTo({ center: coords, padding, zoom })
+      } else {
+        map.easeTo({ center: coords, padding, zoom, duration: 800 })
+      }
+    },
+    [map]
+  )
+
+  const resetFocus = useCallback((): void => {
+    const restoreZoom = preFocusZoomRef.current
+    preFocusZoomRef.current = null
+    if (!map) return
+    map.easeTo({
+      padding: { top: 0, bottom: 0, left: 0, right: 0 },
+      // Zoom back out to where the user was before they opened the spot.
+      zoom: restoreZoom ?? map.getZoom(),
+      duration: 500,
+    })
+  }, [map])
+
+  // Scale the selected spot's pin up while it's selected.
+  useEffect(() => {
+    setSelectedSpotId(activeSpot?.id ?? null)
+  }, [activeSpot, setSelectedSpotId])
+
+  // Register only once the map is loaded, so a focus replayed on registration
+  // (direct load of /spot/[id]) eases a ready map — `easeTo` padding needs the
+  // style loaded to frame the pin correctly.
+  useEffect(() => {
+    if (!map || !isLoaded || !mapFocus) return
+    mapFocus.register({ focus: focusSpot, reset: resetFocus })
+    return (): void => {
+      mapFocus.register(null)
+    }
+  }, [map, isLoaded, mapFocus, focusSpot, resetFocus])
 
   // Compute the effective initial center for spot loading: prefer the
   // remembered view, then the user's location, then the default.
@@ -179,13 +286,26 @@ export function MapNavigator({
       hasFlownToUserRef.current = true
       return
     }
+    // Direct load of /spot/[id]: a spot is already active, so let its focus
+    // pan frame the pin instead of yanking the view to the user's location.
+    if (activeSpot) {
+      hasFlownToUserRef.current = true
+      return
+    }
     if (!map) return
     if (userData.latitude === undefined || userData.longitude === undefined) {
       return
     }
     hasFlownToUserRef.current = true
     flyTo([userData.longitude, userData.latitude])
-  }, [map, userData.latitude, userData.longitude, flyTo, initialView])
+  }, [
+    map,
+    userData.latitude,
+    userData.longitude,
+    flyTo,
+    initialView,
+    activeSpot,
+  ])
 
   const getVisibleSlides = useCallback((): number => {
     if (typeof window === 'undefined')
@@ -542,8 +662,11 @@ export function MapNavigator({
         style={{ width: '100%', height: '100%' }}
       />
 
-      {/* Custom zoom controls */}
-      <div className="absolute right-4 top-4 flex flex-col gap-2">
+      {/* Top-left controls: search circle above the zoom/location group.
+          `items-start` so the wider search circle doesn't stretch the
+          narrower zoom/location buttons (and their shadow) to its width. */}
+      <div className="absolute left-4 top-4 flex flex-col items-start gap-2">
+        <MapSearch />
         <div className="flex flex-col rounded-md shadow-map">
           <Button
             variant="flat"
@@ -591,6 +714,12 @@ export function MapNavigator({
         </Button>
       </div>
 
+      {/* Bottom-left: favorites above the user menu (very bottom corner) */}
+      <div className="absolute bottom-4 left-4 flex flex-col gap-2">
+        <FavoritesPopover />
+        <UserMenu user={userData} />
+      </div>
+
       {/* Loading indicator */}
       {isLoading && (
         <div className="absolute bottom-10 left-1/2 flex -translate-x-1/2 items-center gap-2 rounded-full bg-card px-4 py-2 text-card-foreground shadow-map">
@@ -604,65 +733,67 @@ export function MapNavigator({
         </div>
       )}
 
-      {/* Spot carousel overlay */}
-      <div
-        className={`absolute inset-x-0 bottom-0 transition-opacity duration-300 ${
-          showCarousel ? 'opacity-100' : 'opacity-0'
-        } ${showCarousel ? 'pointer-events-auto' : 'pointer-events-none'}`}
-      >
-        <div className="hidden items-center justify-end px-4 md:flex">
-          {visibleSpots.length > getVisibleSlides() && (
-            <div className="flex rounded-md shadow-map">
-              <Button
-                variant="flat"
-                size="icon"
-                onClick={scrollPrev}
-                disabled={!canScrollPrev}
-                aria-label="Previous spots"
-                className="rounded-r-none"
-              >
-                <ChevronLeft className="size-4" />
-              </Button>
-              <Button
-                variant="flat"
-                size="icon"
-                onClick={scrollNext}
-                disabled={!canScrollNext}
-                aria-label="Next spots"
-                className="rounded-l-none border-l border-input"
-              >
-                <ChevronRight className="size-4" />
-              </Button>
-            </div>
-          )}
-        </div>
-
-        <div className="embla overflow-hidden p-4 pt-3" ref={emblaRef}>
-          <div className="embla__container flex gap-2 md:gap-3">
-            {visibleSpots.map((spot) => (
-              <div
-                className="embla__slide min-w-0 flex-[0_0_calc(50%-0.25rem)] md:flex-[0_0_calc(33.33%-0.5rem)] lg:flex-[0_0_calc(25%-0.5625rem)]"
-                key={spot.id}
-              >
-                <Link href={`/spot/${spot.id}`} className="block h-full">
-                  <SpotCard
-                    id={spot.id}
-                    name={spot.name}
-                    subtitle={
-                      spot.distance !== undefined
-                        ? formatDistance(spot.distance)
-                        : ''
-                    }
-                    webcam={spot.webcam}
-                    variant="shadow"
-                    className="h-full"
-                  />
-                </Link>
+      {/* Spot carousel overlay (hidden for now — see SHOW_SPOT_CAROUSEL) */}
+      {SHOW_SPOT_CAROUSEL && (
+        <div
+          className={`absolute inset-x-0 bottom-0 transition-opacity duration-300 ${
+            showCarousel ? 'opacity-100' : 'opacity-0'
+          } ${showCarousel ? 'pointer-events-auto' : 'pointer-events-none'}`}
+        >
+          <div className="hidden items-center justify-end px-4 md:flex">
+            {visibleSpots.length > getVisibleSlides() && (
+              <div className="flex rounded-md shadow-map">
+                <Button
+                  variant="flat"
+                  size="icon"
+                  onClick={scrollPrev}
+                  disabled={!canScrollPrev}
+                  aria-label="Previous spots"
+                  className="rounded-r-none"
+                >
+                  <ChevronLeft className="size-4" />
+                </Button>
+                <Button
+                  variant="flat"
+                  size="icon"
+                  onClick={scrollNext}
+                  disabled={!canScrollNext}
+                  aria-label="Next spots"
+                  className="rounded-l-none border-l border-input"
+                >
+                  <ChevronRight className="size-4" />
+                </Button>
               </div>
-            ))}
+            )}
+          </div>
+
+          <div className="embla overflow-hidden p-4 pt-3" ref={emblaRef}>
+            <div className="embla__container flex gap-2 md:gap-3">
+              {visibleSpots.map((spot) => (
+                <div
+                  className="embla__slide min-w-0 flex-[0_0_calc(50%-0.25rem)] md:flex-[0_0_calc(33.33%-0.5rem)] lg:flex-[0_0_calc(25%-0.5625rem)]"
+                  key={spot.id}
+                >
+                  <Link href={`/spot/${spot.id}`} className="block h-full">
+                    <SpotCard
+                      id={spot.id}
+                      name={spot.name}
+                      subtitle={
+                        spot.distance !== undefined
+                          ? formatDistance(spot.distance)
+                          : ''
+                      }
+                      webcam={spot.webcam}
+                      variant="shadow"
+                      className="h-full"
+                    />
+                  </Link>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
-      </div>
+      )}
     </div>
   )
 }

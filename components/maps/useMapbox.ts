@@ -70,6 +70,15 @@ export function useMapbox(options: UseMapboxOptions = {}): UseMapboxReturn {
   // ready signal.
   const [map, setMap] = useState<mapboxgl.Map | null>(null)
   const markersRef = useRef<Record<string, mapboxgl.Marker>>({})
+  // A single shared popup reused as the spot-name hover tooltip. Keeping one
+  // instance (instead of one popup per marker) guarantees at most one tooltip
+  // is ever open and that it can't be orphaned on the map when markers are
+  // cleared during a pan.
+  const hoverPopupRef = useRef<mapboxgl.Popup | null>(null)
+  // Id of the currently-selected spot, so its marker can be scaled up. Kept in
+  // a ref (not state) so addSpotMarkers can re-apply the scale to re-created
+  // markers after a pan without needing it as a dependency.
+  const selectedSpotIdRef = useRef<number | null>(null)
   const userLocationMarker = useRef<mapboxgl.Marker | null>(null)
   const moveHandlerRef = useRef<(() => void) | null>(null)
   const isInitialized = useRef(false)
@@ -283,6 +292,35 @@ export function useMapbox(options: UseMapboxOptions = {}): UseMapboxReturn {
       const sizePx = `${size}px`
       const iconPx = `${Math.round(size * (28 / 32))}px`
 
+      // Show the spot name in the shared hover tooltip above the pin. Built
+      // with `textContent` so a malicious or compromised spot name can't
+      // inject HTML/JS. `closeOnClick: false` + no close button — it's a
+      // passive label, not an interactive popup.
+      const showHoverTooltip = (
+        coords: [number, number],
+        name: string
+      ): void => {
+        if (!mapInstance.current) return
+        if (!hoverPopupRef.current) {
+          hoverPopupRef.current = new mapboxgl.Popup({
+            offset: 40,
+            closeButton: false,
+            closeOnClick: false,
+            anchor: 'bottom',
+          })
+        }
+        const label = document.createElement('span')
+        label.className = 'text-base font-medium'
+        label.textContent = name
+        hoverPopupRef.current
+          .setDOMContent(label)
+          .setLngLat(coords)
+          .addTo(mapInstance.current)
+      }
+      const hideHoverTooltip = (): void => {
+        hoverPopupRef.current?.remove()
+      }
+
       spots.forEach((spot) => {
         try {
           // Spots with a webcam use the camera glyph so users can see
@@ -292,38 +330,50 @@ export function useMapbox(options: UseMapboxOptions = {}): UseMapboxReturn {
             ? createWebcamMarkerElement(isDark, sizePx, sizePx, iconPx, iconPx)
             : createSpotMarkerElement(isDark, sizePx, sizePx)
 
-          // Build the popup with DOM APIs and `textContent` so a malicious
-          // or compromised spot name can't inject HTML/JS into the popup.
-          const popup = new mapboxgl.Popup({ offset: 40, closeButton: false })
-          const link = document.createElement('a')
-          link.href = `/spot/${spot.id}`
-          link.className =
-            'flex items-center text-base font-medium hover:underline focus:outline-none'
-          const nameSpan = document.createElement('span')
-          nameSpan.textContent = spot.name
-          link.appendChild(nameSpan)
-          // Prefer a soft (client-side) navigation so the intercepting
-          // spot route opens as an overlay over the still-mounted map.
-          // A bare <a> would hard-navigate and bypass interception,
-          // unmounting the map. Falls back to the href if no handler.
-          link.addEventListener('click', (e) => {
-            if (onSpotClickRef.current) {
-              e.preventDefault()
-              onSpotClickRef.current(spot.id)
-            }
-          })
-          popup.setDOMContent(link)
+          // Keep the selected spot scaled up across pans/marker rebuilds.
+          if (selectedSpotIdRef.current === spot.id) {
+            markerElement.classList.add('spot-marker--selected')
+          }
 
           // Remove any prior marker with the same key before overwriting
           // the slot — otherwise the old DOM node lingers on the map.
           const markerKey = `spot-${spot.id}`
           markersRef.current[markerKey]?.remove()
 
+          const coords: [number, number] = [
+            spot.location.long,
+            spot.location.lat,
+          ]
+
+          // Clicking the pin opens the spot directly — no intermediate
+          // name-popup click. Soft-navigate via onSpotClick so the @modal
+          // intercepting route opens it as an overlay over the still-mounted
+          // map. The marker doubles as a button for keyboard users.
+          markerElement.setAttribute('role', 'button')
+          markerElement.setAttribute('tabindex', '0')
+          markerElement.setAttribute('aria-label', spot.name)
+          const open = (): void => {
+            hideHoverTooltip()
+            onSpotClickRef.current?.(spot.id)
+          }
+          markerElement.addEventListener('click', open)
+          markerElement.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault()
+              open()
+            }
+          })
+
+          // Hover reveals the spot name above the pin.
+          markerElement.addEventListener('mouseenter', () =>
+            showHoverTooltip(coords, spot.name)
+          )
+          markerElement.addEventListener('mouseleave', hideHoverTooltip)
+
           const marker = createMarker(
             mapInstance.current!,
-            [spot.location.long, spot.location.lat],
-            markerElement,
-            popup
+            coords,
+            markerElement
           )
 
           markersRef.current[markerKey] = marker
@@ -344,11 +394,27 @@ export function useMapbox(options: UseMapboxOptions = {}): UseMapboxReturn {
   }, [])
 
   const clearSpotMarkers = useCallback(() => {
+    // Drop the hover tooltip too — its marker may be among those removed.
+    hoverPopupRef.current?.remove()
     Object.keys(markersRef.current).forEach((key) => {
       if (key.startsWith('spot-')) {
         markersRef.current[key].remove()
         delete markersRef.current[key]
       }
+    })
+  }, [])
+
+  // Scale up the selected spot's marker (and unscale the rest) by toggling a
+  // CSS class on the marker elements. The id is also stored so addSpotMarkers
+  // can re-apply the class to markers re-created after a pan.
+  const setSelectedSpotId = useCallback((id: number | null): void => {
+    selectedSpotIdRef.current = id
+    Object.entries(markersRef.current).forEach(([key, marker]) => {
+      if (!key.startsWith('spot-')) return
+      const markerId = Number(key.slice('spot-'.length))
+      marker
+        .getElement()
+        .classList.toggle('spot-marker--selected', markerId === id)
     })
   }, [])
 
@@ -628,6 +694,10 @@ export function useMapbox(options: UseMapboxOptions = {}): UseMapboxReturn {
 
       if (map) {
         clearMarkers()
+        if (hoverPopupRef.current) {
+          hoverPopupRef.current.remove()
+          hoverPopupRef.current = null
+        }
         if (userLocationMarker.current) {
           userLocationMarker.current.remove()
           userLocationMarker.current = null
@@ -803,5 +873,6 @@ export function useMapbox(options: UseMapboxOptions = {}): UseMapboxReturn {
     recenterToUser,
     retryCount,
     retryLocation: requestUserLocation,
+    setSelectedSpotId,
   }
 }

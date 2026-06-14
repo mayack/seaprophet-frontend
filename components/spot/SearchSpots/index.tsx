@@ -20,6 +20,8 @@ import { CONFIG } from '@/constants/config'
 interface SearchSpotsProps {
   className?: string
   placeholder?: string
+  /** Focus the input on mount (used when revealed from the map search button). */
+  autoFocus?: boolean
 }
 
 const MAX_RESULTS = CONFIG.search.maxResults
@@ -89,6 +91,7 @@ function groupByCountry(spots: SearchResultSpot[]): CountryGroup[] {
 export function SearchSpots({
   className,
   placeholder = 'Search spots...',
+  autoFocus = false,
 }: SearchSpotsProps): React.JSX.Element {
   const pathname = usePathname()
   const spotIndex = useSpotIndex()
@@ -244,6 +247,7 @@ export function SearchSpots({
           onFocus={handleInputFocus}
           className="px-9"
           variant="muted"
+          autoFocus={autoFocus}
         />
         {query && (
           <Button

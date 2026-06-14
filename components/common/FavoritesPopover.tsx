@@ -88,16 +88,18 @@ export function FavoritesPopover(): React.JSX.Element {
     <DropdownMenu open={open} onOpenChange={setOpen}>
       <DropdownMenuTrigger asChild>
         <Button
-          variant="ghost"
+          variant="flat"
           size="icon"
-          className="shrink-0"
+          className="size-12 shrink-0 rounded-full shadow-map"
           title="Favorite spots"
         >
           <Heart />
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent
-        align="end"
+        side="top"
+        align="start"
+        sideOffset={12}
         className="max-h-[400px] w-64 overflow-y-auto"
       >
         <DropdownMenuLabel>Favorite spots</DropdownMenuLabel>
