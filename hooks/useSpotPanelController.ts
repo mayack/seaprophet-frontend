@@ -1,6 +1,12 @@
 'use client'
 
-import { useEffect, useLayoutEffect, useRef, useState, type RefObject } from 'react'
+import {
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type RefObject,
+} from 'react'
 import { useSpotPanel } from '@/contexts/SpotPanelContext'
 import { useSpotNavigation } from '@/hooks/useSpotNavigation'
 import { useBreakpoint } from '@/hooks/useBreakpoint'
@@ -17,7 +23,9 @@ export function useSpotPanelController(): {
   entered: boolean
   hasMounted: boolean
   snap: ReturnType<typeof useMobileSpotSheet>['snap']
-  onHeaderPointerDown: ReturnType<typeof useMobileSpotSheet>['onHeaderPointerDown']
+  onHeaderPointerDown: ReturnType<
+    typeof useMobileSpotSheet
+  >['onHeaderPointerDown']
   onPeekPanelPointerDown: ReturnType<
     typeof useMobileSpotSheet
   >['onPeekPanelPointerDown']

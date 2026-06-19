@@ -23,23 +23,9 @@ export interface MapResetApi {
   reset: () => void
 }
 
-export interface SpotPanelMeta {
-  updatedAt: string | null
-  terrainData: boolean
-  bathymetryData: boolean
-}
-
-const EMPTY_PANEL_META: SpotPanelMeta = {
-  updatedAt: null,
-  terrainData: false,
-  bathymetryData: false,
-}
-
 interface SpotPanelContextValue {
   activeSpot: ActiveSpot | null
   setActiveSpot: (spot: ActiveSpot | null) => void
-  panelMeta: SpotPanelMeta
-  setPanelMeta: (meta: SpotPanelMeta) => void
   /** Mobile sheet bottom inset (px); desktop padding is derived from rem constants. */
   mobileBottomInset: number | null
   setMobileBottomInset: (value: number | null) => void
@@ -62,7 +48,6 @@ export function SpotPanelProvider({
   children: React.ReactNode
 }): React.JSX.Element {
   const [activeSpot, setActiveSpot] = useState<ActiveSpot | null>(null)
-  const [panelMeta, setPanelMeta] = useState<SpotPanelMeta>(EMPTY_PANEL_META)
   const [mobileBottomInset, setMobileBottomInset] = useState<number | null>(
     null
   )
@@ -87,7 +72,6 @@ export function SpotPanelProvider({
 
   const clearPanelState = useCallback((): void => {
     setActiveSpot(null)
-    setPanelMeta(EMPTY_PANEL_META)
     setMobileBottomInset(null)
     setMobileSheetSnap('closed')
     setIsPanelPresented(false)
@@ -97,8 +81,6 @@ export function SpotPanelProvider({
     () => ({
       activeSpot,
       setActiveSpot,
-      panelMeta,
-      setPanelMeta,
       mobileBottomInset,
       setMobileBottomInset,
       mobileSheetSnap,
@@ -111,7 +93,6 @@ export function SpotPanelProvider({
     }),
     [
       activeSpot,
-      panelMeta,
       mobileBottomInset,
       mobileSheetSnap,
       isPanelPresented,

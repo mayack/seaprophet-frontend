@@ -43,7 +43,11 @@ export function bindSpotMarkerElement(
   coords: [number, number],
   hasWebcam: boolean,
   onOpen: () => void,
-  onShowTooltip: (coords: [number, number], name: string, offset: number) => void,
+  onShowTooltip: (
+    coords: [number, number],
+    name: string,
+    offset: number
+  ) => void,
   onHideTooltip: () => void
 ): void {
   markerElement.setAttribute('role', 'button')
@@ -159,8 +163,10 @@ export function setSelectedSpotMarkerId(
     const needsSync = Object.entries(refs.markers).some(([key, marker]) => {
       if (!key.startsWith('spot-')) return false
       const markerId = Number(key.slice('spot-'.length))
-      return marker.getElement().classList.contains('spot-marker--selected') !==
+      return (
+        marker.getElement().classList.contains('spot-marker--selected') !==
         (markerId === id)
+      )
     })
     if (!needsSync) return
   }

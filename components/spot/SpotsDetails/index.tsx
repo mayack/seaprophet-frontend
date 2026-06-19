@@ -88,7 +88,7 @@ export function SpotDetailHeader({
         className
       )}
     >
-      <div className="space-y-2">
+      <div className="space-y-1 sm:space-y-2">
         {locationPath && (
           <Breadcrumb className="flex-1">
             <BreadcrumbList>
@@ -124,7 +124,7 @@ export function SpotDetailHeader({
             </BreadcrumbList>
           </Breadcrumb>
         )}
-        <h1 className="text-4xl font-bold">{spotName}</h1>
+        <h1 className="text-2xl font-bold sm:text-4xl">{spotName}</h1>
       </div>
       {spotId && (
         <TooltipProvider>

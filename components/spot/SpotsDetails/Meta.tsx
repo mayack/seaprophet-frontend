@@ -1,8 +1,6 @@
 'use client'
 
-import { useEffect } from 'react'
 import { Mountain, Waves } from 'lucide-react'
-import { useSpotPanel } from '@/contexts/SpotPanelContext'
 import { useUser } from '@/contexts/UserContext'
 import { isDevModeActive } from '@/lib/userSettings'
 import {
@@ -12,32 +10,11 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip'
 
-interface SpotPanelMetaSyncProps {
-  terrainData?: boolean
-  bathymetryData?: boolean
-  updatedAt?: string
-}
-
-/** Syncs forecast meta from the panel body into context for the header. */
-export function SpotPanelMetaSync({
-  terrainData,
-  bathymetryData,
-  updatedAt,
-}: SpotPanelMetaSyncProps): null {
-  const { setPanelMeta } = useSpotPanel()
-
-  useEffect(() => {
-    const raf = requestAnimationFrame(() => {
-      setPanelMeta({
-        updatedAt: updatedAt ?? null,
-        terrainData: terrainData === true,
-        bathymetryData: bathymetryData === true,
-      })
-    })
-    return (): void => cancelAnimationFrame(raf)
-  }, [setPanelMeta, updatedAt, terrainData, bathymetryData])
-
-  return null
+/** Forecast meta shown in the panel header. */
+export interface SpotPanelMetaInfo {
+  updatedAt: string | null
+  terrainData: boolean
+  bathymetryData: boolean
 }
 
 function DataIndicator({
@@ -73,29 +50,34 @@ function DataIndicator({
   )
 }
 
-export function SpotPanelHeaderMeta(): React.JSX.Element | null {
-  const { panelMeta } = useSpotPanel()
+export function SpotPanelHeaderMeta({
+  meta,
+}: {
+  meta: SpotPanelMetaInfo | null
+}): React.JSX.Element | null {
   const { userData } = useUser()
   const devModeActive = isDevModeActive(userData)
 
-  const showDataFlags =
-    devModeActive && (panelMeta.terrainData || panelMeta.bathymetryData)
+  if (!meta) return null
 
-  if (!showDataFlags && !panelMeta.updatedAt) return null
+  const showDataFlags =
+    devModeActive && (meta.terrainData || meta.bathymetryData)
+
+  if (!showDataFlags && !meta.updatedAt) return null
 
   return (
     <div className="flex flex-1 items-center gap-3 text-xs text-muted-foreground">
       {showDataFlags ? (
         <TooltipProvider>
           <div className="flex shrink-0 items-center gap-3">
-            {panelMeta.terrainData ? (
+            {meta.terrainData ? (
               <DataIndicator
                 icon={Mountain}
                 label="Terrain"
                 description="Terrain data accounts for how surrounding land features affect wind patterns and wave forecasts at this location."
               />
             ) : null}
-            {panelMeta.bathymetryData ? (
+            {meta.bathymetryData ? (
               <DataIndicator
                 icon={Waves}
                 label="Bathymetry"
@@ -105,10 +87,10 @@ export function SpotPanelHeaderMeta(): React.JSX.Element | null {
           </div>
         </TooltipProvider>
       ) : null}
-      {panelMeta.updatedAt ? (
+      {meta.updatedAt ? (
         <span className="truncate">
           Updated on{' '}
-          {new Date(panelMeta.updatedAt).toLocaleString('en-GB', {
+          {new Date(meta.updatedAt).toLocaleString('en-GB', {
             hour: '2-digit',
             minute: '2-digit',
             day: '2-digit',

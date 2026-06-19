@@ -19,11 +19,13 @@ interface ForecastContainerProps {
   initialDays: ForecastDay[]
   /** Params from the server render (units may lag behind UserContext). */
   forecastParams: ForecastParams
+  className?: string
 }
 
 export function ForecastContainer({
   initialDays,
   forecastParams,
+  className,
 }: ForecastContainerProps): React.JSX.Element {
   const { userData } = useUser()
   const units = userData.settings.units
@@ -92,13 +94,15 @@ export function ForecastContainer({
     // eslint-disable-next-line react-hooks/refs
     clientUnitsKey !== loadedUnitsKeyRef.current
 
-  if (showBlockingLoader) {
-    return (
-      <div className="flex min-h-[40vh] w-full items-center justify-center">
-        <Spinner className="size-8" />
-      </div>
-    )
-  }
-
-  return <Forecast days={days} />
+  return (
+    <div className={className}>
+      {showBlockingLoader ? (
+        <div className="flex min-h-[40vh] w-full items-center justify-center">
+          <Spinner className="size-8" />
+        </div>
+      ) : (
+        <Forecast days={days} />
+      )}
+    </div>
+  )
 }

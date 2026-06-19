@@ -195,7 +195,7 @@ export default function TideChart({
   }, [isClient])
 
   if (!isClient) {
-    return <Skeleton className="h-24 w-full" />
+    return <Skeleton className={cn('h-24 w-full', className)} />
   }
 
   const getTextPosition = (x: number): { x: number; anchor: string } => {

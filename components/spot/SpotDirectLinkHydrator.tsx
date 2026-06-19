@@ -10,8 +10,8 @@ import { spotToSummary } from '@/lib/spotSummary'
 
 /**
  * Opens the spot panel on a direct /spot/[id] load (cold load / refresh) by
- * seeding `activeSpot`. The panel body then fetches its own data client-side
- * (see SpotPanelBody), so this is the single entry point for direct links.
+ * seeding `activeSpot`. SpotBox then fetches the panel data client-side
+ * (useSpotPanelData), so this is the single entry point for direct links.
  *
  * Depends on the Next.js router pathname ONLY — it changes solely on a real
  * navigation. Client-driven opens use `history.replaceState`, which never

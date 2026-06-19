@@ -111,9 +111,7 @@ export function MapNavigator({
   }, [activeSpot, directSpotCenter, spotLoadCenter])
   const mobileBottomInset = spotPanel.mobileBottomInset
   const mapTouchBlocked =
-    !isDesktop &&
-    isSpotOpen &&
-    spotPanel.mobileSheetSnap === 'expanded'
+    !isDesktop && isSpotOpen && spotPanel.mobileSheetSnap === 'expanded'
 
   const { resetFocus } = useSpotCamera({
     map,
@@ -153,7 +151,13 @@ export function MapNavigator({
   useEffect(() => {
     if (isLoading || !spotPanel.isPanelPresented || !activeSpot) return
     setSelectedSpotId(activeSpot.id)
-  }, [isLoading, spotPanel.isPanelPresented, activeSpot?.id, setSelectedSpotId, activeSpot])
+  }, [
+    isLoading,
+    spotPanel.isPanelPresented,
+    activeSpot?.id,
+    setSelectedSpotId,
+    activeSpot,
+  ])
 
   useMapViewMemory(map)
 
@@ -176,7 +180,11 @@ export function MapNavigator({
     <div style={{ height: height }} className="relative bg-muted">
       <div
         ref={mapRef}
-        className={cn(className, 'size-full', mapTouchBlocked && 'pointer-events-none')}
+        className={cn(
+          className,
+          'size-full',
+          mapTouchBlocked && 'pointer-events-none'
+        )}
       />
 
       <TooltipProvider>
@@ -263,7 +271,7 @@ export function MapNavigator({
           </div>
         </div>
 
-        <div className="absolute top-4 right-4 flex flex-row items-center gap-2 md:bottom-4 md:left-4 md:top-auto md:right-auto md:flex-col md:items-stretch">
+        <div className="absolute top-4 right-4 flex flex-row items-center gap-2 md:top-auto md:right-auto md:bottom-4 md:left-4 md:flex-col md:items-stretch">
           <FavoritesPopover />
           <UserMenu user={userData} />
         </div>

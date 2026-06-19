@@ -2,9 +2,12 @@
 
 import React from 'react'
 import { SpotPanelHeader } from '@/components/spot/SpotPanelHeader'
-import { SpotPanelBody } from '@/components/spot/SpotPanelBody'
+import { SpotDetailView } from '@/components/spot/SpotDetailView'
+import { SpotModalLoading } from '@/components/spot/SpotModalLoading'
+import type { SpotPanelMetaInfo } from '@/components/spot/SpotsDetails/Meta'
 import { useSpotPanel } from '@/contexts/SpotPanelContext'
 import { useSpotPanelController } from '@/hooks/useSpotPanelController'
+import { useSpotPanelData } from '@/hooks/useSpotPanelData'
 import { cn } from '@/lib/utils'
 
 /** Spot panel shell — mobile inset in context; camera in MapNavigator. */
@@ -24,9 +27,27 @@ export function SpotBox(): React.JSX.Element | null {
     sheetMotionStyle,
   } = useSpotPanelController()
 
-  const panelContent = activeSpot ? (
-    <SpotPanelBody key={activeSpot.id} spotId={activeSpot.id} />
-  ) : null
+  // One fetch, shared by the header (meta) and body (content).
+  const panel = useSpotPanelData(activeSpot?.id ?? null)
+  const data = panel.data
+
+  // Meta only when a forecast actually loaded — its values are forecast-derived.
+  const headerMeta: SpotPanelMetaInfo | null = data?.forecastDays
+    ? {
+        updatedAt: data.updatedAt,
+        terrainData: data.terrainData,
+        bathymetryData: data.bathymetryData,
+      }
+    : null
+
+  const panelContent =
+    panel.status === 'loaded' ? (
+      <SpotDetailView key={panel.data.spotId} data={panel.data} />
+    ) : panel.status === 'not-found' ? (
+      <div className="p-6 text-center">Spot not found.</div>
+    ) : panel.status === 'loading' ? (
+      <SpotModalLoading />
+    ) : null
 
   if (!rendered) return null
 
@@ -54,6 +75,7 @@ export function SpotBox(): React.JSX.Element | null {
       onPointerDown={isPeek ? onPeekPanelPointerDown : undefined}
     >
       <SpotPanelHeader
+        meta={headerMeta}
         onClose={closeSpot}
         onDragPointerDown={isExpanded ? onHeaderPointerDown : undefined}
         showGrabBar={!isDesktop}
@@ -62,7 +84,9 @@ export function SpotBox(): React.JSX.Element | null {
       <div
         className={cn(
           'min-h-0 flex-1 scrollbar-thin mobile-safe-bottom',
-          contentScrollable ? 'overflow-y-auto overscroll-none' : 'overflow-hidden'
+          contentScrollable
+            ? 'overflow-y-auto overscroll-none'
+            : 'overflow-hidden'
         )}
       >
         {panelContent}

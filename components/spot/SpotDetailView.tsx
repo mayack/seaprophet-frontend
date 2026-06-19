@@ -3,13 +3,11 @@
 import React from 'react'
 import { SpotDetailHeader } from '@/components/spot/SpotsDetails'
 import { SpotsNearby } from '@/components/spot/SpotsNearby'
-import { SpotPanelMetaSync } from '@/components/spot/SpotsDetails/Meta'
 import { ForecastContainer } from '@/components/forecast/ForecastContainer'
 import { WebcamViewer } from '@/components/common/WebcamViewer'
 import { ReloadButton } from '@/components/common/ReloadButton'
 import { CamObserverToolbar } from '@/components/cam-observer/CamObserverToolbar'
 import type { SpotPanelData } from '@/components/spot/loadSpotPanelData'
-import { cn } from '@/lib/utils'
 
 const NEARBY_RADIUS_KM = 30
 
@@ -41,34 +39,28 @@ export function SpotDetailView({
         />
       ) : null}
 
-      <div className="mt-12">
-        {data.forecastDays ? (
-          <>
-            <SpotPanelMetaSync
-              terrainData={data.terrainData}
-              bathymetryData={data.bathymetryData}
-              updatedAt={data.updatedAt ?? undefined}
-            />
-            <ForecastContainer
-              initialDays={data.forecastDays}
-              forecastParams={data.forecastParams}
-            />
-            {data.showCamObserver ? (
-              <CamObserverToolbar
-                spotId={data.spotId}
-                spotName={data.spotName}
-                todayDate={todayDay?.date}
-                todayHours={todayDay?.forecast}
-              />
-            ) : null}
-          </>
-        ) : (
-          <div className={cn('p-4 text-destructive')}>
-            Forecast not found: {data.forecastError}.{' '}
-            <ReloadButton className="ml-2 underline" />
-          </div>
-        )}
-      </div>
+      {data.forecastDays ? (
+        <ForecastContainer
+          className="mt-12"
+          initialDays={data.forecastDays}
+          forecastParams={data.forecastParams}
+        />
+      ) : (
+        <div className="mt-12 p-4 text-destructive">
+          Forecast not found: {data.forecastError}.{' '}
+          <ReloadButton className="ml-2 underline" />
+        </div>
+      )}
+
+      {/* Fixed + portaled to <body>, so JSX position is irrelevant to layout. */}
+      {data.forecastDays && data.showCamObserver ? (
+        <CamObserverToolbar
+          spotId={data.spotId}
+          spotName={data.spotName}
+          todayDate={todayDay?.date}
+          todayHours={todayDay?.forecast}
+        />
+      ) : null}
     </>
   )
 }

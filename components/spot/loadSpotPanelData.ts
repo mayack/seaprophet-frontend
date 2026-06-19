@@ -1,7 +1,10 @@
 'use server'
 
 import { getForecast } from '@/api/polvo/actions/forecast'
-import type { ForecastDay, ForecastParams } from '@/api/polvo/interfaces/forecast'
+import type {
+  ForecastDay,
+  ForecastParams,
+} from '@/api/polvo/interfaces/forecast'
 import { getCurrentUser } from '@/api/sargo/actions/auth'
 import { getNearbySpots, getSpot } from '@/api/sargo/actions/spot'
 import type { LocationInfo } from '@/api/sargo/interfaces/spot'
@@ -88,7 +91,9 @@ export async function loadSpotPanelData(
     nearbySpots,
     forecastParams,
     forecastDays: forecastRes.data?.days ?? null,
-    forecastError: forecastRes.data ? null : forecastRes.error || 'Unknown error',
+    forecastError: forecastRes.data
+      ? null
+      : forecastRes.error || 'Unknown error',
     terrainData: forecastRes.data?._meta?.terrainData ?? false,
     bathymetryData: forecastRes.data?._meta?.bathymetryData ?? false,
     updatedAt:

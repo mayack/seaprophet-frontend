@@ -21,8 +21,8 @@ export function ForecastItem({
 
   return (
     <div className="flex flex-col gap-y-6">
-      <aside className="flex items-center gap-y-4">
-        <div className="flex flex-1 flex-col gap-y-3">
+      <aside className="flex flex-wrap items-center gap-y-6 sm:flex-nowrap">
+        <div className="flex min-w-0 flex-1 flex-col gap-y-3">
           <h2 className="flex w-full flex-col justify-center text-2xl font-bold">
             {getDateLabel(date)}
             <div className="text-sm font-normal text-muted-foreground">
@@ -34,14 +34,13 @@ export function ForecastItem({
           </h2>
           <DayGeneralInfo general={day.general} units={units} />
         </div>
-        <div className="flex items-center gap-x-10">
-          <AstronomicalBreakdown astronomical={day.astronomical} />
-          <TideChart
-            data={day.tides}
-            astronomical={day.astronomical}
-            unit={units.tide_height}
-          />
-        </div>
+        <AstronomicalBreakdown astronomical={day.astronomical} />
+        <TideChart
+          data={day.tides}
+          astronomical={day.astronomical}
+          unit={units.tide_height}
+          className="w-full sm:w-64"
+        />
       </aside>
       <div className="relative flex-1">
         <ForecastHeader />
@@ -50,9 +49,7 @@ export function ForecastItem({
             key={hour}
             className="flex items-center justify-between border-t py-2.5"
           >
-            <div className="w-9 text-2xs md:w-8 md:text-xs">
-              {hour}
-            </div>
+            <div className="w-9 text-2xs md:w-8 md:text-xs">{hour}</div>
             <WaveItem
               className="w-28 md:w-26"
               height={forecast.waveHeight}
