@@ -50,12 +50,17 @@ export function ForecastContainer({
     clientUnitsKey === serverUnitsKey
   )
 
+  // Re-sync to a fresh SSR payload (or matching units). Deferred a frame so
+  // state isn't set synchronously in the effect body.
   useEffect(() => {
-    setDays(initialDays)
-    if (serverUnitsKey === clientUnitsKey) {
-      loadedUnitsKeyRef.current = serverUnitsKey
-      setHasSyncedUnits(true)
-    }
+    const raf = requestAnimationFrame(() => {
+      setDays(initialDays)
+      if (serverUnitsKey === clientUnitsKey) {
+        loadedUnitsKeyRef.current = serverUnitsKey
+        setHasSyncedUnits(true)
+      }
+    })
+    return (): void => cancelAnimationFrame(raf)
   }, [initialDays, serverUnitsKey, clientUnitsKey])
 
   useEffect(() => {
@@ -82,12 +87,15 @@ export function ForecastContainer({
   const showBlockingLoader =
     isFetching &&
     !hasSyncedUnits &&
+    // Reading the imperative load-tracking ref during render is intentional —
+    // it gates the one-time blocking loader and mustn't trigger a re-render.
+    // eslint-disable-next-line react-hooks/refs
     clientUnitsKey !== loadedUnitsKeyRef.current
 
   if (showBlockingLoader) {
     return (
       <div className="flex min-h-[40vh] w-full items-center justify-center">
-        <Spinner size="lg" />
+        <Spinner className="size-8" />
       </div>
     )
   }

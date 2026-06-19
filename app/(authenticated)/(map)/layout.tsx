@@ -1,26 +1,16 @@
-import { MapFocusProvider } from '@/contexts/MapFocusContext'
-import { MapNavigator } from '@/components/maps/MapNavigator'
-import { SpotBox } from '@/components/spot/SpotBox'
+import { MapLayoutShell } from '@/components/maps/MapLayoutShell'
 import React from 'react'
 
 /**
- * Layout for the map routes (`/` and `/spot/[id]`). The map lives here — once —
- * so navigating between the index and a spot (including closing the spot box)
- * never remounts it; only the box content and camera change. The `modal`
- * parallel slot renders the spot popover into the persistent SpotBox.
+ * Map shell for `/` and `/spot/[id]`. The map is always mounted here; route
+ * segments render null. The spot panel is pure client state — opened by map
+ * clicks (`useSpotNavigation`) or, on a direct /spot/[id] load, by
+ * `SpotDirectLinkHydrator`. See `lib/spotNavigation.ts`.
  */
 export default function MapLayout({
   children,
-  modal,
 }: {
   children: React.ReactNode
-  modal: React.ReactNode
 }): React.JSX.Element {
-  return (
-    <MapFocusProvider>
-      <MapNavigator height="100dvh" initialRadius={250} />
-      {children}
-      <SpotBox>{modal}</SpotBox>
-    </MapFocusProvider>
-  )
+  return <MapLayoutShell>{children}</MapLayoutShell>
 }

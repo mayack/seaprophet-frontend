@@ -1,7 +1,6 @@
-/* eslint-disable no-console */
 // Edge-runtime-safe auth helpers. This module must not import anything
 // from `next/headers`, the Sargo/Polvo API clients, or anything else that
-// pulls Node-only APIs. The middleware runs on the Edge runtime and
+// pulls Node-only APIs. The proxy runs on the Edge runtime and
 // importing Node-only code from here would pollute the edge bundle and
 // can fail the build.
 
@@ -20,7 +19,7 @@ import { CONFIG } from '@/constants/config'
  * performed by server components / server actions (see
  * `api/sargo/actions/auth.ts#getCurrentUser`). This function exists only
  * to cheaply weed out obviously bogus / expired tokens before letting a
- * request reach the app, so the middleware can short-circuit redirect
+ * request reach the app, so the proxy can short-circuit redirect
  * unauthenticated traffic to the signin page.
  *
  * Do NOT treat a `true` return from this function as proof of identity.
@@ -32,7 +31,7 @@ export function isTokenStructurallyValid(token: string): boolean {
 // Resolve a `/auth/signin` redirect target that works in every env we
 // deploy to (prod, preview, localhost) without hardcoding any specific
 // hostname. Order of preference:
-//   1. The incoming request URL — middleware always has this and it
+//   1. The incoming request URL — the proxy always has this and it
 //      naturally matches the user's current origin.
 //   2. `NEXT_PUBLIC_BASE_URL` — env-configured public base URL. We don't
 //      currently declare it in `types/env.d.ts`, but if ops sets it we

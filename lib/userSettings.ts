@@ -18,16 +18,29 @@ export function normalizeUserSettings(
     ...base,
     favorites: Array.isArray(base.favorites) ? base.favorites : [],
     units: normalizeUserUnits(base.units),
+    // Dev mode toggle; persisted as camObserverEnabled (→ devMode rename planned).
     camObserverEnabled: base.camObserverEnabled !== false,
   }
 }
 
-export function isCamObserverVisible(user: {
+/** User-level access to dev mode features (`calibrationReporter` on User). */
+export function hasDevModeAccess(user: {
+  calibrationReporter?: boolean
+}): boolean {
+  return user.calibrationReporter === true
+}
+
+/** Whether dev mode is toggled on in settings. */
+export function isDevModeEnabled(user: {
+  settings?: Partial<UserSettings> | null
+}): boolean {
+  return normalizeUserSettings(user.settings).camObserverEnabled
+}
+
+/** Access granted and dev mode toggled on. */
+export function isDevModeActive(user: {
   calibrationReporter?: boolean
   settings?: Partial<UserSettings> | null
 }): boolean {
-  return (
-    user.calibrationReporter === true &&
-    normalizeUserSettings(user.settings).camObserverEnabled
-  )
+  return hasDevModeAccess(user) && isDevModeEnabled(user)
 }

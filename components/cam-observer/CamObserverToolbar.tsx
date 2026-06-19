@@ -1,6 +1,7 @@
 'use client'
 
 import React, { useEffect, useRef, useState, useTransition } from 'react'
+import { createPortal } from 'react-dom'
 import { submitCamObserverReport } from '@/api/sargo/actions/camObserver'
 import type {
   HeightBand,
@@ -129,7 +130,7 @@ export function CamObserverToolbar({
   spotName,
   todayDate,
   todayHours = {},
-}: CamObserverToolbarProps): React.JSX.Element {
+}: CamObserverToolbarProps): React.JSX.Element | null {
   const { userData } = useUser()
   const surfHeightUnit = normalizeUserUnits(
     userData.settings?.units
@@ -143,6 +144,15 @@ export function CamObserverToolbar({
   const [status, setStatus] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
   const statusTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  // Portal to <body> so the fixed toolbar isn't trapped by the spot panel's
+  // transform (a transformed ancestor becomes the containing block for fixed
+  // children) or clipped by its overflow-hidden. Mount-gated to avoid SSR/
+  // hydration mismatches.
+  const [mounted, setMounted] = useState(false)
+  useEffect(() => {
+    const raf = requestAnimationFrame(() => setMounted(true))
+    return (): void => cancelAnimationFrame(raf)
+  }, [])
 
   useEffect(() => {
     if (!status?.startsWith('Saved')) return
@@ -207,17 +217,16 @@ export function CamObserverToolbar({
     })
   }
 
-  return (
-    <div className="fixed bottom-4 right-4 z-40 sm:bottom-6 sm:right-6">
+  const toolbar = (
+    <div className="fixed right-4 bottom-4 z-50 sm:right-6 sm:bottom-6">
       {!expanded ? (
         <Button
           type="button"
-          size="icon"
+          size="icon-circle"
           aria-label="Open Cam Observer"
-          className="size-12 rounded-full shadow-lg"
           onClick={() => setExpanded(true)}
         >
-          <View className="size-6" />
+          <View />
         </Button>
       ) : (
         <div className="flex w-72 flex-col rounded-xl border bg-background/95 shadow-lg backdrop-blur supports-[backdrop-filter]:bg-background/80 sm:w-80">
@@ -230,7 +239,7 @@ export function CamObserverToolbar({
               type="button"
               variant="ghost"
               size="icon"
-              className="absolute right-2 top-2 size-7 shrink-0"
+              className="absolute top-2 right-2 size-7 shrink-0"
               aria-label="Close Cam Observer"
               onClick={() => setExpanded(false)}
             >
@@ -240,7 +249,7 @@ export function CamObserverToolbar({
 
           <div className="max-h-[min(70vh,32rem)] space-y-6 overflow-y-auto p-4">
             <div>
-              <p className="mb-3 text-xs font-medium uppercase tracking-wide">
+              <p className="mb-3 text-xs font-medium tracking-wide uppercase">
                 Wave Height
               </p>
               <div className="px-0.5">
@@ -250,7 +259,11 @@ export function CamObserverToolbar({
                     max={HEIGHT_BAND_MAX}
                     step={1}
                     value={[heightIndex ?? 0]}
-                    onValueChange={handleHeightChange}
+                    onValueChange={(value) =>
+                      handleHeightChange(
+                        typeof value === 'number' ? [value] : [...value]
+                      )
+                    }
                     onPointerDown={() => {
                       setHeightIndex((current) => current ?? 0)
                     }}
@@ -260,13 +273,13 @@ export function CamObserverToolbar({
                 <div className="relative mt-3 h-6">
                   {selectedBand && thumbLeft ? (
                     <div
-                      className="absolute top-0 -translate-x-1/2 whitespace-nowrap text-center"
+                      className="absolute top-0 -translate-x-1/2 text-center whitespace-nowrap"
                       style={{ left: thumbLeft }}
                     >
-                      <p className="text-xs font-medium leading-none">
+                      <p className="text-xs leading-none font-medium">
                         {selectedBand.label}
                       </p>
-                      <p className="mt-0.5 text-[10px] tabular-nums text-muted-foreground">
+                      <p className="mt-0.5 text-[10px] text-muted-foreground tabular-nums">
                         {bandRangeLabel(selectedBand, surfHeightUnit)}
                       </p>
                     </div>
@@ -280,7 +293,7 @@ export function CamObserverToolbar({
             </div>
 
             <div>
-              <p className="mb-2 text-xs font-medium uppercase tracking-wide">
+              <p className="mb-2 text-xs font-medium tracking-wide uppercase">
                 Wind
               </p>
               <Tabs
@@ -305,7 +318,7 @@ export function CamObserverToolbar({
             {showNotes ? (
               <div>
                 <div className="mb-2 flex items-center justify-between gap-2">
-                  <p className="text-xs font-medium uppercase tracking-wide">
+                  <p className="text-xs font-medium tracking-wide uppercase">
                     Notes
                   </p>
                   <Button
@@ -371,4 +384,8 @@ export function CamObserverToolbar({
       )}
     </div>
   )
+
+  if (!mounted) return null
+
+  return createPortal(toolbar, document.body)
 }

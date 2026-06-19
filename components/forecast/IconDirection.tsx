@@ -27,8 +27,8 @@ const directions = [
 ]
 
 const sizes = {
-  small: 'size-2.5 xs:size-3',
-  medium: 'size-3.5 xs:size-4',
+  small: 'size-2.5 md:size-3',
+  medium: 'size-3.5 md:size-4',
   large: 'size-5',
 } as const
 
@@ -67,7 +67,7 @@ export function IconDirection({
         </div>
       </TooltipTrigger>
       <TooltipContent
-        className="text-xs font-semibold leading-none"
+        className="text-xs leading-none font-semibold"
         sideOffset={10}
       >
         {degrees}° {cardinalDirection}

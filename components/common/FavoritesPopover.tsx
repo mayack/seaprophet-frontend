@@ -1,39 +1,49 @@
 'use client'
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react'
-import { Heart } from 'lucide-react'
+import { useSpotNavigation } from '@/hooks/useSpotNavigation'
+import { Heart, Video } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '@/components/ui/tooltip'
 import {
   DropdownMenu,
   DropdownMenuContent,
-  DropdownMenuTrigger,
+  DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
+  DropdownMenuShortcut,
+  DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { getFavoriteSpots } from '@/api/sargo/actions/spot'
 import { SpotsByCountry } from '@/api/sargo/interfaces/spot'
-import Link from 'next/link'
 import { useUser } from '@/contexts/UserContext'
-import { Spinner } from '@/components/ui/spinner'
+import { useIsDesktop } from '@/hooks/useIsDesktop'
 
-interface FlatSpot {
-  id: number
-  name: string
-}
-
-function flattenSpots(regions: SpotsByCountry[string]): FlatSpot[] {
+function flattenSpots(
+  regions: SpotsByCountry[string]
+): { id: number; name: string; hasWebcam: boolean }[] {
   return Object.values(regions).flatMap((districts) =>
     Object.values(districts).flatMap((spots) =>
       spots
         .filter((spot) => spot?.id)
-        .map((spot) => ({ id: spot.id, name: spot.name }))
+        .map((spot) => ({
+          id: spot.id,
+          name: spot.name,
+          hasWebcam: !!spot.webcam,
+        }))
     )
   )
 }
 
 export function FavoritesPopover(): React.JSX.Element {
   const { userData } = useUser()
+  const isDesktop = useIsDesktop()
+  const { openSpotById } = useSpotNavigation()
   const [favoriteSpots, setFavoriteSpots] = useState<SpotsByCountry>({})
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -72,73 +82,99 @@ export function FavoritesPopover(): React.JSX.Element {
     if (!open) return
 
     if (favorites.length === 0) {
-      setFavoriteSpots({})
-      setLastFetchedKey(null)
-      return
+      const raf = requestAnimationFrame(() => {
+        setFavoriteSpots({})
+        setLastFetchedKey(null)
+      })
+      return (): void => cancelAnimationFrame(raf)
     }
 
     if (lastFetchedKey !== favoritesKey) {
-      loadFavoriteSpots()
+      const raf = requestAnimationFrame(() => loadFavoriteSpots())
+      return (): void => cancelAnimationFrame(raf)
     }
   }, [open, favorites.length, favoritesKey, lastFetchedKey, loadFavoriteSpots])
 
   const countries = Object.keys(favoriteSpots).sort()
 
+  const handleSpotSelect = (spotId: number): void => {
+    setOpen(false)
+    openSpotById(spotId)
+  }
+
   return (
     <DropdownMenu open={open} onOpenChange={setOpen}>
-      <DropdownMenuTrigger asChild>
-        <Button
-          variant="flat"
-          size="icon"
-          className="size-12 shrink-0 rounded-full shadow-map"
-          title="Favorite spots"
+      <Tooltip>
+        <TooltipTrigger
+          render={
+            <DropdownMenuTrigger
+              render={
+                <Button
+                  variant="elevated"
+                  size="icon-circle"
+                  aria-label="Favorites"
+                />
+              }
+            />
+          }
         >
           <Heart />
-        </Button>
-      </DropdownMenuTrigger>
+        </TooltipTrigger>
+        <TooltipContent side={isDesktop ? 'right' : 'bottom'} sideOffset={12}>
+          Favorites
+        </TooltipContent>
+      </Tooltip>
       <DropdownMenuContent
-        side="top"
-        align="start"
+        side={isDesktop ? 'top' : 'bottom'}
+        align={isDesktop ? 'start' : 'end'}
         sideOffset={12}
-        className="max-h-[400px] w-64 overflow-y-auto"
+        className="w-56"
       >
-        <DropdownMenuLabel>Favorite spots</DropdownMenuLabel>
-        <DropdownMenuSeparator />
-        {loading ? (
-          <div className="flex items-center justify-center py-4">
-            <Spinner size="sm" />
-          </div>
-        ) : error ? (
-          <DropdownMenuItem disabled className="text-destructive">
-            {error}
-          </DropdownMenuItem>
-        ) : countries.length === 0 ? (
-          <DropdownMenuItem disabled>
-            No favorite spots yet. Click the heart icon on a spot to add it.
-          </DropdownMenuItem>
-        ) : (
-          countries.map((country, index) => {
-            const spots = flattenSpots(favoriteSpots[country])
-
-            return (
-              <div key={country}>
-                <DropdownMenuLabel>{country}</DropdownMenuLabel>
-                {spots.map((spot) => (
-                  <DropdownMenuItem key={spot.id} asChild>
-                    <Link
-                      href={`/spot/${spot.id}`}
-                      onClick={() => setOpen(false)}
-                      className="cursor-pointer"
-                    >
-                      {spot.name}
-                    </Link>
+        <DropdownMenuGroup>
+          <DropdownMenuLabel>Favorite spots</DropdownMenuLabel>
+          {loading && <DropdownMenuItem disabled>Loading...</DropdownMenuItem>}
+          {!loading && error && (
+            <DropdownMenuItem disabled variant="destructive">
+              {error}
+            </DropdownMenuItem>
+          )}
+          {!loading && !error && favorites.length === 0 && (
+            <DropdownMenuItem disabled>
+              No favorite spots yet. Click the heart icon on a spot to add it.
+            </DropdownMenuItem>
+          )}
+          {!loading &&
+            !error &&
+            favorites.length > 0 &&
+            countries.length === 0 && (
+              <DropdownMenuItem disabled>Loading...</DropdownMenuItem>
+            )}
+        </DropdownMenuGroup>
+        {!loading &&
+          !error &&
+          countries.map((country, index) => (
+            <React.Fragment key={country}>
+              {index > 0 && <DropdownMenuSeparator />}
+              <DropdownMenuGroup>
+                <DropdownMenuLabel className="text-popover-foreground">
+                  {country}
+                </DropdownMenuLabel>
+                {flattenSpots(favoriteSpots[country]).map((spot) => (
+                  <DropdownMenuItem
+                    key={spot.id}
+                    onClick={() => handleSpotSelect(spot.id)}
+                  >
+                    {spot.name}
+                    {spot.hasWebcam && (
+                      <DropdownMenuShortcut>
+                        <Video />
+                      </DropdownMenuShortcut>
+                    )}
                   </DropdownMenuItem>
                 ))}
-                {index < countries.length - 1 && <DropdownMenuSeparator />}
-              </div>
-            )
-          })
-        )}
+              </DropdownMenuGroup>
+            </React.Fragment>
+          ))}
       </DropdownMenuContent>
     </DropdownMenu>
   )

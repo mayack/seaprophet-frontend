@@ -64,6 +64,32 @@ function getStoredLocation(): {
   return {}
 }
 
+function parseGeolocationError(
+  error: unknown
+): 'permission' | 'unavailable' | 'timeout' {
+  if (
+    typeof error === 'object' &&
+    error !== null &&
+    'code' in error &&
+    typeof (error as GeolocationPositionError).code === 'number'
+  ) {
+    switch ((error as GeolocationPositionError).code) {
+      case 1:
+        return 'permission'
+      case 2:
+        return 'unavailable'
+      case 3:
+        return 'timeout'
+    }
+  }
+
+  if (error instanceof Error && error.message.includes('timed out')) {
+    return 'timeout'
+  }
+
+  return 'unavailable'
+}
+
 export function UserProvider({
   initialUserData,
   children,
@@ -158,35 +184,27 @@ export function UserProvider({
 
         return { latitude, longitude }
       } catch (error) {
-        console.error(
-          'Location error:',
-          error instanceof Error ? error.message : 'Unknown error'
-        )
-        isLocatingRef.current = false
-
-        if (error instanceof GeolocationPositionError) {
-          switch (error.code) {
-            case error.PERMISSION_DENIED:
-              return { error: 'permission' as const }
-            case error.POSITION_UNAVAILABLE:
-              return { error: 'unavailable' as const }
-            case error.TIMEOUT:
-              return { error: 'timeout' as const }
-          }
+        const kind = parseGeolocationError(error)
+        if (kind !== 'permission') {
+          console.warn('Location request failed:', kind)
         }
-
-        return { error: 'unavailable' as const }
+        isLocatingRef.current = false
+        return { error: kind }
       }
     },
     [storeLocation]
   )
 
-  // Clear expired location on mount
+  // Clear expired location on mount. Deferred a frame so state isn't set
+  // synchronously inside the effect body.
   useEffect(() => {
     if (
-      lastLocationUpdate &&
-      Date.now() - lastLocationUpdate >= LOCATION_CACHE_MAX_AGE
+      !lastLocationUpdate ||
+      Date.now() - lastLocationUpdate < LOCATION_CACHE_MAX_AGE
     ) {
+      return
+    }
+    const raf = requestAnimationFrame(() => {
       setUserData((prev) => ({
         ...prev,
         latitude: undefined,
@@ -194,7 +212,8 @@ export function UserProvider({
       }))
       setLastLocationUpdate(null)
       sessionStorage.removeItem(LOCATION_CACHE_KEY)
-    }
+    })
+    return (): void => cancelAnimationFrame(raf)
   }, [lastLocationUpdate])
 
   // Memoize so consumers don't re-render on every parent render with a

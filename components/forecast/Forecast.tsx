@@ -19,14 +19,12 @@ export function Forecast({ days }: ForecastProps): React.JSX.Element {
   const { userData } = useUser()
   const units = userData.settings.units
 
-  // Reset the visible-page count whenever the underlying days set changes
-  // (e.g. user switches date range) so we don't carry over a stale scroll
-  // position pointing past the new end-of-list.
-  useEffect(() => {
+  const [prevDays, setPrevDays] = useState(days)
+  if (prevDays !== days) {
+    setPrevDays(days)
     setVisibleDays(INITIAL_VISIBLE_DAYS)
-  }, [days])
+  }
 
-  // Set up the Intersection Observer
   useEffect(() => {
     const observer = new IntersectionObserver(
       (entries: IntersectionObserverEntry[]): void => {
@@ -55,7 +53,7 @@ export function Forecast({ days }: ForecastProps): React.JSX.Element {
 
   return (
     <TooltipProvider>
-      <div className="wrapper wrapper-spacing relative">
+      <div className="relative space-y-12 px-6 pb-4">
         {days.slice(0, visibleDays).map((day) => (
           <div className="animate-fade-in" key={day.date}>
             <ForecastItem day={day} units={units} />

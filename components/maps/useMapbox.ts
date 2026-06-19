@@ -11,13 +11,6 @@ import mapboxgl from 'mapbox-gl'
 import { useUser } from '@/contexts/UserContext'
 import {
   createMap,
-  createMarkerElement,
-  createSpotMarkerElement,
-  createWebcamMarkerElement,
-  createMarker,
-  debounce,
-  isUserCloseToLocation,
-  isUserPannedAway,
   createUserLocationMarker,
   spotsCache,
   useMapTheme,
@@ -25,13 +18,18 @@ import {
   createMapError,
   getMarkerSizeForZoom,
   applyMarkerSize,
+  debounce,
+  isUserCloseToLocation,
+  isUserPannedAway,
   type MapError,
 } from './utils'
-import type {
-  UseMapboxOptions,
-  UseMapboxReturn,
-  Coordinates,
-} from '@/types/map'
+import {
+  addSpotsToMap,
+  clearSpotMarkersFromMap,
+  setSelectedSpotMarkerId,
+  type SpotMarkerRefs,
+} from './spotMarkers'
+import type { UseMapboxOptions, UseMapboxReturn } from '@/types/map'
 import { CONFIG } from '@/constants/config'
 import { SpotSummary } from '@/api/sargo/interfaces/spot'
 
@@ -48,6 +46,7 @@ export function useMapbox(options: UseMapboxOptions = {}): UseMapboxReturn {
     onFlyStart,
     onSpotClick,
     skipInitialFlyTo = false,
+    skipAutoUserLocation = false,
   } = options
 
   // Keep the latest spot-click handler in a ref so the memoized
@@ -69,16 +68,11 @@ export function useMapbox(options: UseMapboxOptions = {}): UseMapboxReturn {
   // so MapNavigator's effects keyed on `map` could miss the initial
   // ready signal.
   const [map, setMap] = useState<mapboxgl.Map | null>(null)
-  const markersRef = useRef<Record<string, mapboxgl.Marker>>({})
-  // A single shared popup reused as the spot-name hover tooltip. Keeping one
-  // instance (instead of one popup per marker) guarantees at most one tooltip
-  // is ever open and that it can't be orphaned on the map when markers are
-  // cleared during a pan.
-  const hoverPopupRef = useRef<mapboxgl.Popup | null>(null)
-  // Id of the currently-selected spot, so its marker can be scaled up. Kept in
-  // a ref (not state) so addSpotMarkers can re-apply the scale to re-created
-  // markers after a pan without needing it as a dependency.
-  const selectedSpotIdRef = useRef<number | null>(null)
+  const spotMarkerRefs = useRef<SpotMarkerRefs>({
+    markers: {},
+    hoverPopup: null,
+    selectedSpotId: null,
+  })
   const userLocationMarker = useRef<mapboxgl.Marker | null>(null)
   const moveHandlerRef = useRef<(() => void) | null>(null)
   const isInitialized = useRef(false)
@@ -141,7 +135,12 @@ export function useMapbox(options: UseMapboxOptions = {}): UseMapboxReturn {
 
   // Helper to create user location marker using utility function.
   // Retries when the style isn't yet loaded, but caps retries and bails
-  // after unmount so a failing style doesn't loop forever.
+  // after unmount so a failing style doesn't loop forever. The retry calls
+  // through a ref so the callback never has to reference itself (which the
+  // hooks lint forbids).
+  const createUserLocationMarkerWrapperRef = useRef<
+    ((location: { latitude: number; longitude: number }) => void) | null
+  >(null)
   const createUserLocationMarkerWrapper = useCallback(
     (location: { latitude: number; longitude: number }) => {
       if (!mapInstance.current || !isMountedRef.current) {
@@ -168,12 +167,15 @@ export function useMapbox(options: UseMapboxOptions = {}): UseMapboxReturn {
         userMarkerRetryTimeoutRef.current = setTimeout(() => {
           userMarkerRetryTimeoutRef.current = null
           if (!isMountedRef.current) return
-          createUserLocationMarkerWrapper(location)
+          createUserLocationMarkerWrapperRef.current?.(location)
         }, USER_MARKER_RETRY_DELAY_MS)
       }
     },
     [USER_MARKER_MAX_RETRIES, USER_MARKER_RETRY_DELAY_MS]
   )
+  useEffect(() => {
+    createUserLocationMarkerWrapperRef.current = createUserLocationMarkerWrapper
+  }, [createUserLocationMarkerWrapper])
 
   // Setup move handler for location tracking
   const setupMoveHandler = useCallback(
@@ -239,183 +241,35 @@ export function useMapbox(options: UseMapboxOptions = {}): UseMapboxReturn {
   }, [])
 
   // Public API functions with updated types
-  const addMarker = useCallback(
-    (
-      id: string,
-      position: Coordinates,
-      element?: HTMLDivElement,
-      popup?: mapboxgl.Popup
-    ) => {
-      if (!mapInstance.current) {
-        return
-      }
-
-      // Remove existing marker with same ID
-      if (markersRef.current[id]) {
-        markersRef.current[id].remove()
-      }
-
-      const markerElement = element || createMarkerElement()
-      const marker = createMarker(
-        mapInstance.current!,
-        position,
-        markerElement,
-        popup
-      )
-      markersRef.current[id] = marker
-    },
-    []
-  )
-
-  const removeMarker = useCallback((id: string) => {
-    if (markersRef.current[id]) {
-      markersRef.current[id].remove()
-      delete markersRef.current[id]
-    }
-  }, [])
-
   const clearMarkers = useCallback(() => {
-    Object.values(markersRef.current).forEach((marker) => marker.remove())
-    markersRef.current = {}
+    Object.values(spotMarkerRefs.current.markers).forEach((marker) =>
+      marker.remove()
+    )
+    spotMarkerRefs.current.markers = {}
+    spotMarkerRefs.current.hoverPopup?.remove()
+    spotMarkerRefs.current.hoverPopup = null
   }, [])
 
-  // Spot-specific marker methods
   const addSpotMarkers = useCallback(
     (spots: SpotSummary[]) => {
       if (!mapInstance.current) return
-
-      // Size markers up-front using the current zoom so freshly-added
-      // pins match the rest of the map (e.g. when spots stream in while
-      // zoomed out).
-      const currentZoom = mapInstance.current.getZoom()
-      const size = getMarkerSizeForZoom(currentZoom)
-      const sizePx = `${size}px`
-      const iconPx = `${Math.round(size * (28 / 32))}px`
-
-      // Show the spot name in the shared hover tooltip above the pin. Built
-      // with `textContent` so a malicious or compromised spot name can't
-      // inject HTML/JS. `closeOnClick: false` + no close button — it's a
-      // passive label, not an interactive popup.
-      const showHoverTooltip = (
-        coords: [number, number],
-        name: string
-      ): void => {
-        if (!mapInstance.current) return
-        if (!hoverPopupRef.current) {
-          hoverPopupRef.current = new mapboxgl.Popup({
-            offset: 40,
-            closeButton: false,
-            closeOnClick: false,
-            anchor: 'bottom',
-          })
-        }
-        const label = document.createElement('span')
-        label.className = 'text-base font-medium'
-        label.textContent = name
-        hoverPopupRef.current
-          .setDOMContent(label)
-          .setLngLat(coords)
-          .addTo(mapInstance.current)
-      }
-      const hideHoverTooltip = (): void => {
-        hoverPopupRef.current?.remove()
-      }
-
-      spots.forEach((spot) => {
-        try {
-          // Spots with a webcam use the camera glyph so users can see
-          // at a glance which breaks have a live cam.
-          const hasWebcam = spot.webcam?.url || spot.webcam?.website_url
-          const markerElement = hasWebcam
-            ? createWebcamMarkerElement(isDark, sizePx, sizePx, iconPx, iconPx)
-            : createSpotMarkerElement(isDark, sizePx, sizePx)
-
-          // Keep the selected spot scaled up across pans/marker rebuilds.
-          if (selectedSpotIdRef.current === spot.id) {
-            markerElement.classList.add('spot-marker--selected')
-          }
-
-          // Remove any prior marker with the same key before overwriting
-          // the slot — otherwise the old DOM node lingers on the map.
-          const markerKey = `spot-${spot.id}`
-          markersRef.current[markerKey]?.remove()
-
-          const coords: [number, number] = [
-            spot.location.long,
-            spot.location.lat,
-          ]
-
-          // Clicking the pin opens the spot directly — no intermediate
-          // name-popup click. Soft-navigate via onSpotClick so the @modal
-          // intercepting route opens it as an overlay over the still-mounted
-          // map. The marker doubles as a button for keyboard users.
-          markerElement.setAttribute('role', 'button')
-          markerElement.setAttribute('tabindex', '0')
-          markerElement.setAttribute('aria-label', spot.name)
-          const open = (): void => {
-            hideHoverTooltip()
-            onSpotClickRef.current?.(spot.id)
-          }
-          markerElement.addEventListener('click', open)
-          markerElement.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter' || e.key === ' ') {
-              e.preventDefault()
-              open()
-            }
-          })
-
-          // Hover reveals the spot name above the pin.
-          markerElement.addEventListener('mouseenter', () =>
-            showHoverTooltip(coords, spot.name)
-          )
-          markerElement.addEventListener('mouseleave', hideHoverTooltip)
-
-          const marker = createMarker(
-            mapInstance.current!,
-            coords,
-            markerElement
-          )
-
-          markersRef.current[markerKey] = marker
-        } catch {
-          // Error adding spot marker, skip this spot
-        }
-      })
+      addSpotsToMap(
+        mapInstance.current,
+        spots,
+        isDark,
+        spotMarkerRefs.current,
+        (spot) => onSpotClickRef.current?.(spot)
+      )
     },
     [isDark]
   )
 
-  const removeSpotMarker = useCallback((spotId: number) => {
-    const markerKey = `spot-${spotId}`
-    if (markersRef.current[markerKey]) {
-      markersRef.current[markerKey].remove()
-      delete markersRef.current[markerKey]
-    }
-  }, [])
-
   const clearSpotMarkers = useCallback(() => {
-    // Drop the hover tooltip too — its marker may be among those removed.
-    hoverPopupRef.current?.remove()
-    Object.keys(markersRef.current).forEach((key) => {
-      if (key.startsWith('spot-')) {
-        markersRef.current[key].remove()
-        delete markersRef.current[key]
-      }
-    })
+    clearSpotMarkersFromMap(spotMarkerRefs.current)
   }, [])
 
-  // Scale up the selected spot's marker (and unscale the rest) by toggling a
-  // CSS class on the marker elements. The id is also stored so addSpotMarkers
-  // can re-apply the class to markers re-created after a pan.
   const setSelectedSpotId = useCallback((id: number | null): void => {
-    selectedSpotIdRef.current = id
-    Object.entries(markersRef.current).forEach(([key, marker]) => {
-      if (!key.startsWith('spot-')) return
-      const markerId = Number(key.slice('spot-'.length))
-      marker
-        .getElement()
-        .classList.toggle('spot-marker--selected', markerId === id)
-    })
+    setSelectedSpotMarkerId(spotMarkerRefs.current, id)
   }, [])
 
   const flyTo = useCallback(
@@ -428,19 +282,12 @@ export function useMapbox(options: UseMapboxOptions = {}): UseMapboxReturn {
           center,
           zoom: zoomLevel || mapInstance.current.getZoom(),
           duration: 1000,
+          // curve 1 = linear path; default 1.42 zooms out mid-flight (looks like a twitch)
+          curve: 1,
         })
       }
     },
     [onFlyStart]
-  )
-
-  const fitBounds = useCallback(
-    (bounds: [[number, number], [number, number]]) => {
-      if (mapInstance.current) {
-        mapInstance.current.fitBounds(bounds, { padding: 50 })
-      }
-    },
-    []
   )
 
   const zoomIn = useCallback(() => {
@@ -455,16 +302,9 @@ export function useMapbox(options: UseMapboxOptions = {}): UseMapboxReturn {
     }
   }, [])
 
-  const getCurrentCenter = useCallback((): [number, number] | null => {
-    if (!mapInstance.current) return null
-    const center = mapInstance.current.getCenter()
-    return [center.lng, center.lat]
-  }, [])
-
-  const getCurrentZoom = useCallback((): number | null => {
-    return mapInstance.current?.getZoom() ?? null
-  }, [])
-
+  // Retries re-invoke through a ref so the callback never references itself
+  // (forbidden by the hooks lint).
+  const requestUserLocationRef = useRef<(() => void) | null>(null)
   const requestUserLocation = useCallback(async () => {
     if (!mapInstance.current) {
       return
@@ -508,7 +348,7 @@ export function useMapbox(options: UseMapboxOptions = {}): UseMapboxReturn {
             setLocationState('loading') // Keep loading state during retry
 
             retryTimeoutRef.current = setTimeout(() => {
-              requestUserLocation()
+              requestUserLocationRef.current?.()
             }, retryDelay)
           } else {
             retryCountRef.current = 0
@@ -531,6 +371,9 @@ export function useMapbox(options: UseMapboxOptions = {}): UseMapboxReturn {
     MAX_RETRIES,
     RETRY_DELAYS,
   ])
+  useEffect(() => {
+    requestUserLocationRef.current = requestUserLocation
+  }, [requestUserLocation])
 
   const recenterToUser = useCallback(() => {
     if (!userLocationMarker.current) return
@@ -636,7 +479,7 @@ export function useMapbox(options: UseMapboxOptions = {}): UseMapboxReturn {
                 // center so it's clickable when we're away from the user.
                 syncLocationStateToMapCenter()
               }
-            } else {
+            } else if (!skipAutoUserLocation) {
               // First-time user - request location and flyTo when found
               requestUserLocation()
             }
@@ -667,7 +510,7 @@ export function useMapbox(options: UseMapboxOptions = {}): UseMapboxReturn {
       const handleZoom = (): void => {
         if (!mapInstance.current) return
         const newSize = getMarkerSizeForZoom(mapInstance.current.getZoom())
-        const entries = Object.entries(markersRef.current)
+        const entries = Object.entries(spotMarkerRefs.current.markers)
         for (const [key, marker] of entries) {
           if (!key.startsWith('spot-')) continue
           const el = marker.getElement() as HTMLDivElement | null
@@ -694,9 +537,9 @@ export function useMapbox(options: UseMapboxOptions = {}): UseMapboxReturn {
 
       if (map) {
         clearMarkers()
-        if (hoverPopupRef.current) {
-          hoverPopupRef.current.remove()
-          hoverPopupRef.current = null
+        if (spotMarkerRefs.current.hoverPopup) {
+          spotMarkerRefs.current.hoverPopup.remove()
+          spotMarkerRefs.current.hoverPopup = null
         }
         if (userLocationMarker.current) {
           userLocationMarker.current.remove()
@@ -783,6 +626,7 @@ export function useMapbox(options: UseMapboxOptions = {}): UseMapboxReturn {
       center,
       zoom: mapInstance.current.getZoom(),
       duration: 1000,
+      curve: 1,
     })
   }, [center, isLoaded])
 
@@ -791,8 +635,8 @@ export function useMapbox(options: UseMapboxOptions = {}): UseMapboxReturn {
     if (!isLoaded || !mapInstance.current) return
 
     // When theme changes, recreate all spot markers with new theme
-    const spotMarkerKeys = Object.keys(markersRef.current).filter((key) =>
-      key.startsWith('spot-')
+    const spotMarkerKeys = Object.keys(spotMarkerRefs.current.markers).filter(
+      (key) => key.startsWith('spot-')
     )
     if (spotMarkerKeys.length > 0) {
       // Get all current spots data before clearing
@@ -856,23 +700,15 @@ export function useMapbox(options: UseMapboxOptions = {}): UseMapboxReturn {
     map,
     isLoaded,
     error: error?.message || null, // Convert back to string for compatibility
-    addMarker,
-    removeMarker,
-    clearMarkers,
     addSpotMarkers,
-    removeSpotMarker,
     clearSpotMarkers,
     flyTo,
-    fitBounds,
     zoomIn,
     zoomOut,
-    getCurrentCenter,
-    getCurrentZoom,
     locationState,
     requestUserLocation,
     recenterToUser,
     retryCount,
-    retryLocation: requestUserLocation,
     setSelectedSpotId,
   }
 }

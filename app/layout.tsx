@@ -1,15 +1,12 @@
 import type { Metadata } from 'next'
-import { Inter } from 'next/font/google'
+import { Geist } from 'next/font/google'
 import './globals.css'
 import React from 'react'
 import { ThemeProvider } from '@/contexts/ThemeContext'
 import { SpotIndexPreloader } from '@/components/common/SpotIndexPreloader'
+import { cn } from '@/lib/utils'
 
-const inter = Inter({
-  variable: '--font-inter',
-  subsets: ['latin'],
-  weight: ['400', '500', '600', '700'],
-})
+const geist = Geist({ subsets: ['latin'], variable: '--font-sans' })
 
 export const metadata: Metadata = {
   title: 'Sea Prophet',
@@ -18,6 +15,8 @@ export const metadata: Metadata = {
 export const viewport = {
   width: 'device-width',
   initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
   viewportFit: 'cover', // Support for safe areas on mobile
 }
 
@@ -27,8 +26,12 @@ export default function RootLayout({
   children: React.ReactNode
 }): React.JSX.Element {
   return (
-    <html lang="en" className={inter.variable} suppressHydrationWarning>
-      <body suppressHydrationWarning>
+    <html
+      lang="en"
+      className={cn('font-sans', 'font-sans', geist.variable)}
+      suppressHydrationWarning
+    >
+      <body className="antialiased" suppressHydrationWarning>
         <ThemeProvider>{children}</ThemeProvider>
         <SpotIndexPreloader />
       </body>

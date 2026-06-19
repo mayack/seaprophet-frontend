@@ -1,6 +1,5 @@
 'use client'
 
-import { WebcamViewer } from '@/components/common/WebcamViewer'
 import {
   Breadcrumb,
   BreadcrumbList,
@@ -10,7 +9,6 @@ import {
   BreadcrumbPage,
 } from '@/components/ui/breadcrumb'
 import { Heart, HeartCrack } from 'lucide-react'
-import { WebcamConfig } from '@/api/sargo/interfaces/webcam'
 import {
   Tooltip,
   TooltipContent,
@@ -25,8 +23,7 @@ import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 
-interface SpotsDetailsProps {
-  webcams?: WebcamConfig[]
+interface SpotDetailHeaderProps {
   spotName: string
   spotId?: number
   locationPath?: {
@@ -35,15 +32,15 @@ interface SpotsDetailsProps {
     district?: string
     municipality?: string
   }
+  className?: string
 }
 
-export function SpotsDetails({
-  webcams,
+export function SpotDetailHeader({
   spotName,
   spotId,
   locationPath,
-}: SpotsDetailsProps): React.JSX.Element {
-  const hasWebcam = !!webcams?.length
+  className,
+}: SpotDetailHeaderProps): React.JSX.Element {
   const { userData, updateUser } = useUser()
   const router = useRouter()
   const [isToggling, setIsToggling] = useState(false)
@@ -85,80 +82,71 @@ export function SpotsDetails({
   }
 
   return (
-    <div>
-      <div className="wrapper">
-        <div className="mb-4 flex w-full flex-col sm:mb-6">
-          <div className="mb-3 flex flex-col items-start gap-2 sm:flex-row sm:items-center">
-            {locationPath && (
-              <Breadcrumb className="flex-1">
-                <BreadcrumbList>
-                  {locationPath.country && (
-                    <>
-                      <BreadcrumbItem>
-                        <BreadcrumbLink>{locationPath.country}</BreadcrumbLink>
-                      </BreadcrumbItem>
-                      <BreadcrumbSeparator />
-                    </>
-                  )}
-                  {locationPath.region && (
-                    <>
-                      <BreadcrumbItem>
-                        <BreadcrumbLink>{locationPath.region}</BreadcrumbLink>
-                      </BreadcrumbItem>
-                      <BreadcrumbSeparator />
-                    </>
-                  )}
-                  {locationPath.district && (
-                    <>
-                      <BreadcrumbItem>
-                        <BreadcrumbLink>{locationPath.district}</BreadcrumbLink>
-                      </BreadcrumbItem>
-                      <BreadcrumbSeparator />
-                    </>
-                  )}
-                  {locationPath.municipality && (
-                    <BreadcrumbItem>
-                      <BreadcrumbPage>
-                        {locationPath.municipality}
-                      </BreadcrumbPage>
-                    </BreadcrumbItem>
-                  )}
-                </BreadcrumbList>
-              </Breadcrumb>
-            )}
-          </div>
-          <div className="flex items-center gap-4">
-            <h1 className="font-style-h1 flex-1 leading-none">{spotName}</h1>
-            {spotId && (
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={handleToggleFavorite}
-                      disabled={isToggling}
-                      className="shrink-0"
-                    >
-                      <Heart className={cn(isFavorite && 'fill-foreground')} />
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent
-                    className="text-xs leading-none"
-                    sideOffset={10}
-                  >
-                    {isFavorite ? 'Remove from favorites' : 'Add to favorites'}
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-            )}
-          </div>
-        </div>
+    <div
+      className={cn(
+        'flex items-center justify-between gap-3 px-4 pt-4 sm:px-6 sm:pt-6',
+        className
+      )}
+    >
+      <div className="space-y-2">
+        {locationPath && (
+          <Breadcrumb className="flex-1">
+            <BreadcrumbList>
+              {locationPath.country && (
+                <>
+                  <BreadcrumbItem>
+                    <BreadcrumbLink>{locationPath.country}</BreadcrumbLink>
+                  </BreadcrumbItem>
+                  <BreadcrumbSeparator />
+                </>
+              )}
+              {locationPath.region && (
+                <>
+                  <BreadcrumbItem>
+                    <BreadcrumbLink>{locationPath.region}</BreadcrumbLink>
+                  </BreadcrumbItem>
+                  <BreadcrumbSeparator />
+                </>
+              )}
+              {locationPath.district && (
+                <>
+                  <BreadcrumbItem>
+                    <BreadcrumbLink>{locationPath.district}</BreadcrumbLink>
+                  </BreadcrumbItem>
+                  <BreadcrumbSeparator />
+                </>
+              )}
+              {locationPath.municipality && (
+                <BreadcrumbItem>
+                  <BreadcrumbPage>{locationPath.municipality}</BreadcrumbPage>
+                </BreadcrumbItem>
+              )}
+            </BreadcrumbList>
+          </Breadcrumb>
+        )}
+        <h1 className="text-4xl font-bold">{spotName}</h1>
       </div>
-      {hasWebcam && (
-        <div className="aspect-video md:aspect-auto md:h-[60vh]">
-          <WebcamViewer configs={webcams ?? []} />
-        </div>
+      {spotId && (
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger
+              render={
+                <Button
+                  variant="outline"
+                  size="icon-circle"
+                  onClick={handleToggleFavorite}
+                  disabled={isToggling}
+                  className="shrink-0"
+                >
+                  <Heart className={cn(isFavorite && 'fill-foreground')} />
+                </Button>
+              }
+            />
+            <TooltipContent className="text-xs leading-none" sideOffset={10}>
+              {isFavorite ? 'Remove from favorites' : 'Add to favorites'}
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
       )}
     </div>
   )

@@ -11,15 +11,11 @@ import React from 'react'
 
 export function WaveItem({
   height,
-  period,
-  direction,
   unit,
   energy,
   className,
 }: {
   height: number
-  period: number
-  direction: number
   unit: string
   energy: number
   className: string
@@ -28,17 +24,11 @@ export function WaveItem({
     <div
       className={cn(
         className,
-        'inline-flex items-center gap-1.5 whitespace-nowrap rounded bg-muted px-2 py-1 xs:gap-2'
+        'inline-flex items-center gap-1 rounded bg-muted px-1.5 py-0.5 text-2xs whitespace-nowrap md:gap-1.5 md:text-xs'
       )}
     >
-      {formatValueWithUnitSeparated(
-        height,
-        unit,
-        'min-w-8 xs:min-w-9 font-medium'
-      )}
-      {formatValueWithUnitSeparated(period, 'seconds', 'min-w-5 xs:min-w-6')}
-      {formatValueWithUnitSeparated(energy, 'kilojoules', 'flex-1')}
-      <IconDirection degrees={direction} isWind={false} size="small" />
+      {formatValueWithUnitSeparated(height, unit, 'flex-1')}
+      {formatValueWithUnitSeparated(energy, 'kilojoules')}
     </div>
   )
 }
@@ -59,7 +49,12 @@ export function SwellItem({
   if (height === 0) return <div className={className} />
 
   return (
-    <div className={cn(className, 'items-center gap-1.5 text-xs xl:text-sm')}>
+    <div
+      className={cn(
+        className,
+        'items-center gap-1.5 text-xs lg:text-sm'
+      )}
+    >
       {formatValueWithUnitSeparated(height, unit)}
       {formatValueWithUnitSeparated(period, 'seconds')}
       <IconDirection degrees={direction} isWind={false} size="small" />
@@ -98,19 +93,28 @@ export function WindItem({
   ) as keyof typeof ratingBackgrounds
 
   return (
-    <div className={cn(className, 'flex items-center gap-1.5 xs:gap-2')}>
+    <div
+      className={cn(
+        className,
+        'flex items-center gap-1.5 md:gap-2'
+      )}
+    >
       <div className="flex items-center gap-1">
-        <div className="min-w-7 text-center text-sm xs:text-base">{speed}</div>
+        <div className="min-w-7 text-center text-sm md:text-base">
+          {speed}
+        </div>
         <div className="flex min-w-4 flex-col">
-          <div className="text-3xs leading-none xs:text-2xs">{gust}</div>
-          <div className="mt-px text-3xs leading-none xs:text-2xs">
+          <div className="text-3xs leading-none md:text-2xs">
+            {gust}
+          </div>
+          <div className="mt-px text-3xs leading-none md:text-2xs">
             {formatUnit(unit)}
           </div>
         </div>
       </div>
       <div
         className={cn(
-          'flex size-5 items-center justify-center rounded-full xs:size-6',
+          'flex size-5 items-center justify-center rounded-full md:size-6',
           ratingBackgrounds[safeRating]
         )}
       >
@@ -132,9 +136,17 @@ export function TemperatureItem({
   className?: string
 }): React.JSX.Element {
   return (
-    <div className={cn(className, 'flex items-center gap-1.5 xs:gap-2')}>
-      <WeatherIcon weatherType={weatherType} className="size-3 xs:size-4" />
-      <span className="text-xs xs:text-sm">
+    <div
+      className={cn(
+        className,
+        'flex items-center gap-1.5 md:gap-2'
+      )}
+    >
+      <WeatherIcon
+        weatherType={weatherType}
+        className="size-3 md:size-4"
+      />
+      <span className="text-xs md:text-sm">
         {formatValueWithUnit(airTemp, unit)}
       </span>
     </div>

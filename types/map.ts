@@ -1,6 +1,4 @@
 import { SpotSummary } from '@/api/sargo/interfaces/spot'
-import { WebcamConfig } from '@/api/sargo/interfaces/webcam'
-import mapboxgl from 'mapbox-gl'
 
 // Geographic and spatial types
 export interface GeographicBounds {
@@ -12,18 +10,6 @@ export interface GeographicBounds {
 
 export type Coordinates = [longitude: number, latitude: number]
 
-export interface Location {
-  latitude: number
-  longitude: number
-}
-
-// Map error handling
-export interface MapError {
-  message: string
-  code?: string
-  type: 'initialization' | 'style' | 'token' | 'unknown'
-}
-
 // Location state management
 export type LocationState =
   | 'idle'
@@ -32,12 +18,6 @@ export type LocationState =
   | 'off-center'
   | 'error'
   | 'permission-denied'
-
-export interface LocationButtonConfig {
-  state: LocationState
-  retryCount: number
-  maxRetries: number
-}
 
 // Base map interfaces
 export interface BaseMapProps {
@@ -71,43 +51,6 @@ export interface MapCallbackProps {
   onFlyStart?: () => void
 }
 
-// Marker and popup interfaces
-export interface MarkerConfig {
-  /** Marker element width */
-  width?: string
-  /** Marker element height */
-  height?: string
-  /** CSS class name for marker */
-  className?: string
-  /** Pointer events behavior */
-  pointerEvents?: string
-  /** Cursor style */
-  cursor?: string
-  /** Use dark theme styling */
-  isDark?: boolean
-}
-
-export interface PopupData {
-  /** Spot ID for linking */
-  spotId: number
-  /** Spot name to display */
-  spotName: string
-  /** Optional webcam configuration */
-  webcam?: WebcamConfig
-}
-
-// Component-specific prop interfaces
-export interface SimpleMapProps extends BaseMapProps, MapInteractionProps {
-  /** Center coordinates (required for SimpleMap) */
-  center: Coordinates
-  /** Show marker on the map */
-  showMarker?: boolean
-  /** Spot ID for marker popup */
-  spotId?: number
-  /** Spot name for marker popup */
-  spotName?: string
-}
-
 export interface MapNavigatorProps extends BaseMapProps {
   /** Initial radius for loading spots (km) */
   initialRadius?: number
@@ -118,19 +61,19 @@ export interface MapNavigatorProps extends BaseMapProps {
 }
 
 export interface UseMapboxOptions
-  extends BaseMapProps,
-    MapInteractionProps,
-    MapCallbackProps {
+  extends BaseMapProps, MapInteractionProps, MapCallbackProps {
   /** Show user location marker */
   showUserLocation?: boolean
-  /** Soft-navigate to a spot when its marker popup is clicked */
-  onSpotClick?: (spotId: number) => void
+  /** Soft-navigate to a spot when its marker is clicked */
+  onSpotClick?: (spot: SpotSummary) => void
   /**
    * Skip the automatic flyTo to the user's location on load. Used when the
    * map is initialized at a remembered position (returning from another
-   * page) so the view isn't yanked away from where the user left it.
+   * page) or when opening a direct /spot/[id] link.
    */
   skipInitialFlyTo?: boolean
+  /** Skip auto-requesting geolocation on load (direct spot links). */
+  skipAutoUserLocation?: boolean
 }
 
 export interface UseMapboxReturn {
@@ -142,35 +85,16 @@ export interface UseMapboxReturn {
   isLoaded: boolean
   /** Current error state */
   error: string | null
-  /** Add a generic marker */
-  addMarker: (
-    id: string,
-    position: Coordinates,
-    element?: HTMLDivElement,
-    popup?: mapboxgl.Popup
-  ) => void
-  /** Remove a marker by ID */
-  removeMarker: (id: string) => void
-  /** Clear all markers */
-  clearMarkers: () => void
   /** Add spot markers */
   addSpotMarkers: (spots: SpotSummary[]) => void
-  /** Remove a spot marker */
-  removeSpotMarker: (spotId: number) => void
   /** Clear all spot markers */
   clearSpotMarkers: () => void
   /** Fly to location */
   flyTo: (center: Coordinates, zoom?: number) => void
-  /** Fit map to bounds */
-  fitBounds: (bounds: [Coordinates, Coordinates]) => void
   /** Zoom in one level */
   zoomIn: () => void
   /** Zoom out one level */
   zoomOut: () => void
-  /** Get current map center */
-  getCurrentCenter: () => Coordinates | null
-  /** Get current zoom level */
-  getCurrentZoom: () => number | null
   /** Current location state */
   locationState: LocationState
   /** Request user location */
@@ -179,25 +103,11 @@ export interface UseMapboxReturn {
   recenterToUser: () => void
   /** Current retry count for location */
   retryCount: number
-  /** Retry location request */
-  retryLocation: () => void
   /**
    * Mark a spot as selected so its marker is scaled up (or pass null to
    * clear). Survives panning and marker refreshes.
    */
   setSelectedSpotId: (id: number | null) => void
-}
-
-// Theme and styling
-export interface MapTheme {
-  /** Whether dark theme is active */
-  isDark: boolean
-  /** Current map style URL */
-  mapStyle: string
-  /** Current style state */
-  currentStyle: string
-  /** Resolved theme string */
-  resolvedTheme: string | undefined
 }
 
 // Configuration types
@@ -295,7 +205,6 @@ export interface MapMarkersConfig {
   resizeEndZoom: number
 }
 
-// Consolidated map configuration interface
 export interface MapConfig {
   defaults: MapDefaults
   location: MapLocationConfig
@@ -306,42 +215,3 @@ export interface MapConfig {
   userMarker: MapUserMarkerConfig
   markers: MapMarkersConfig
 }
-
-// Utility types
-export type MarkerAnchor =
-  | 'center'
-  | 'top'
-  | 'bottom'
-  | 'left'
-  | 'right'
-  | 'top-left'
-  | 'top-right'
-  | 'bottom-left'
-  | 'bottom-right'
-
-export interface CreateMapOptions {
-  container: HTMLDivElement
-  center: Coordinates
-  zoom: number
-  theme?: string | null
-  disablePanning?: boolean
-  disableZooming?: boolean
-}
-
-// Spot-related map types
-export interface SpotMarkerData extends PopupData {
-  /** Spot location */
-  location: {
-    lat: number
-    long: number
-  }
-  /** Distance from user (if available) */
-  distance?: number
-}
-
-// Export commonly used type combinations
-export type MapComponentProps = BaseMapProps &
-  MapInteractionProps &
-  MapCallbackProps
-export type SpotMapProps = SimpleMapProps & { spotData?: SpotMarkerData }
-export type NavigatorMapProps = MapNavigatorProps & MapCallbackProps

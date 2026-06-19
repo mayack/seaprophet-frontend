@@ -71,7 +71,7 @@ export default function TideChart({
   unit,
   className,
 }: TideChartProps): React.JSX.Element {
-  const height = 96
+  const height = 88
   const svgRef = useRef<SVGSVGElement>(null)
   const [width, setWidth] = useState(240)
   const [isClient, setIsClient] = useState(false)
@@ -167,8 +167,11 @@ export default function TideChart({
     return d
   }, [curveSamples, xScale])
 
+  // Client-only render guard. Deferred a frame so the flag isn't set
+  // synchronously inside the effect body.
   useEffect(() => {
-    setIsClient(true)
+    const raf = requestAnimationFrame(() => setIsClient(true))
+    return (): void => cancelAnimationFrame(raf)
   }, [])
 
   useEffect(() => {
@@ -226,16 +229,20 @@ export default function TideChart({
   }
 
   return (
-    <div className={cn(className, 'relative w-full xl:w-72')}>
+    <div
+      className={cn(
+        'relative w-64 rounded-md border border-border bg-border/70 dark:bg-none',
+        className
+      )}
+    >
       <svg
         ref={svgRef}
-        width="100%"
         height={height}
         viewBox={`0 0 ${width} ${height}`}
         preserveAspectRatio="xMidYMid meet"
         onMouseMove={handleMouseMove}
         onMouseLeave={() => setMousePosition(null)}
-        className="rounded-md bg-border"
+        className="block w-full"
       >
         {astronomical && (
           <>
@@ -248,7 +255,7 @@ export default function TideChart({
                 xScale
               }
               height={height}
-              fill="hsl(var(--muted))"
+              className="fill-muted dark:fill-border/50"
             />
             <rect
               x={PADDING.left + normalizeTime(astronomical.sunrise) * xScale}
@@ -259,7 +266,7 @@ export default function TideChart({
                 xScale
               }
               height={height}
-              fill="hsl(var(--background))"
+              className="fill-popover dark:fill-border"
             />
             <rect
               x={PADDING.left + normalizeTime(astronomical.sunset) * xScale}
@@ -270,14 +277,14 @@ export default function TideChart({
                 xScale
               }
               height={height}
-              fill="hsl(var(--muted))"
+              className="fill-muted dark:fill-border/50"
             />
           </>
         )}
         <path
           d={pathData}
           fill="none"
-          stroke="hsl(var(--primary))"
+          className="stroke-primary"
           strokeWidth="2"
         />
         {tideData
@@ -292,14 +299,14 @@ export default function TideChart({
 
             return (
               <g key={index}>
-                <circle cx={x} cy={y} r="4" fill="hsl(var(--primary))" />
+                <circle cx={x} cy={y} r="4" className="fill-primary" />
                 <text
                   x={textPos.x}
                   y={y - 24}
                   textAnchor={textPos.anchor}
                   fontSize="10"
                   fontWeight="500"
-                  fill="hsl(var(--foreground))"
+                  className="fill-foreground"
                 >
                   {tide.time}
                 </text>
@@ -308,7 +315,7 @@ export default function TideChart({
                   y={y - 10}
                   textAnchor={textPos.anchor}
                   fontSize="10"
-                  fill="hsl(var(--foreground))"
+                  className="fill-foreground"
                 >
                   {formatValueWithUnit(tide.height, unit)}
                 </text>
@@ -321,14 +328,14 @@ export default function TideChart({
             y1={0}
             x2={PADDING.left + mousePosition * xScale}
             y2={height}
-            stroke="hsl(var(--primary))"
+            className="stroke-primary"
             strokeWidth="1"
           />
         )}
       </svg>
       {mousePosition !== null && currentTideValue !== null && (
         <div
-          className="absolute flex flex-col gap-1 whitespace-nowrap rounded bg-foreground px-2 py-1.5 text-center text-background"
+          className="absolute flex flex-col gap-1 rounded bg-foreground px-2 py-1.5 text-center whitespace-nowrap text-background"
           style={{
             left: `${PADDING.left + mousePosition * xScale}px`,
             top: `${PADDING.top - 80}px`,
@@ -336,7 +343,7 @@ export default function TideChart({
             pointerEvents: 'none',
           }}
         >
-          <div className="text-xs font-semibold leading-none">
+          <div className="text-xs leading-none font-semibold">
             {minutesToTime(mousePosition)}
           </div>
           <div className="text-2xs leading-none">{currentTideValue}</div>

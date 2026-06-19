@@ -24,7 +24,7 @@ export function calculateDistance(
   // Treat `0` as a legitimate coordinate; only bail when a value is actually
   // missing or non-finite.
   const isValid = (n: number | null | undefined): n is number =>
-    n != null && Number.isFinite(n)
+    n !== null && n !== undefined && Number.isFinite(n)
   if (!isValid(lat1) || !isValid(lon1) || !isValid(lat2) || !isValid(lon2)) {
     return 0
   }

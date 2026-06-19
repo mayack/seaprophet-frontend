@@ -1,6 +1,7 @@
 'use client'
 
 import React from 'react'
+import { useRouter } from 'next/navigation'
 
 interface ReloadButtonProps {
   className?: string
@@ -9,8 +10,14 @@ interface ReloadButtonProps {
 export function ReloadButton({
   className,
 }: ReloadButtonProps): React.JSX.Element {
+  const router = useRouter()
+
   return (
-    <button onClick={() => window.location.reload()} className={className}>
+    <button
+      type="button"
+      onClick={() => router.refresh()}
+      className={className}
+    >
       Try again
     </button>
   )

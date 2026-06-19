@@ -9,7 +9,12 @@ import { normalizeUserSettings } from '@/lib/userSettings'
 import { readSargoOptions, writeSargoOptions } from '../cookies'
 import type { User, UserAuthResponse } from '../interfaces/user'
 
-export async function signIn(formData: FormData) {
+export type SignInState = { error?: string } | null
+
+export async function signIn(
+  _prevState: SignInState,
+  formData: FormData
+): Promise<SignInState> {
   const identifier = formData.get('identifier')
   const password = formData.get('password')
 
@@ -19,8 +24,7 @@ export async function signIn(formData: FormData) {
     typeof identifier !== 'string' ||
     typeof password !== 'string'
   ) {
-    console.error('Invalid form data:', { identifier, password })
-    return { success: false, error: 'Invalid credentials' }
+    return { error: 'Enter your email/username and password.' }
   }
 
   const cookieStore = await cookies()
@@ -31,8 +35,8 @@ export async function signIn(formData: FormData) {
       password
     )
     if (!sargoResponse?.jwt || !sargoResponse.user?.username) {
-      console.error('Invalid login response:', sargoResponse)
-      return { success: false, error: 'Invalid credentials' }
+      console.error('Invalid login response from Sargo')
+      return { error: 'Invalid credentials' }
     }
 
     cookieStore.set({
@@ -48,14 +52,21 @@ export async function signIn(formData: FormData) {
       calibrationReporter: sargoResponse.user.calibrationReporter,
     })
 
-    return { success: true }
+    revalidatePath('/', 'layout')
   } catch (error) {
     console.error('SignIn Error:', error)
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : 'Authentication failed',
+    if (error instanceof Error && error.name === 'auth') {
+      return { error: 'Incorrect email/username or password.' }
     }
+    if (error instanceof Error && error.name === 'network') {
+      return { error: 'Check your connection and try again.' }
+    }
+    return { error: 'Sign-in failed. Please try again.' }
   }
+
+  // redirect() throws NEXT_REDIRECT by design, so it must live outside the
+  // try/catch above — otherwise the catch would swallow the redirect.
+  redirect('/')
 }
 
 export async function signOut() {
@@ -96,13 +107,13 @@ export async function signOut() {
     }
 
     revalidatePath('/')
-    redirect('/auth/signin')
   } catch (error) {
-    if (error instanceof Error && error.message.includes('NEXT_REDIRECT'))
-      throw error
     console.error('SignOut Error:', error)
-    redirect('/auth/signin')
   }
+
+  // Always land on sign-in, whether or not cookie clearing threw. redirect()
+  // throws NEXT_REDIRECT by design, so it lives outside the try/catch.
+  redirect('/auth/signin')
 }
 
 // Reads user data from the TOKEN_SARGO_OPTIONS cookie (fast path).
@@ -117,7 +128,7 @@ export async function getCurrentUser(): Promise<User | null> {
   if (!jwt) return null
 
   const cached = await readSargoOptions()
-  if (cached?.username) {
+  if (cached?.username && 'calibrationReporter' in cached) {
     return {
       id: cached.id,
       username: cached.username,

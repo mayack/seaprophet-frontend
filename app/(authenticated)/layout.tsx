@@ -10,7 +10,7 @@ import React from 'react'
  * Authenticated layout — auth gate.
  *
  * `getCurrentUser()` (cache: 'no-store') validates the JWT against
- * Sargo on every request. The edge middleware is structural-only and
+ * Sargo on every request. The edge proxy is structural-only and
  * can't see revocations, so this layout is the source of truth for
  * "is the user signed in?".
  *

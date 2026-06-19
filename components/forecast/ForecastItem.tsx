@@ -1,6 +1,7 @@
 import { SwellItem, TemperatureItem, WaveItem, WindItem } from './CellItems'
 import type { ForecastDay } from '@/api/polvo/interfaces/forecast'
 import { AstronomicalBreakdown } from './AstronomicalBreakdown'
+import { DayGeneralInfo } from './DayGeneralInfo'
 import { ForecastHeader } from './ForecastHeader'
 import TideChart from './TideChart'
 import { UserUnits } from '@/api/sargo/interfaces/user'
@@ -19,27 +20,28 @@ export function ForecastItem({
   const date = new Date(day.date)
 
   return (
-    <div className="flex flex-col gap-x-10 gap-y-4 xl:flex-row xl:gap-x-12">
-      <aside className="flex w-full flex-col gap-y-4 xl:w-72 xl:gap-y-8">
-        <h2 className="font-style-h2 flex flex-col justify-center">
-          {getDateLabel(date)}
-          <div className="font-style-comment">
-            {date.toLocaleDateString('en-US', {
-              month: 'long',
-              day: 'numeric',
-            })}
-          </div>
-        </h2>
-        <TideChart
-          data={day.tides}
-          astronomical={day.astronomical}
-          unit={units.tide_height}
-        />
-        <AstronomicalBreakdown
-          astronomical={day.astronomical}
-          general={day.general}
-          units={units}
-        />
+    <div className="flex flex-col gap-y-6">
+      <aside className="flex items-center gap-y-4">
+        <div className="flex flex-1 flex-col gap-y-3">
+          <h2 className="flex w-full flex-col justify-center text-2xl font-bold">
+            {getDateLabel(date)}
+            <div className="text-sm font-normal text-muted-foreground">
+              {date.toLocaleDateString('en-US', {
+                month: 'long',
+                day: 'numeric',
+              })}
+            </div>
+          </h2>
+          <DayGeneralInfo general={day.general} units={units} />
+        </div>
+        <div className="flex items-center gap-x-10">
+          <AstronomicalBreakdown astronomical={day.astronomical} />
+          <TideChart
+            data={day.tides}
+            astronomical={day.astronomical}
+            unit={units.tide_height}
+          />
+        </div>
       </aside>
       <div className="relative flex-1">
         <ForecastHeader />
@@ -48,31 +50,31 @@ export function ForecastItem({
             key={hour}
             className="flex items-center justify-between border-t py-2.5"
           >
-            <div className="w-9 text-2xs xs:w-8 xs:text-xs">{hour}</div>
+            <div className="w-9 text-2xs md:w-8 md:text-xs">
+              {hour}
+            </div>
             <WaveItem
-              className="w-36 xs:w-40"
+              className="w-28 md:w-26"
               height={forecast.waveHeight}
-              period={forecast.wavePeriod}
-              direction={forecast.waveDirection}
               unit={units.surf_height}
               energy={forecast.waveEnergy}
             />
             <SwellItem
-              className="hidden w-20 sm:flex"
+              className="hidden w-20 md:flex"
               height={forecast.swellHeight}
               period={forecast.swellPeriod}
               direction={forecast.swellDirection}
               unit={units.swell_height}
             />
             <SwellItem
-              className="hidden w-20 sm:flex"
+              className="hidden w-20 md:flex"
               height={forecast.secondarySwellHeight}
               period={forecast.secondarySwellPeriod}
               direction={forecast.secondarySwellDirection}
               unit={units.swell_height}
             />
             <SwellItem
-              className="hidden w-20 md:flex"
+              className="hidden w-20 lg:flex"
               height={forecast.windWaveHeight}
               period={forecast.windWavePeriod}
               direction={forecast.windWaveDirection}
@@ -87,7 +89,7 @@ export function ForecastItem({
               windRating={forecast.windRating}
             />
             <TemperatureItem
-              className="w-12 xs:w-16"
+              className="w-12 md:w-16"
               airTemp={forecast.airTemperature}
               weatherType={forecast.weatherType}
               unit={units.temperature}

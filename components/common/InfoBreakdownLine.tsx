@@ -16,10 +16,14 @@ export function InfoBreakdownLine({
 }: InfoBreakdownLineProps): React.JSX.Element {
   return (
     <div className={cn(className, 'flex items-center gap-3')}>
-      {icon}
-      <div className="flex flex-col">
-        <span className="text-2xs font-medium">{label}</span>
-        <div className="text-sm">{value}</div>
+      <div className="flex flex-col gap-0.5">
+        <div className="text-2xs font-medium text-muted-foreground">
+          {label}
+        </div>
+        <div className="flex items-center gap-1 [&>svg]:size-3">
+          {icon}
+          <div className="text-xs">{value}</div>
+        </div>
       </div>
     </div>
   )

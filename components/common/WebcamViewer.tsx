@@ -14,11 +14,13 @@ import {
 import { extractWebcamUrl } from '@/api/polvo/actions/webcam'
 import { WebcamConfig } from '@/api/sargo/interfaces/webcam'
 import { CONFIG } from '@/constants/config'
+import { cn } from '@/lib/utils'
 
 const AFK_TIMEOUT_MS = CONFIG.webcam.afk_timer
 
 interface WebcamViewerProps {
   configs: WebcamConfig[]
+  className?: string
 }
 
 function getStreamUrl(url: string, referer?: string): string {
@@ -28,6 +30,7 @@ function getStreamUrl(url: string, referer?: string): string {
 
 export function WebcamViewer({
   configs,
+  className,
 }: WebcamViewerProps): React.JSX.Element {
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -313,9 +316,11 @@ export function WebcamViewer({
       doc.webkitFullscreenElement ||
       isNativeFullscreenRef.current
     ) {
-      doc.exitFullscreen?.() || vid.webkitExitFullscreen?.()
+      if (doc.exitFullscreen) doc.exitFullscreen()
+      else vid.webkitExitFullscreen?.()
     } else {
-      vid.webkitEnterFullscreen?.() || video.requestFullscreen?.()
+      if (vid.webkitEnterFullscreen) vid.webkitEnterFullscreen()
+      else video.requestFullscreen?.()
     }
   }, [])
 
@@ -353,13 +358,16 @@ export function WebcamViewer({
       reloadTimer = setTimeout(() => initStream(), 300)
     }
 
-    syncIcon()
+    // Initial sync deferred a frame so state isn't set synchronously in the
+    // effect body.
+    const initialRaf = requestAnimationFrame(syncIcon)
     document.addEventListener('fullscreenchange', syncIcon)
     document.addEventListener('webkitfullscreenchange', syncIcon)
     video.addEventListener('webkitbeginfullscreen', onNativeBegin)
     video.addEventListener('webkitendfullscreen', onNativeEnd)
 
     return (): void => {
+      cancelAnimationFrame(initialRaf)
       if (reloadTimer) clearTimeout(reloadTimer)
       document.removeEventListener('fullscreenchange', syncIcon)
       document.removeEventListener('webkitfullscreenchange', syncIcon)
@@ -368,10 +376,14 @@ export function WebcamViewer({
     }
   }, [initStream])
 
-  // Initialize on mount and config change
+  // Initialize on mount and config change. Deferred a frame so initStream's
+  // initial setState isn't run synchronously inside the effect body.
   useEffect(() => {
-    initStream()
-    return cleanupStream
+    const raf = requestAnimationFrame(() => initStream())
+    return (): void => {
+      cancelAnimationFrame(raf)
+      cleanupStream()
+    }
   }, [initStream, cleanupStream])
 
   // Reset AFK timer on interaction
@@ -409,7 +421,12 @@ export function WebcamViewer({
   }, [isLoading, error, isAfk, toggleFullscreen])
 
   return (
-    <div className="relative size-full bg-black dark:bg-white/5">
+    <div
+      className={cn(
+        'relative aspect-video w-full bg-black dark:bg-white/5',
+        className
+      )}
+    >
       <video
         ref={videoRef}
         className="size-full"
@@ -421,7 +438,7 @@ export function WebcamViewer({
 
       {isLoading && !isAfk && (
         <Overlay>
-          <Spinner size="lg" className="text-white" />
+          <Spinner className="size-8 text-white" />
           {config.website_url && (
             <p className="mt-4 text-sm text-white">
               This camera takes longer to load
@@ -433,7 +450,11 @@ export function WebcamViewer({
       {error && !isAfk && (
         <Overlay>
           <p className="text-white">{error}</p>
-          <Button onClick={handleRetry} variant="overlay" className="mt-4">
+          <Button
+            onClick={handleRetry}
+            variant="ghost"
+            className="mt-4 bg-white/10 text-white hover:bg-white/20"
+          >
             <RefreshCw />
             Retry
           </Button>
@@ -445,8 +466,8 @@ export function WebcamViewer({
           <p className="text-white">Still watching?</p>
           <Button
             onClick={handleKeepWatching}
-            variant="overlay"
-            className="mt-4"
+            variant="ghost"
+            className="mt-4 bg-white/10 text-white hover:bg-white/20"
           >
             <Play />
             Continue
@@ -455,13 +476,16 @@ export function WebcamViewer({
       )}
 
       {configs.length > 1 && !isAfk && (
-        <div className="absolute bottom-4 left-4 flex gap-2">
+        <div className="absolute bottom-6 left-6 flex gap-2">
           {configs.map((cam, i) => (
             <Button
               key={i}
               onClick={() => setActiveIndex(i)}
               size="xs"
-              variant={i === activeIndex ? 'accent' : 'overlay'}
+              variant="ghost"
+              className={`text-white hover:bg-white/20 ${
+                i === activeIndex ? 'bg-white/25' : 'bg-white/10'
+              }`}
             >
               {cam.name || `CAM ${i + 1}`}
             </Button>
@@ -472,16 +496,18 @@ export function WebcamViewer({
       {!isLoading && !error && !isAfk && (
         <TooltipProvider>
           <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                onClick={toggleFullscreen}
-                size="icon"
-                variant="overlay"
-                className="absolute bottom-4 right-4"
-              >
-                {isFullscreen ? <Shrink /> : <Expand />}
-              </Button>
-            </TooltipTrigger>
+            <TooltipTrigger
+              render={
+                <Button
+                  onClick={toggleFullscreen}
+                  size="icon"
+                  variant="ghost"
+                  className="absolute right-6 bottom-6 bg-white/10 text-white hover:bg-white/20"
+                >
+                  {isFullscreen ? <Shrink /> : <Expand />}
+                </Button>
+              }
+            />
             <TooltipContent side="left" sideOffset={10}>
               Fullscreen
             </TooltipContent>

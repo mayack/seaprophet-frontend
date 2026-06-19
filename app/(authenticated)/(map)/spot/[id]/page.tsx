@@ -1,6 +1,6 @@
 export const revalidate = 900
 
-import { spotModalMetadata } from '@/components/spot/SpotModal'
+import { getSpot } from '@/api/sargo/actions/spot'
 import type { Metadata } from 'next'
 
 interface SpotPageProps {
@@ -10,13 +10,21 @@ interface SpotPageProps {
 export async function generateMetadata({
   params,
 }: SpotPageProps): Promise<Metadata> {
-  return spotModalMetadata((await params).id)
+  const spotId = Number((await params).id)
+  if (!Number.isFinite(spotId) || spotId <= 0) {
+    return { title: 'Spot not found - Sea Prophet' }
+  }
+  const res = await getSpot(spotId)
+  const spot = res?.data?.attributes
+  return {
+    title: spot ? `${spot.name} - Sea Prophet` : 'Spot not found - Sea Prophet',
+  }
 }
 
 /**
- * Direct load / refresh of /spot/[id]. The map is rendered by the persistent
- * (map) layout and the spot popover by the matching @modal/spot/[id] slot, so
- * this route segment itself renders nothing.
+ * Direct load / refresh of /spot/[id]. The map + spot panel are rendered by the
+ * persistent (map) layout — SpotDirectLinkHydrator opens the panel from the
+ * URL — so this route segment itself renders nothing.
  */
 export default function SpotPage(): null {
   return null

@@ -5,7 +5,6 @@ import { GeographicBounds } from '@/types/map'
 import { calculateDistance } from '@/utils/location'
 import mapboxgl from 'mapbox-gl'
 import { useTheme } from 'next-themes'
-import { useEffect, useState } from 'react'
 
 // Set Mapbox token once
 if (process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN) {
@@ -21,25 +20,18 @@ const METERS_PER_KILOMETER = 1000
 export function useMapTheme(): {
   isDark: boolean
   mapStyle: string
-  currentStyle: string
   resolvedTheme: string | undefined
 } {
   const { resolvedTheme } = useTheme()
-  const [currentStyle, setCurrentStyle] = useState<string>('')
 
   const isDark = resolvedTheme === 'dark'
   const mapStyle = isDark
     ? CONFIG.mapbox.styles.dark
     : CONFIG.mapbox.styles.light
 
-  useEffect(() => {
-    setCurrentStyle(mapStyle)
-  }, [mapStyle])
-
   return {
     isDark,
     mapStyle,
-    currentStyle,
     resolvedTheme,
   }
 }
@@ -101,13 +93,6 @@ export function createMapError(
 // implementation lives in `@/lib/debounce` so non-map code (e.g. search) can
 // use it without pulling in the Mapbox client boundary.
 export { debounce } from '@/lib/debounce'
-
-// Validate coordinates helper
-export function isValidCoordinate(lng: number, lat: number): boolean {
-  return (
-    !isNaN(lng) && !isNaN(lat) && Math.abs(lng) <= 180 && Math.abs(lat) <= 90
-  )
-}
 
 // Get map style based on theme
 export function getMapStyle(isDark?: boolean): string {
@@ -370,7 +355,7 @@ export function createUserLocationMarkerElement(): HTMLDivElement {
   // Create pulsating blue circle using Tailwind classes
   el.innerHTML = `
     <div class="relative">
-      <div class="w-4 h-4 bg-blue-500 rounded-full border-2 border-white shadow-map z-10 relative"></div>
+      <div class="w-4 h-4 bg-blue-500 rounded-full border-2 border-white z-10 relative"></div>
       <div class="absolute inset-0 w-4 h-4 bg-blue-500 rounded-full animate-ping"></div>
     </div>
   `
@@ -459,56 +444,6 @@ export function getLocationButtonAction(
   }
 }
 
-export function sortSpotsByDistance(
-  spots: SpotSummary[],
-  userLocation?: { latitude: number; longitude: number }
-): SpotSummary[] {
-  if (!userLocation) {
-    return [...spots]
-  }
-
-  // Compute distance inline rather than trusting a precomputed `distance`
-  // field — that field can be stale or missing for spots that never went
-  // through `addDistanceToSpots`, which previously produced inconsistent
-  // ordering when the input list mixed annotated and raw spots.
-  const distanceFor = (spot: SpotSummary): number => {
-    const lat = spot.location?.lat
-    const long = spot.location?.long
-    if (lat === undefined || lat === null) return Infinity
-    if (long === undefined || long === null) return Infinity
-    return calculateDistance(
-      userLocation.latitude,
-      userLocation.longitude,
-      lat,
-      long
-    )
-  }
-
-  return [...spots].sort((a, b) => distanceFor(a) - distanceFor(b))
-}
-
-export function addDistanceToSpots(
-  spots: SpotSummary[],
-  userLocation?: { latitude: number; longitude: number }
-): SpotSummary[] {
-  if (!userLocation) {
-    return spots
-  }
-
-  return spots.map((spot) => ({
-    ...spot,
-    distance:
-      spot.location?.lat && spot.location?.long
-        ? calculateDistance(
-            userLocation.latitude,
-            userLocation.longitude,
-            spot.location.lat,
-            spot.location.long
-          )
-        : undefined,
-  }))
-}
-
 // Simple spots cache implementation.
 // Bounded by `CONFIG.map.spotsCache.maxLoadedRegions` so a long-lived
 // session can't grow `loadedRegions` unbounded. The cache is a module-level
@@ -544,47 +479,16 @@ const spotsCache = {
     }
   },
 
-  reset(): void {
-    this.spots.clear()
-    this.loadedRegions = []
-  },
-
-  isRegionLoaded(bounds: GeographicBounds): boolean {
-    // Strict containment was almost never true after even a small pan:
-    // shifting the viewport by a few pixels meant the new bounds escaped
-    // the cached region on at least one side, triggering a refetch.
-    //
-    // Accept a small tolerance margin (5% of the query's lat/lng span)
-    // so a loaded region is considered to cover the query as long as it
-    // contains the query's interior. The result is a much better cache
-    // hit rate during the typical "small drift while looking around" UX
-    // without sacrificing correctness — we still refetch when the user
-    // moves the map a meaningful amount.
-    const TOLERANCE = CONFIG.map.spotsCache.coverageTolerance
-    const latMargin = (bounds.north - bounds.south) * TOLERANCE
-    const lngMargin = (bounds.east - bounds.west) * TOLERANCE
-
-    return this.loadedRegions.some((region) => {
-      return (
-        region.north >= bounds.north - latMargin &&
-        region.south <= bounds.south + latMargin &&
-        region.east >= bounds.east - lngMargin &&
-        region.west <= bounds.west + lngMargin
-      )
-    })
-  },
-
-  hasAdequateCoverage(bounds: GeographicBounds): boolean {
-    // Check if we have good coverage (80% overlap) with any loaded region
+  /** True when a loaded region covers at least 80% of the requested bounds. */
+  hasCoverage(bounds: GeographicBounds): boolean {
     return this.loadedRegions.some((region) => {
       const overlapNorth = Math.min(region.north, bounds.north)
       const overlapSouth = Math.max(region.south, bounds.south)
       const overlapEast = Math.min(region.east, bounds.east)
       const overlapWest = Math.max(region.west, bounds.west)
 
-      // Calculate overlap area vs requested area
       if (overlapNorth <= overlapSouth || overlapEast <= overlapWest) {
-        return false // No overlap
+        return false
       }
 
       const overlapArea =
@@ -592,13 +496,8 @@ const spotsCache = {
       const requestedArea =
         (bounds.north - bounds.south) * (bounds.east - bounds.west)
 
-      return overlapArea / requestedArea >= 0.8 // 80% coverage threshold
+      return overlapArea / requestedArea >= 0.8
     })
-  },
-
-  clear(): void {
-    this.spots.clear()
-    this.loadedRegions = []
   },
 
   getSpotsInBounds(bounds: GeographicBounds): SpotSummary[] {
