@@ -1,6 +1,5 @@
 'use client'
 
-import { useRouter } from 'next/navigation'
 import { signOut } from '@/api/sargo/actions/auth'
 import {
   DropdownMenu,
@@ -27,15 +26,16 @@ import React, { useEffect, useState } from 'react'
 import { CONFIG } from '@/constants/config'
 import { SettingsDialog } from './SettingsDialog'
 import { useIsDesktop } from '@/hooks/useIsDesktop'
+import { Spinner } from '@/components/ui/spinner'
 
 interface UserMenuProps {
   user: User
 }
 
 export function UserMenu({ user }: UserMenuProps): React.JSX.Element | null {
-  const router = useRouter()
   const isDesktop = useIsDesktop()
   const [settingsOpen, setSettingsOpen] = useState(false)
+  const [isSigningOut, setIsSigningOut] = useState(false)
   const [hotkeyModifier, setHotkeyModifier] = useState('Ctrl')
 
   useEffect(() => {
@@ -61,18 +61,15 @@ export function UserMenu({ user }: UserMenuProps): React.JSX.Element | null {
 
   const handleSignOut = async (event: React.SyntheticEvent): Promise<void> => {
     event.preventDefault()
+    if (isSigningOut) return
+
+    setIsSigningOut(true)
     try {
       await signOut()
-      router.refresh()
     } catch (error) {
-      if (error instanceof Error && error.message.includes('NEXT_REDIRECT')) {
-        router.refresh()
-        return
-      }
-
       console.error('Sign out error:', error)
-      router.push('/auth/signin')
-      router.refresh()
+    } finally {
+      window.location.replace('/auth/signin')
     }
   }
 
@@ -87,11 +84,13 @@ export function UserMenu({ user }: UserMenuProps): React.JSX.Element | null {
           <TooltipTrigger
             render={
               <DropdownMenuTrigger
+                disabled={isSigningOut}
                 render={
                   <Button
                     variant="elevated"
                     size="icon-circle"
                     aria-label="Account menu"
+                    disabled={isSigningOut}
                     className="text-sm font-semibold"
                   />
                 }
@@ -127,6 +126,7 @@ export function UserMenu({ user }: UserMenuProps): React.JSX.Element | null {
           <DropdownMenuSeparator />
           <DropdownMenuGroup>
             <DropdownMenuItem
+              disabled={isSigningOut}
               onClick={() => {
                 requestAnimationFrame(() => setSettingsOpen(true))
               }}
@@ -142,9 +142,9 @@ export function UserMenu({ user }: UserMenuProps): React.JSX.Element | null {
                 </DropdownMenuShortcut>
               ) : null}
             </DropdownMenuItem>
-            <DropdownMenuItem onClick={handleSignOut}>
+            <DropdownMenuItem disabled={isSigningOut} onClick={handleSignOut}>
               <LogOut />
-              Sign out
+              {isSigningOut ? 'Signing out…' : 'Sign out'}
             </DropdownMenuItem>
           </DropdownMenuGroup>
           <DropdownMenuSeparator />
@@ -156,6 +156,14 @@ export function UserMenu({ user }: UserMenuProps): React.JSX.Element | null {
         </DropdownMenuContent>
       </DropdownMenu>
       <SettingsDialog open={settingsOpen} onOpenChange={setSettingsOpen} />
+      {isSigningOut ? (
+        <div className="fixed inset-0 z-100 flex items-center justify-center bg-background/80 backdrop-blur-sm">
+          <div className="flex items-center gap-2 rounded-lg bg-card px-4 py-3 text-sm font-medium text-card-foreground shadow-lg ring-1 ring-foreground/10">
+            <Spinner />
+            Signing out…
+          </div>
+        </div>
+      ) : null}
     </>
   )
 }

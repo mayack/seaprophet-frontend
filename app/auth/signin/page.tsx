@@ -1,6 +1,6 @@
 'use client'
 
-import { useActionState } from 'react'
+import { useActionState, useEffect } from 'react'
 import { signIn, type SignInState } from '@/api/sargo/actions/auth'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -14,6 +14,12 @@ export default function SignIn(): React.JSX.Element {
     signIn,
     null
   )
+  const isRedirecting = Boolean(state?.success)
+
+  useEffect(() => {
+    if (!state?.success) return
+    window.location.replace('/')
+  }, [state?.success])
 
   return (
     <div className="wrapper flex min-h-dvh flex-col items-center justify-center py-12">
@@ -40,7 +46,7 @@ export default function SignIn(): React.JSX.Element {
                   autoCorrect="off"
                   spellCheck={false}
                   required
-                  disabled={isPending}
+                  disabled={isPending || isRedirecting}
                 />
               </div>
               <div className="space-y-2">
@@ -50,7 +56,7 @@ export default function SignIn(): React.JSX.Element {
                   placeholder="Password"
                   autoComplete="current-password"
                   required
-                  disabled={isPending}
+                  disabled={isPending || isRedirecting}
                 />
               </div>
               {state?.error && (
@@ -60,11 +66,11 @@ export default function SignIn(): React.JSX.Element {
               )}
               <button
                 type="submit"
-                disabled={isPending}
+                disabled={isPending || isRedirecting}
                 aria-live="polite"
                 className={cn(buttonVariants({ size: 'lg' }), 'w-full')}
               >
-                {isPending ? (
+                {isPending || isRedirecting ? (
                   <>
                     <Spinner />
                     Signing in…

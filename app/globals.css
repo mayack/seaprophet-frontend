@@ -146,14 +146,9 @@
   @apply block leading-tight font-normal text-muted-foreground;
 }
 
-html.app-shell,
-html.app-shell body {
-  @apply h-full overflow-hidden overscroll-none;
-}
-
 @layer base {
   html {
-    @apply touch-manipulation antialiased [font-synthesis:none] [text-rendering:optimizeLegibility];
+    @apply antialiased [font-synthesis:none] [text-rendering:optimizeLegibility];
   }
 
   * {
@@ -167,13 +162,6 @@ html.app-shell body {
 
   body {
     @apply bg-background text-foreground;
-  }
-
-  /* iOS won't auto-zoom focused fields at 16px+; backup if viewport alone isn't enough. */
-  input,
-  textarea,
-  select {
-    @apply max-md:text-[max(16px,1em)];
   }
 }
 

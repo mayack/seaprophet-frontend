@@ -1,7 +1,6 @@
 'use server'
 
 import { cookies } from 'next/headers'
-import { redirect } from 'next/navigation'
 import { revalidatePath } from 'next/cache'
 import { sargoClient } from '../client'
 import { CONFIG } from '@/constants/config'
@@ -9,7 +8,7 @@ import { normalizeUserSettings } from '@/lib/userSettings'
 import { readSargoOptions, writeSargoOptions } from '../cookies'
 import type { User, UserAuthResponse } from '../interfaces/user'
 
-export type SignInState = { error?: string } | null
+export type SignInState = { error?: string; success?: boolean } | null
 
 export async function signIn(
   _prevState: SignInState,
@@ -53,6 +52,7 @@ export async function signIn(
     })
 
     revalidatePath('/', 'layout')
+    return { success: true }
   } catch (error) {
     console.error('SignIn Error:', error)
     if (error instanceof Error && error.name === 'auth') {
@@ -63,10 +63,6 @@ export async function signIn(
     }
     return { error: 'Sign-in failed. Please try again.' }
   }
-
-  // redirect() throws NEXT_REDIRECT by design, so it must live outside the
-  // try/catch above — otherwise the catch would swallow the redirect.
-  redirect('/')
 }
 
 export async function signOut() {
@@ -111,9 +107,7 @@ export async function signOut() {
     console.error('SignOut Error:', error)
   }
 
-  // Always land on sign-in, whether or not cookie clearing threw. redirect()
-  // throws NEXT_REDIRECT by design, so it lives outside the try/catch.
-  redirect('/auth/signin')
+  return { success: true }
 }
 
 // Reads user data from the TOKEN_SARGO_OPTIONS cookie (fast path).

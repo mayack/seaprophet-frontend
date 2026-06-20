@@ -636,26 +636,6 @@ export function useMapbox(options: UseMapboxOptions = {}): UseMapboxReturn {
     return (): void => cancelAnimationFrame(frame)
   }, [isDark, isLoaded, refreshSpotLayerTheme])
 
-  // Sync the canvas to its container. The container height comes from the
-  // JS-set `--app-height` var, which lands after the map mounts (especially
-  // after a client-side nav) and isn't a window resize — so mapbox won't
-  // resize on its own. One resize after mount + on viewport changes covers it.
-  useEffect(() => {
-    const map = mapInstance.current
-    if (!map || !isLoaded) return
-    const resize = (): void => {
-      map.resize()
-    }
-    const frame = requestAnimationFrame(resize)
-    window.addEventListener('resize', resize)
-    window.visualViewport?.addEventListener('resize', resize)
-    return (): void => {
-      cancelAnimationFrame(frame)
-      window.removeEventListener('resize', resize)
-      window.visualViewport?.removeEventListener('resize', resize)
-    }
-  }, [isLoaded])
-
   return {
     mapRef,
     map,
