@@ -217,7 +217,12 @@ export function useMobileSpotSheet({
 
   const onHeaderPointerDown = useCallback(
     (event: ReactPointerEvent<HTMLElement>): void => {
-      if (!enabled || !isPresented || !dragEnabled || isInteractiveTarget(event.target))
+      if (
+        !enabled ||
+        !isPresented ||
+        !dragEnabled ||
+        isInteractiveTarget(event.target)
+      )
         return
       beginSession(event)
     },
@@ -226,7 +231,12 @@ export function useMobileSpotSheet({
 
   const onPeekPanelPointerDown = useCallback(
     (event: ReactPointerEvent<HTMLElement>): void => {
-      if (!enabled || !isPresented || !dragEnabled || isPeekDragBlocked(event.target))
+      if (
+        !enabled ||
+        !isPresented ||
+        !dragEnabled ||
+        isPeekDragBlocked(event.target)
+      )
         return
       beginSession(event)
     },
@@ -306,8 +316,7 @@ export function useMobileSpotSheet({
   }, [enabled, isPresented, snap])
 
   const translateY =
-    dragY ??
-    offsetForSnap(dragEnabled ? snap : 'peek', height, peekVisiblePx)
+    dragY ?? offsetForSnap(dragEnabled ? snap : 'peek', height, peekVisiblePx)
   const isDragging = dragY !== null
 
   return {

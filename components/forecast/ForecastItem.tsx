@@ -25,7 +25,7 @@ export function ForecastItem({
     <div className="flex flex-col gap-y-6">
       <aside className="flex flex-wrap items-center gap-x-8 gap-y-6 sm:flex-nowrap">
         <div className="flex min-w-0 flex-1 flex-col gap-y-3">
-          <h2 className="flex w-full flex-col justify-center text-xl sm:text-2xl font-bold">
+          <h2 className="flex w-full flex-col justify-center text-xl font-bold sm:text-2xl">
             {getDateLabel(date)}
             <div className="text-sm font-normal text-muted-foreground">
               {date.toLocaleDateString('en-US', {

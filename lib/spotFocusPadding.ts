@@ -49,8 +49,7 @@ export function getMobilePeekLoadingSpinnerHeightPx(
 ): number {
   return Math.max(
     0,
-    getMobilePeekVisiblePx(viewportWidth) -
-      SPOT_PANEL.mobilePeekHeaderPx * 2
+    getMobilePeekVisiblePx(viewportWidth) - SPOT_PANEL.mobilePeekHeaderPx * 2
   )
 }
 

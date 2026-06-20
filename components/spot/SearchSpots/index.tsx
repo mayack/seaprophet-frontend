@@ -74,7 +74,6 @@ function SpotSearchCommand({
     <Command
       shouldFilter={false}
       className={isMobile ? 'h-auto w-full' : undefined}
-      
     >
       <CommandInput
         ref={inputRef}
@@ -297,7 +296,10 @@ export function SearchSpots({
         closeButtonClassName="top-2 right-2 text-muted-foreground"
         initialFocus={searchInputRef}
         contentStyle={mobileContentStyle}
-        className={cn(!isDesktop ? 'h-auto auto-rows-min' : undefined, 'rounded-2xl!')}
+        className={cn(
+          !isDesktop ? 'h-auto auto-rows-min' : undefined,
+          'rounded-2xl!'
+        )}
       >
         <SpotSearchCommand
           inputRef={searchInputRef}

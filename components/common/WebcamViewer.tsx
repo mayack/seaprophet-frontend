@@ -423,7 +423,10 @@ export function WebcamViewer({
   return (
     <div
       data-theme="dark"
-      className={cn('relative aspect-video w-full bg-background text-foreground', className)}
+      className={cn(
+        'relative aspect-video w-full bg-background text-foreground',
+        className
+      )}
     >
       <video
         ref={videoRef}
@@ -438,9 +441,7 @@ export function WebcamViewer({
         <Overlay>
           <Spinner className="size-8" />
           {config.website_url && (
-            <p className="mt-4 text-sm">
-              This camera takes longer to load
-            </p>
+            <p className="mt-4 text-sm">This camera takes longer to load</p>
           )}
         </Overlay>
       )}
@@ -448,11 +449,7 @@ export function WebcamViewer({
       {error && !isAfk && (
         <Overlay>
           <p>{error}</p>
-          <Button
-            onClick={handleRetry}
-            variant="overlay"
-            className="mt-4"
-          >
+          <Button onClick={handleRetry} variant="overlay" className="mt-4">
             <RefreshCw />
             Retry
           </Button>

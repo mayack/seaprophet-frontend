@@ -68,7 +68,7 @@ export function SpotsNearby({
 
   return (
     <div className={className}>
-      <div className="mb-1.5 sm:mb-2 flex min-h-8 items-center justify-between px-4 sm:px-6">
+      <div className="mb-1.5 flex min-h-8 items-center justify-between px-4 sm:mb-2 sm:px-6">
         <h2 className="grow text-base font-semibold">{title}</h2>
         {spots.length > 0 && (
           <div className="hidden shrink-0 sm:flex">

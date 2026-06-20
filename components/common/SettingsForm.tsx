@@ -260,7 +260,11 @@ export function SettingsForm(): React.JSX.Element {
                 <FieldLabel htmlFor="newPassword">Username</FieldLabel>
                 <div className="flex items-center gap-4">
                   {username}
-                  <Button variant="outline" onClick={() => setEdit('username')} size="sm">
+                  <Button
+                    variant="outline"
+                    onClick={() => setEdit('username')}
+                    size="sm"
+                  >
                     Change
                   </Button>
                 </div>
@@ -270,7 +274,11 @@ export function SettingsForm(): React.JSX.Element {
                 <FieldLabel htmlFor="newPassword">Password</FieldLabel>
                 <div className="flex items-center gap-4">
                   <span className="tracking-widest">••••••••</span>
-                  <Button variant="outline" onClick={() => setEdit('password')} size="sm">
+                  <Button
+                    variant="outline"
+                    onClick={() => setEdit('password')}
+                    size="sm"
+                  >
                     Change
                   </Button>
                 </div>

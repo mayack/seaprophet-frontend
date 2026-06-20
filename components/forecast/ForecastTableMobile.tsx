@@ -120,10 +120,7 @@ export function ForecastTableMobile({
                     unit={units.surf_height}
                     className="w-24"
                   />
-                  <EnergyItem
-                    energy={forecast.waveEnergy}
-                    className="w-13"
-                  />
+                  <EnergyItem energy={forecast.waveEnergy} className="w-13" />
                   <WindItem
                     className="w-18"
                     speed={forecast.windSpeed}

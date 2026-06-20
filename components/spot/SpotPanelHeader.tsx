@@ -34,14 +34,14 @@ export function SpotPanelHeader({
       onPointerDown={onDragPointerDown}
     >
       {showGrabBar && !closeOnly ? (
-        <div className="flex items-center justify-center pt-2 absolute top-0 w-full">
+        <div className="absolute top-0 flex w-full items-center justify-center pt-2">
           <div className="h-1 w-16 rounded-full bg-border" aria-hidden />
         </div>
       ) : null}
       <div
         className={cn(
           'flex items-center justify-end gap-2',
-          closeOnly ? 'p-1.5' : 'pl-4 pr-1.5 py-1.5 md:pl-6'
+          closeOnly ? 'p-1.5' : 'py-1.5 pr-1.5 pl-4 md:pl-6'
         )}
         style={
           closeOnly ? { height: SPOT_PANEL.mobilePeekHeaderPx } : undefined

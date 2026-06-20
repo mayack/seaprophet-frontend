@@ -19,7 +19,7 @@ export function ForecastTableDesktop({
       {Object.entries(day.forecast).map(([hour, forecast]) => (
         <div
           key={hour}
-          className="flex items-center justify-between border-t border-border/50 h-10"
+          className="flex h-10 items-center justify-between border-t border-border/50"
         >
           <div className="flex h-10 w-3 items-center text-2xs/[1] text-muted-foreground">
             {hour.slice(0, 2)}

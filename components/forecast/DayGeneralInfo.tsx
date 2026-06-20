@@ -22,7 +22,7 @@ function DayGeneralInfoItem({
   children: React.ReactNode
 }): React.JSX.Element {
   return (
-    <Badge variant="secondary" className="font-normal items-center">
+    <Badge variant="secondary" className="items-center font-normal">
       {icon}
       <div>{label}</div>
       <div>{children}</div>

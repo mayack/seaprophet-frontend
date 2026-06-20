@@ -9,7 +9,10 @@ import { useSpotPanel } from '@/contexts/SpotPanelContext'
 import { useSpotPanelController } from '@/hooks/useSpotPanelController'
 import { useSpotPanelData } from '@/hooks/useSpotPanelData'
 import { useBreakpoint } from '@/hooks/useBreakpoint'
-import { getMobilePeekLoadingSpinnerHeightPx, getMobilePeekVisiblePx } from '@/lib/spotFocusPadding'
+import {
+  getMobilePeekLoadingSpinnerHeightPx,
+  getMobilePeekVisiblePx,
+} from '@/lib/spotFocusPadding'
 import { SPOT_PANEL } from '@/constants/spotPanel'
 import { cn } from '@/lib/utils'
 
@@ -86,7 +89,7 @@ export function SpotBox(): React.JSX.Element | null {
       className={cn(
         'fixed inset-x-0 bottom-0 z-40 mx-auto flex h-[calc(100dvh-68px)] min-h-0 max-w-md flex-col overflow-hidden rounded-t-xl bg-background shadow-xl ring-1 ring-foreground/10 select-none',
         'sm:max-w-2xl',
-        'lg:inset-y-4 lg:right-4 lg:left-auto lg:mx-0 lg:h-auto lg:rounded-xl lg:w-168 lg:max-w-168',
+        'lg:inset-y-4 lg:right-4 lg:left-auto lg:mx-0 lg:h-auto lg:w-168 lg:max-w-168 lg:rounded-xl',
         'xl:w-200 xl:max-w-200',
         'md:transition-transform md:duration-300 md:ease-out',
         isSpotOpen ? 'pointer-events-auto' : 'pointer-events-none',
@@ -116,7 +119,7 @@ export function SpotBox(): React.JSX.Element | null {
           {closeHeader}
           <div
             className={cn(
-              'flex min-h-0 flex-1 flex-col scrollbar-thin',
+              'flex min-h-0 flex-1 scrollbar-thin flex-col',
               contentScrollable
                 ? 'overflow-y-auto overscroll-none'
                 : 'overflow-hidden'

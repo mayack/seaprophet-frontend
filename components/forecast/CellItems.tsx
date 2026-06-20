@@ -1,9 +1,6 @@
 import { IconDirection } from './IconDirection'
 import { WeatherIcon } from '../common/WeatherIcon'
-import {
-  formatValueWithUnitSeparated,
-  formatUnit,
-} from '@/lib/units'
+import { formatValueWithUnitSeparated, formatUnit } from '@/lib/units'
 import { WeatherType } from '@/api/polvo/interfaces/forecast'
 import { cn } from '@/lib/utils'
 import React from 'react'
@@ -28,7 +25,7 @@ export function SurfItem({
         'inline-flex items-center gap-2 rounded-md bg-muted p-1.5 whitespace-nowrap'
       )}
     >
-      <div className="flex items-center flex-1">
+      <div className="flex flex-1 items-center">
         {formatValueWithUnitSeparated(height, unit, 'font-medium flex-1')}
         {formatValueWithUnitSeparated(period, 'seconds', 'flex-1 justify-end')}
       </div>
@@ -45,9 +42,7 @@ export function EnergyItem({
   className?: string
 }): React.JSX.Element {
   return (
-    <div
-      className={className}
-    >
+    <div className={className}>
       {formatValueWithUnitSeparated(energy, 'kilojoules')}
     </div>
   )
@@ -137,7 +132,9 @@ export function WindItem({
         <div className="min-w-5 text-center text-xs/[1]">{speed}</div>
         <div className="flex min-w-4 flex-col">
           <div className="text-3xs/[1] leading-none">{gust}</div>
-          <div className="mt-px text-3xs/[1] leading-none">{formatUnit(unit)}</div>
+          <div className="mt-px text-3xs/[1] leading-none">
+            {formatUnit(unit)}
+          </div>
         </div>
       </div>
       <div

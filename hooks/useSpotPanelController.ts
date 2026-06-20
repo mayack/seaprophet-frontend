@@ -80,7 +80,11 @@ export function useSpotPanelController({
         snap === 'closed' ? null : getMobileBottomInset(snap, viewportWidth)
       )
     },
-    [spotPanel.setMobileBottomInset, spotPanel.setMobileSheetSnap, viewportWidth]
+    [
+      spotPanel.setMobileBottomInset,
+      spotPanel.setMobileSheetSnap,
+      viewportWidth,
+    ]
   )
 
   const { snap, onHeaderPointerDown, onPeekPanelPointerDown, sheetStyle } =

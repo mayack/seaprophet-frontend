@@ -22,7 +22,7 @@ export function formatValueWithUnitSeparated(
   return (
     <div
       className={cn(
-        'flex gap-px leading-none h-3',
+        'flex h-3 gap-px leading-none',
         isTemperature ? 'items-start' : 'items-baseline',
         className
       )}
