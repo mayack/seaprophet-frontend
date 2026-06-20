@@ -424,7 +424,7 @@ export function WebcamViewer({
     <div
       data-theme="dark"
       className={cn(
-        'relative aspect-video w-full bg-background text-foreground',
+        'relative aspect-video w-full bg-card text-card-foreground',
         className
       )}
     >
