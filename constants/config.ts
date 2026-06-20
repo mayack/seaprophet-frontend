@@ -3,11 +3,11 @@ import type {
   MapDefaults,
   MapLocationConfig,
   MapInteractionConfig,
-  MapCarouselConfig,
   MapUIConfig,
   MapSpotsCacheConfig,
   MapUserMarkerConfig,
   MapMarkersConfig,
+  MapClustersConfig,
   MapboxStylesConfig,
   Coordinates,
 } from '@/types/map'
@@ -127,16 +127,7 @@ export const CONFIG = {
     location: {
       maxRetries: 3,
       retryDelays: [3000, 3000, 3000], // ms - equal delays for consistent retry timing
-      // TODO(M14): Now compared against the Haversine-based
-      // `calculateDistance` (utils/location.ts), which rounds its output
-      // to 1 decimal of km (~100m precision). The previous flat
-      // METERS_PER_DEGREE approximation in components/maps/utils.ts
-      // underestimated longitude distances away from the equator (e.g.
-      // by ~22% at lat 39° / Portugal), so the *effective* threshold
-      // used to be smaller than the literal 100. The literal value is
-      // kept unchanged here — re-evaluate once a physical distance
-      // target is decided (e.g. "user is at the spot within 50m").
-      alreadyAtLocationThreshold: 100, // meters - distance to consider "already at location"
+      alreadyAtLocationThreshold: 100, // meters
       timeouts: {
         standard: 10000, // ms - standard location request timeout
         highAccuracy: 15000, // ms - high accuracy location request timeout
@@ -148,21 +139,22 @@ export const CONFIG = {
     } satisfies MapLocationConfig,
     interaction: {
       debounce: {
-        mapMovement: 500, // ms - delay before loading spots after map movement
-        moveHandler: 300, // ms - delay for onMove callback
+        mapMovement: 500,
+      },
+      dragPan: {
+        linearity: 0.25,
+        maxSpeed: 1600,
+        deceleration: 2000,
+      },
+      touchZoom: {
+        stopInertiaOnRelease: true,
+      },
+      scrollZoom: {
+        // ~2.5× Mapbox default — trackpad scroll/pinch felt sluggish vs Google Maps.
+        trackpadZoomRate: 1 / 40,
+        wheelZoomRate: 1 / 350,
       },
     } satisfies MapInteractionConfig,
-    carousel: {
-      breakpoints: {
-        mobile: 768, // px
-        tablet: 1024, // px
-      },
-      visibleSlides: {
-        mobile: 2,
-        tablet: 3,
-        desktop: 4,
-      },
-    } satisfies MapCarouselConfig,
     ui: {
       loadingText: 'Scanning...',
       loadingIcon: {
@@ -171,27 +163,23 @@ export const CONFIG = {
     } satisfies MapUIConfig,
     // Module-level spots cache (components/maps/utils.ts).
     spotsCache: {
-      maxLoadedRegions: 50, // FIFO eviction beyond this
-      coverageTolerance: 0.05, // 5% margin when matching loaded regions against query bounds
+      maxLoadedRegions: 50,
     } satisfies MapSpotsCacheConfig,
     // User-location marker retry behaviour in useMapbox.
     userMarker: {
       maxRetries: 10, // ~5s of attempts at retryDelayMs each
       retryDelayMs: 500,
     } satisfies MapUserMarkerConfig,
-    // Spot/webcam marker sizing in MapNavigator. Markers gently shrink
-    // as the user zooms out so pins don't all overlap at low zoom. The
-    // size is linearly interpolated between `baseSize` and `minSize`
-    // across the [`resizeEndZoom`, `resizeStartZoom`] range. The range
-    // starts close to the default city/region browse zoom (11) so the
-    // shrink is actually visible after the user zooms out "a bit" —
-    // earlier values kicked in too late to be noticeable.
     markers: {
-      baseSize: 32, // px — current size, used at/above resizeStartZoom
-      minSize: 16, // px — smallest size, used at/below resizeEndZoom
-      resizeStartZoom: 12, // markers stay full size at this zoom and above
-      resizeEndZoom: 5, // markers reach minSize at this zoom and below
+      size: 50,
+      webcamIconSize: 50,
     } satisfies MapMarkersConfig,
+    clusters: {
+      minPoints: 2,
+      radius: 40,
+      sizeRatio: 1.5,
+      textSize: 16,
+    } satisfies MapClustersConfig,
   } satisfies MapConfig,
   // Enhanced Mapbox configuration
   mapbox: {

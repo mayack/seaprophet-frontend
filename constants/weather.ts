@@ -47,3 +47,33 @@ export const WEATHER_ICONS: Record<
   'gale-day': Wind,
   'gale-night': Wind,
 } as const
+
+// Human-readable condition labels, surfaced as the weather icon's tooltip /
+// accessible name. Day and night share a label except where the wording
+// naturally differs (e.g. "Sunny" vs "Clear").
+export const WEATHER_LABELS: Record<WeatherType, string> = {
+  'clear-day': 'Sunny',
+  'clear-night': 'Clear',
+  'partly-cloudy-day': 'Partly cloudy',
+  'partly-cloudy-night': 'Partly cloudy',
+  'mostly-cloudy-day': 'Mostly cloudy',
+  'mostly-cloudy-night': 'Mostly cloudy',
+  'stormy-day': 'Stormy',
+  'stormy-night': 'Stormy',
+  'windy-day': 'Windy',
+  'windy-night': 'Windy',
+  'heavy-rain-day': 'Heavy rain',
+  'heavy-rain-night': 'Heavy rain',
+  'rain-day': 'Rain',
+  'rain-night': 'Rain',
+  'drizzle-day': 'Drizzle',
+  'drizzle-night': 'Drizzle',
+  'thunder-day': 'Thunderstorm',
+  'thunder-night': 'Thunderstorm',
+  'fog-day': 'Fog',
+  'fog-night': 'Fog',
+  'light-fog-day': 'Light fog',
+  'light-fog-night': 'Light fog',
+  'gale-day': 'Gale',
+  'gale-night': 'Gale',
+} as const

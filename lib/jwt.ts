@@ -1,5 +1,5 @@
 // Edge-safe JWT helpers. Only depends on `jwt-decode` (no Node APIs), so it's
-// importable from middleware/edge as well as server actions.
+// importable from the proxy/edge as well as server actions.
 //
 // NOTE: these do NOT verify the signature — we don't hold the signing secret
 // on the frontend. They only read claims to cheaply reject expired/garbage

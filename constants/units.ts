@@ -25,21 +25,37 @@ export interface UnitOption<T extends string> {
   label: string
 }
 
+// Display symbols shown next to forecast values and in settings unit tabs.
+// Includes display-only units (`seconds`, `kilojoules`) that share the same
+// formatting path in `lib/units`.
+export const UNIT_SYMBOLS: Record<string, string> = {
+  celsius: '°C',
+  fahrenheit: '°F',
+  feet: 'ft',
+  meters: 'm',
+  knots: 'kts',
+  mph: 'mph',
+  kph: 'kph',
+  mps: 'm/s',
+  seconds: 's',
+  kilojoules: 'kJ',
+}
+
 export const WIND_SPEED_OPTIONS = [
-  { value: 'knots', label: 'Kts' },
-  { value: 'mph', label: 'Mph' },
-  { value: 'kph', label: 'Kph' },
-  { value: 'mps', label: 'M/s' },
+  { value: 'knots', label: UNIT_SYMBOLS.knots },
+  { value: 'mph', label: UNIT_SYMBOLS.mph },
+  { value: 'kph', label: UNIT_SYMBOLS.kph },
+  { value: 'mps', label: UNIT_SYMBOLS.mps },
 ] as const satisfies readonly UnitOption<WindSpeedUnit>[]
 
 export const HEIGHT_OPTIONS = [
-  { value: 'feet', label: 'Feet' },
-  { value: 'meters', label: 'Meters' },
+  { value: 'feet', label: UNIT_SYMBOLS.feet },
+  { value: 'meters', label: UNIT_SYMBOLS.meters },
 ] as const satisfies readonly UnitOption<HeightUnit>[]
 
 export const TEMPERATURE_OPTIONS = [
-  { value: 'celsius', label: 'Celsius' },
-  { value: 'fahrenheit', label: 'Fahrenheit' },
+  { value: 'celsius', label: UNIT_SYMBOLS.celsius },
+  { value: 'fahrenheit', label: UNIT_SYMBOLS.fahrenheit },
 ] as const satisfies readonly UnitOption<TemperatureUnit>[]
 
 export const DEFAULT_UNITS: UserUnits = {
@@ -55,21 +71,4 @@ export function normalizeUserUnits(
   units: Partial<UserUnits> | undefined | null
 ): UserUnits {
   return { ...DEFAULT_UNITS, ...units }
-}
-
-// Display symbols shown next to forecast values. Includes a couple of
-// display-only units (`seconds` for period, `kilojoules` for wave
-// energy) that are not user-configurable but share the same formatting
-// path in `lib/units`.
-export const UNIT_SYMBOLS: Record<string, string> = {
-  celsius: '°C',
-  fahrenheit: '°F',
-  feet: 'ft',
-  meters: 'm',
-  knots: 'kts',
-  mph: 'mph',
-  kph: 'kph',
-  mps: 'm/s',
-  seconds: 's',
-  kilojoules: 'kJ',
 }

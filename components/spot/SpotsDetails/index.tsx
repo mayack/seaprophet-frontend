@@ -1,8 +1,5 @@
 'use client'
 
-import { WebcamViewer } from '@/components/common/WebcamViewer'
-import { SimpleMap } from '@/components/maps/SimpleMap'
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import {
   Breadcrumb,
   BreadcrumbList,
@@ -11,8 +8,7 @@ import {
   BreadcrumbLink,
   BreadcrumbPage,
 } from '@/components/ui/breadcrumb'
-import { MapPin, Video, Heart, HeartCrack } from 'lucide-react'
-import { WebcamConfig } from '@/api/sargo/interfaces/webcam'
+import { Heart, HeartCrack } from 'lucide-react'
 import {
   Tooltip,
   TooltipContent,
@@ -26,28 +22,21 @@ import { toggleFavorite } from '@/api/sargo/actions/user'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
+import type { LocationInfo } from '@/api/sargo/interfaces/spot'
 
-interface SpotsDetailsProps {
-  mapCenter: [number, number]
-  webcams?: WebcamConfig[]
+interface SpotDetailHeaderProps {
   spotName: string
   spotId?: number
-  locationPath?: {
-    country?: string
-    region?: string
-    district?: string
-    municipality?: string
-  }
+  locationPath?: LocationInfo
+  className?: string
 }
 
-export function SpotsDetails({
-  mapCenter,
-  webcams,
+export function SpotDetailHeader({
   spotName,
   spotId,
   locationPath,
-}: SpotsDetailsProps): React.JSX.Element {
-  const hasWebcam = !!webcams?.length
+  className,
+}: SpotDetailHeaderProps): React.JSX.Element {
   const { userData, updateUser } = useUser()
   const router = useRouter()
   const [isToggling, setIsToggling] = useState(false)
@@ -89,126 +78,77 @@ export function SpotsDetails({
   }
 
   return (
-    <div>
-      <Tabs defaultValue={hasWebcam ? 'webcam' : 'map'} className="w-full">
-        <div className="wrapper">
-          <div className="mb-4 flex w-full flex-col sm:mb-6">
-            <div className="mb-3 flex flex-col items-start gap-2 sm:flex-row sm:items-center">
-              {locationPath && (
-                <Breadcrumb className="flex-1">
-                  <BreadcrumbList>
-                    {locationPath.country && (
-                      <>
-                        <BreadcrumbItem>
-                          <BreadcrumbLink>
-                            {locationPath.country}
-                          </BreadcrumbLink>
-                        </BreadcrumbItem>
-                        <BreadcrumbSeparator />
-                      </>
-                    )}
-                    {locationPath.region && (
-                      <>
-                        <BreadcrumbItem>
-                          <BreadcrumbLink>{locationPath.region}</BreadcrumbLink>
-                        </BreadcrumbItem>
-                        <BreadcrumbSeparator />
-                      </>
-                    )}
-                    {locationPath.district && (
-                      <>
-                        <BreadcrumbItem>
-                          <BreadcrumbLink>
-                            {locationPath.district}
-                          </BreadcrumbLink>
-                        </BreadcrumbItem>
-                        <BreadcrumbSeparator />
-                      </>
-                    )}
-                    {locationPath.municipality && (
-                      <BreadcrumbItem>
-                        <BreadcrumbPage>
-                          {locationPath.municipality}
-                        </BreadcrumbPage>
-                      </BreadcrumbItem>
-                    )}
-                  </BreadcrumbList>
-                </Breadcrumb>
+    <div
+      className={cn(
+        'flex items-center justify-between gap-3 px-4 pt-2 sm:px-6 sm:pt-4',
+        className
+      )}
+    >
+      <div className="space-y-1 sm:space-y-2">
+        {locationPath && (
+          <Breadcrumb className="flex-1">
+            <BreadcrumbList>
+              {(locationPath.countryEmoji || locationPath.country) && (
+                <>
+                  <BreadcrumbItem>
+                    <BreadcrumbLink
+                      aria-label={locationPath.country || undefined}
+                      className="text-base leading-none"
+                    >
+                      {locationPath.countryEmoji || locationPath.country}
+                    </BreadcrumbLink>
+                  </BreadcrumbItem>
+                  <BreadcrumbSeparator />
+                </>
               )}
-            </div>
-            <div className="flex items-center gap-4">
-              <h1 className="font-style-h1 flex-1 leading-none">{spotName}</h1>
-              <div className="flex items-center gap-3">
-                {hasWebcam && (
-                  <TabsList>
-                    <TabsTrigger
-                      value="webcam"
-                      className="flex items-center gap-2"
-                    >
-                      <Video className="size-4" />
-                      <div className="hidden sm:block">Webcam</div>
-                    </TabsTrigger>
-                    <TabsTrigger
-                      value="map"
-                      className="flex items-center gap-2"
-                    >
-                      <MapPin className="size-4" />
-                      <div className="hidden sm:block">Map</div>
-                    </TabsTrigger>
-                  </TabsList>
-                )}
-                {spotId && (
-                  <TooltipProvider>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={handleToggleFavorite}
-                          disabled={isToggling}
-                          className="shrink-0"
-                        >
-                          <Heart
-                            className={cn(isFavorite && 'fill-foreground')}
-                          />
-                        </Button>
-                      </TooltipTrigger>
-                      <TooltipContent
-                        className="text-xs leading-none"
-                        sideOffset={10}
-                      >
-                        {isFavorite
-                          ? 'Remove from favorites'
-                          : 'Add to favorites'}
-                      </TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
-        {hasWebcam && (
-          <TabsContent
-            value="webcam"
-            className="aspect-video md:aspect-auto md:h-[60vh]"
-          >
-            <WebcamViewer configs={webcams ?? []} />
-          </TabsContent>
+              {locationPath.region && (
+                <>
+                  <BreadcrumbItem>
+                    <BreadcrumbLink>{locationPath.region}</BreadcrumbLink>
+                  </BreadcrumbItem>
+                  <BreadcrumbSeparator />
+                </>
+              )}
+              {locationPath.district && (
+                <>
+                  <BreadcrumbItem>
+                    <BreadcrumbLink>{locationPath.district}</BreadcrumbLink>
+                  </BreadcrumbItem>
+                  <BreadcrumbSeparator />
+                </>
+              )}
+              {locationPath.municipality && (
+                <BreadcrumbItem>
+                  <BreadcrumbPage>{locationPath.municipality}</BreadcrumbPage>
+                </BreadcrumbItem>
+              )}
+            </BreadcrumbList>
+          </Breadcrumb>
         )}
-        <TabsContent
-          value="map"
-          className="aspect-video md:aspect-auto md:h-[60vh]"
-        >
-          <SimpleMap
-            center={mapCenter}
-            zoom={13}
-            className="size-full"
-            spotId={spotId}
-            spotName={spotName}
-          />
-        </TabsContent>
-      </Tabs>
+        <h1 className="text-2xl font-bold sm:text-4xl">{spotName}</h1>
+      </div>
+      {spotId && (
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger
+              render={
+                <Button
+                  variant="outline"
+                  size="icon-circle"
+                  onClick={handleToggleFavorite}
+                  disabled={isToggling}
+                  className="shrink-0"
+                >
+                  <Heart className={cn(isFavorite && 'fill-foreground')} />
+                </Button>
+              }
+            />
+            <TooltipContent className="text-xs leading-none" sideOffset={10}>
+              {isFavorite ? 'Remove from favorites' : 'Add to favorites'}
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+      )}
     </div>
   )
 }

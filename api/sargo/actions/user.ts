@@ -16,51 +16,79 @@ function getStringField(fd: FormData, key: string): string | null {
   return typeof v === 'string' ? v : null
 }
 
-export async function updateUsername(formData: FormData) {
+function formActionError(
+  error: unknown,
+  messages: { auth: string; network: string; fallback: string }
+): { error: string } {
+  if (error instanceof Error && error.name === 'auth') {
+    return { error: messages.auth }
+  }
+  if (error instanceof Error && error.name === 'network') {
+    return { error: messages.network }
+  }
+  return { error: messages.fallback }
+}
+
+export type UpdateUsernameState =
+  | { success: true; username: string }
+  | { error: string }
+  | null
+
+export async function updateUsername(
+  _prevState: UpdateUsernameState,
+  formData: FormData
+): Promise<UpdateUsernameState> {
+  const username = getStringField(formData, 'username')
+
+  if (!username || username.trim().length === 0) {
+    return { error: 'Username is required.' }
+  }
+
   try {
-    const username = getStringField(formData, 'username')
-
-    if (!username || username.trim().length === 0) {
-      return { success: false, error: 'Username is required' }
-    }
-
-    return await withUserLock(async () => {
-      const updatedUser = await sargoClient.updateUserProfile({
+    const updatedUser = await withUserLock(async () => {
+      const user = await sargoClient.updateUserProfile({
         username: username.trim(),
       })
 
-      await mergeSargoOptions({ username: updatedUser.username })
-      revalidatePath('/settings')
-      return { success: true as const, user: updatedUser }
+      await mergeSargoOptions({ username: user.username })
+      return user
     })
+
+    revalidatePath('/', 'layout')
+    return { success: true, username: updatedUser.username }
   } catch (error) {
     console.error('Failed to update username:', error)
-    return {
-      success: false as const,
-      error:
-        error instanceof Error ? error.message : 'Failed to update username',
-    }
+    return formActionError(error, {
+      auth: 'Could not update username. Please sign in again.',
+      network: 'Check your connection and try again.',
+      fallback: 'Failed to update username. Please try again.',
+    })
   }
 }
 
-export async function updatePassword(formData: FormData) {
+export type UpdatePasswordState = { success: true } | { error: string } | null
+
+export async function updatePassword(
+  _prevState: UpdatePasswordState,
+  formData: FormData
+): Promise<UpdatePasswordState> {
+  const currentPassword = getStringField(formData, 'currentPassword')
+  const newPassword = getStringField(formData, 'newPassword')
+  const confirmPassword = getStringField(formData, 'confirmPassword')
+
+  if (!currentPassword || !newPassword || !confirmPassword) {
+    return { error: 'All password fields are required.' }
+  }
+
+  if (newPassword !== confirmPassword) {
+    return { error: 'New passwords do not match.' }
+  }
+
+  if (newPassword.length < 6) {
+    return { error: 'Password must be at least 6 characters.' }
+  }
+
   try {
-    const currentPassword = getStringField(formData, 'currentPassword')
-    const newPassword = getStringField(formData, 'newPassword')
-    const confirmPassword = getStringField(formData, 'confirmPassword')
-
-    if (!currentPassword || !newPassword || !confirmPassword) {
-      return { success: false, error: 'All password fields are required' }
-    }
-
-    if (newPassword !== confirmPassword) {
-      return { success: false, error: 'New passwords do not match' }
-    }
-
-    if (newPassword.length < 6) {
-      return { success: false, error: 'Password must be at least 6 characters' }
-    }
-
     const response = await sargoClient.changePassword({
       currentPassword,
       newPassword,
@@ -89,14 +117,15 @@ export async function updatePassword(formData: FormData) {
       }
     }
 
+    revalidatePath('/', 'layout')
     return { success: true }
   } catch (error) {
     console.error('Failed to update password:', error)
-    return {
-      success: false,
-      error:
-        error instanceof Error ? error.message : 'Failed to update password',
-    }
+    return formActionError(error, {
+      auth: 'Current password is incorrect.',
+      network: 'Check your connection and try again.',
+      fallback: 'Failed to update password. Please try again.',
+    })
   }
 }
 
@@ -128,13 +157,17 @@ export async function updateUserSettings(settings: UserSettings) {
       const persistedSettings = normalizeUserSettings(
         updatedUser.settings || normalized
       )
+      const existing = await readSargoOptions()
       // Refresh the cookie so the next render reads new units without hitting
-      // Sargo. Merge keeps fields this action doesn't own (calibrationReporter).
+      // Sargo. Preserve reporter flag from the API (or the existing snapshot)
+      // so dev-mode / Cam Observer UI doesn't vanish after a settings save.
       await mergeSargoOptions({
         id: updatedUser.id,
         username: updatedUser.username,
         email: updatedUser.email,
         settings: persistedSettings,
+        calibrationReporter:
+          updatedUser.calibrationReporter ?? existing?.calibrationReporter,
       })
 
       return {

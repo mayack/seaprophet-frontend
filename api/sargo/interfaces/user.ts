@@ -18,6 +18,7 @@ export interface User {
   username: string
   email: string
   settings: UserSettings
+  /** Grants access to dev mode features (toggle, Cam Observer, debug meta). */
   calibrationReporter?: boolean
 }
 
@@ -26,6 +27,6 @@ export interface UserSettings {
   // Theme is now optional since it's managed by next-themes
   theme?: 'light' | 'dark' | 'system'
   favorites?: number[] // Array of spot IDs
-  /** When false, hides Cam Observer UI for assigned reporters. Defaults to true. */
+  /** Dev mode on/off. Persisted key; will be renamed to `devMode`. Defaults to true. */
   camObserverEnabled?: boolean
 }

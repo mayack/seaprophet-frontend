@@ -1,6 +1,4 @@
 import { SpotSummary } from '@/api/sargo/interfaces/spot'
-import { WebcamConfig } from '@/api/sargo/interfaces/webcam'
-import mapboxgl from 'mapbox-gl'
 
 // Geographic and spatial types
 export interface GeographicBounds {
@@ -12,18 +10,6 @@ export interface GeographicBounds {
 
 export type Coordinates = [longitude: number, latitude: number]
 
-export interface Location {
-  latitude: number
-  longitude: number
-}
-
-// Map error handling
-export interface MapError {
-  message: string
-  code?: string
-  type: 'initialization' | 'style' | 'token' | 'unknown'
-}
-
 // Location state management
 export type LocationState =
   | 'idle'
@@ -32,12 +18,6 @@ export type LocationState =
   | 'off-center'
   | 'error'
   | 'permission-denied'
-
-export interface LocationButtonConfig {
-  state: LocationState
-  retryCount: number
-  maxRetries: number
-}
 
 // Base map interfaces
 export interface BaseMapProps {
@@ -56,56 +36,21 @@ export interface MapInteractionProps {
   disablePanning?: boolean
   /** Disable map zooming */
   disableZooming?: boolean
-  /** Disable all interactions (sets both panning and zooming to false) */
-  interactive?: boolean
 }
 
-export interface MapCallbackProps {
-  /** Callback when map loads successfully */
-  onMapLoad?: (map: mapboxgl.Map) => void
-  /** Callback when map encounters an error */
-  onMapError?: (error: string) => void
-  /** Callback when map is moved or zoomed */
-  onMove?: (center: Coordinates, zoom: number) => void
-  /** Callback when flyTo operation starts */
-  onFlyStart?: () => void
-}
-
-// Marker and popup interfaces
-export interface MarkerConfig {
-  /** Marker element width */
-  width?: string
-  /** Marker element height */
-  height?: string
-  /** CSS class name for marker */
-  className?: string
-  /** Pointer events behavior */
-  pointerEvents?: string
-  /** Cursor style */
-  cursor?: string
-  /** Use dark theme styling */
-  isDark?: boolean
-}
-
-export interface PopupData {
-  /** Spot ID for linking */
-  spotId: number
-  /** Spot name to display */
-  spotName: string
-  /** Optional webcam configuration */
-  webcam?: WebcamConfig
-}
-
-// Component-specific prop interfaces
-export interface SimpleMapProps extends BaseMapProps, MapInteractionProps {
-  /** Center coordinates (required for SimpleMap) */
-  center: Coordinates
-  /** Show marker on the map */
-  showMarker?: boolean
-  /** Spot ID for marker popup */
-  spotId?: number
-  /** Spot name for marker popup */
-  spotName?: string
+export interface UseMapboxOptions extends BaseMapProps, MapInteractionProps {
+  /** Show user location marker */
+  showUserLocation?: boolean
+  /** Soft-navigate to a spot when its marker is clicked */
+  onSpotClick?: (spot: SpotSummary) => void
+  /**
+   * Skip the automatic flyTo to the user's location on load. Used when the
+   * map is initialized at a remembered position (returning from another
+   * page) or when opening a direct /spot/[id] link.
+   */
+  skipInitialFlyTo?: boolean
+  /** Skip auto-requesting geolocation on load (direct spot links). */
+  skipAutoUserLocation?: boolean
 }
 
 export interface MapNavigatorProps extends BaseMapProps {
@@ -117,22 +62,6 @@ export interface MapNavigatorProps extends BaseMapProps {
   initialZoom?: number
 }
 
-export interface UseMapboxOptions
-  extends BaseMapProps,
-    MapInteractionProps,
-    MapCallbackProps {
-  /** Show user location marker */
-  showUserLocation?: boolean
-  /** Soft-navigate to a spot when its marker popup is clicked */
-  onSpotClick?: (spotId: number) => void
-  /**
-   * Skip the automatic flyTo to the user's location on load. Used when the
-   * map is initialized at a remembered position (returning from another
-   * page) so the view isn't yanked away from where the user left it.
-   */
-  skipInitialFlyTo?: boolean
-}
-
 export interface UseMapboxReturn {
   /** React ref for map container */
   mapRef: React.RefObject<HTMLDivElement | null>
@@ -140,37 +69,12 @@ export interface UseMapboxReturn {
   map: mapboxgl.Map | null
   /** Whether map has loaded */
   isLoaded: boolean
-  /** Current error state */
-  error: string | null
-  /** Add a generic marker */
-  addMarker: (
-    id: string,
-    position: Coordinates,
-    element?: HTMLDivElement,
-    popup?: mapboxgl.Popup
-  ) => void
-  /** Remove a marker by ID */
-  removeMarker: (id: string) => void
-  /** Clear all markers */
-  clearMarkers: () => void
-  /** Add spot markers */
-  addSpotMarkers: (spots: SpotSummary[]) => void
-  /** Remove a spot marker */
-  removeSpotMarker: (spotId: number) => void
-  /** Clear all spot markers */
-  clearSpotMarkers: () => void
-  /** Fly to location */
-  flyTo: (center: Coordinates, zoom?: number) => void
-  /** Fit map to bounds */
-  fitBounds: (bounds: [Coordinates, Coordinates]) => void
+  /** Update clustered + symbol pin layers from spots in view. */
+  updateSpotLayers: (spots: SpotSummary[]) => void
   /** Zoom in one level */
   zoomIn: () => void
   /** Zoom out one level */
   zoomOut: () => void
-  /** Get current map center */
-  getCurrentCenter: () => Coordinates | null
-  /** Get current zoom level */
-  getCurrentZoom: () => number | null
   /** Current location state */
   locationState: LocationState
   /** Request user location */
@@ -179,20 +83,6 @@ export interface UseMapboxReturn {
   recenterToUser: () => void
   /** Current retry count for location */
   retryCount: number
-  /** Retry location request */
-  retryLocation: () => void
-}
-
-// Theme and styling
-export interface MapTheme {
-  /** Whether dark theme is active */
-  isDark: boolean
-  /** Current map style URL */
-  mapStyle: string
-  /** Current style state */
-  currentStyle: string
-  /** Resolved theme string */
-  resolvedTheme: string | undefined
 }
 
 // Configuration types
@@ -231,21 +121,29 @@ export interface MapInteractionConfig {
   /** Debounce delays for different interactions */
   debounce: {
     mapMovement: number
-    moveHandler: number
   }
-}
-
-export interface MapCarouselConfig {
-  /** Responsive breakpoints */
-  breakpoints: {
-    mobile: number
-    tablet: number
+  /** Drag-pan inertia tuning — passed to Mapbox Map constructor. */
+  dragPan: {
+    linearity: number
+    maxSpeed: number
+    deceleration: number
   }
-  /** Visible slides per breakpoint */
-  visibleSlides: {
-    mobile: number
-    tablet: number
-    desktop: number
+  /**
+   * Pinch-zoom tuning (touch screens). Mapbox does not expose pinch inertia
+   * options publicly; stopInertiaOnRelease cancels the default long coast.
+   */
+  touchZoom: {
+    stopInertiaOnRelease: boolean
+  }
+  /**
+   * Trackpad / mouse-wheel zoom. MacBook two-finger scroll and pinch both
+   * route through scrollZoom — not touchZoom.
+   */
+  scrollZoom: {
+    /** Higher = faster zoom per trackpad delta (Mapbox default 1/100). */
+    trackpadZoomRate: number
+    /** Higher = faster zoom per mouse-wheel tick (Mapbox default 1/450). */
+    wheelZoomRate: number
   }
 }
 
@@ -268,8 +166,6 @@ export interface MapboxStylesConfig {
 export interface MapSpotsCacheConfig {
   /** FIFO eviction beyond this many loaded regions */
   maxLoadedRegions: number
-  /** Margin (fraction) when matching loaded regions against a query bounds */
-  coverageTolerance: number
 }
 
 export interface MapUserMarkerConfig {
@@ -280,63 +176,30 @@ export interface MapUserMarkerConfig {
 }
 
 export interface MapMarkersConfig {
-  /** Default marker size in px (used at and above `resizeStartZoom`) */
-  baseSize: number
-  /** Smallest marker size in px (used at and below `resizeEndZoom`) */
-  minSize: number
-  /** Zoom level at and above which markers stay at `baseSize` */
-  resizeStartZoom: number
-  /** Zoom level at and below which markers stay at `minSize` */
-  resizeEndZoom: number
+  /** Spot marker size in px (fixed; does not scale with zoom). */
+  size: number
+  /** Webcam glyph size in px inside the marker hit area. */
+  webcamIconSize: number
 }
 
-// Consolidated map configuration interface
+export interface MapClustersConfig {
+  /** Minimum points required to form a cluster (2 = any pair can cluster). */
+  minPoints: number
+  /** Pixel radius — spots within this distance on screen can cluster. */
+  radius: number
+  /** Cluster circle diameter relative to pin size (1.5 = 50% larger). */
+  sizeRatio: number
+  /** Count label font size inside cluster circles. */
+  textSize: number
+}
+
 export interface MapConfig {
   defaults: MapDefaults
   location: MapLocationConfig
   interaction: MapInteractionConfig
-  carousel: MapCarouselConfig
   ui: MapUIConfig
   spotsCache: MapSpotsCacheConfig
   userMarker: MapUserMarkerConfig
   markers: MapMarkersConfig
+  clusters: MapClustersConfig
 }
-
-// Utility types
-export type MarkerAnchor =
-  | 'center'
-  | 'top'
-  | 'bottom'
-  | 'left'
-  | 'right'
-  | 'top-left'
-  | 'top-right'
-  | 'bottom-left'
-  | 'bottom-right'
-
-export interface CreateMapOptions {
-  container: HTMLDivElement
-  center: Coordinates
-  zoom: number
-  theme?: string | null
-  disablePanning?: boolean
-  disableZooming?: boolean
-}
-
-// Spot-related map types
-export interface SpotMarkerData extends PopupData {
-  /** Spot location */
-  location: {
-    lat: number
-    long: number
-  }
-  /** Distance from user (if available) */
-  distance?: number
-}
-
-// Export commonly used type combinations
-export type MapComponentProps = BaseMapProps &
-  MapInteractionProps &
-  MapCallbackProps
-export type SpotMapProps = SimpleMapProps & { spotData?: SpotMarkerData }
-export type NavigatorMapProps = MapNavigatorProps & MapCallbackProps

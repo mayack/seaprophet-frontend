@@ -1,21 +1,32 @@
 'use client'
 
-import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { signOut } from '@/api/sargo/actions/auth'
-import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuItem,
+  DropdownMenuLabel,
   DropdownMenuSeparator,
+  DropdownMenuShortcut,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { Settings, LogOut } from 'lucide-react'
+import { LogOut, Settings } from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '@/components/ui/tooltip'
+import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { User } from '@/api/sargo/interfaces/user'
-import React from 'react'
-import ThemeSwitcher from './ThemeSwitcher'
+import { Kbd, KbdGroup } from '@/components/ui/kbd'
+import { getHotkeyModifier, isEditableTarget } from '@/lib/hotkeys'
+import React, { useEffect, useState } from 'react'
 import { CONFIG } from '@/constants/config'
+import { SettingsDialog } from './SettingsDialog'
+import { useIsDesktop } from '@/hooks/useIsDesktop'
 
 interface UserMenuProps {
   user: User
@@ -23,73 +34,128 @@ interface UserMenuProps {
 
 export function UserMenu({ user }: UserMenuProps): React.JSX.Element | null {
   const router = useRouter()
+  const isDesktop = useIsDesktop()
+  const [settingsOpen, setSettingsOpen] = useState(false)
+  const [hotkeyModifier, setHotkeyModifier] = useState('Ctrl')
 
-  const handleSignOut = async (event: Event): Promise<void> => {
+  useEffect(() => {
+    // Platform modifier (⌘ vs Ctrl) is client-only — resolve post-hydration to
+    // avoid an SSR mismatch. Runs once.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setHotkeyModifier(getHotkeyModifier())
+  }, [])
+
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent): void => {
+      if (event.key !== ',') return
+      if (!event.metaKey && !event.ctrlKey) return
+      if (isEditableTarget(event.target)) return
+
+      event.preventDefault()
+      setSettingsOpen(true)
+    }
+
+    window.addEventListener('keydown', onKeyDown)
+    return (): void => window.removeEventListener('keydown', onKeyDown)
+  }, [])
+
+  const handleSignOut = async (event: React.SyntheticEvent): Promise<void> => {
     event.preventDefault()
     try {
-      await signOut() // Server action redirects to /auth/signin
-      router.refresh() // Sync client state
+      await signOut()
+      router.refresh()
     } catch (error) {
       if (error instanceof Error && error.message.includes('NEXT_REDIRECT')) {
-        // Ignore NEXT_REDIRECT, it’s handled by Next.js
         router.refresh()
         return
       }
-      // eslint-disable-next-line no-console
+
       console.error('Sign out error:', error)
-      router.push('/auth/signin') // Fallback redirect
+      router.push('/auth/signin')
       router.refresh()
     }
   }
 
   if (!user?.username) return null
 
+  const initial = (user.username || user.email).charAt(0).toUpperCase()
+
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <div className="flex cursor-pointer items-center gap-1.5">
-          <Avatar className="size-10 text-lg font-semibold">
-            <AvatarFallback>
-              {user.username.charAt(0).toUpperCase()}
-            </AvatarFallback>
-          </Avatar>
-          {/* <ChevronDown size={12} strokeWidth={3} /> */}
-        </div>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent
-        align="end"
-        sideOffset={16}
-        alignOffset={-10}
-        className="w-56"
-      >
-        <div className="flex items-center gap-3 px-2 py-1.5">
-          <Avatar className="size-8 font-semibold">
-            <AvatarFallback>
-              {user.username.charAt(0).toUpperCase()}
-            </AvatarFallback>
-          </Avatar>
-          <div className="text-sm font-semibold">{user.username}</div>
-        </div>
-        <DropdownMenuSeparator />
-        <ThemeSwitcher />
-        <DropdownMenuSeparator />
-        <DropdownMenuItem asChild>
-          <Link href="/settings" className="flex w-full items-center gap-2">
-            <Settings size={16} />
-            <span>Settings</span>
-          </Link>
-        </DropdownMenuItem>
-        <DropdownMenuItem
-          onSelect={handleSignOut}
-          className="flex w-full cursor-pointer items-center gap-2"
+    <>
+      <DropdownMenu>
+        <Tooltip>
+          <TooltipTrigger
+            render={
+              <DropdownMenuTrigger
+                render={
+                  <Button
+                    variant="elevated"
+                    size="icon-circle"
+                    aria-label="Account menu"
+                    className="text-sm font-semibold"
+                  />
+                }
+              />
+            }
+          >
+            {initial}
+          </TooltipTrigger>
+          <TooltipContent side={isDesktop ? 'right' : 'bottom'} sideOffset={12}>
+            Account
+          </TooltipContent>
+        </Tooltip>
+        <DropdownMenuContent
+          side={isDesktop ? 'top' : 'bottom'}
+          align={isDesktop ? 'start' : 'end'}
+          sideOffset={12}
+          className="w-56"
         >
-          <LogOut size={16} />
-          <span>Sign out</span>
-        </DropdownMenuItem>
-        <div className="px-2 pb-1 pt-2 text-left text-xs text-muted-foreground">
-          Version {CONFIG.version}
-        </div>
-      </DropdownMenuContent>
-    </DropdownMenu>
+          <DropdownMenuGroup>
+            <DropdownMenuLabel className="flex items-center gap-2">
+              <Avatar>
+                <AvatarFallback className="font-semibold text-popover-foreground">
+                  {initial}
+                </AvatarFallback>
+              </Avatar>
+              <div className="flex min-w-0 flex-col">
+                <span className="truncate text-sm font-medium text-popover-foreground">
+                  {user.username}
+                </span>
+              </div>
+            </DropdownMenuLabel>
+          </DropdownMenuGroup>
+          <DropdownMenuSeparator />
+          <DropdownMenuGroup>
+            <DropdownMenuItem
+              onClick={() => {
+                requestAnimationFrame(() => setSettingsOpen(true))
+              }}
+            >
+              <Settings />
+              Settings
+              {isDesktop ? (
+                <DropdownMenuShortcut>
+                  <KbdGroup>
+                    <Kbd>{hotkeyModifier}</Kbd>
+                    <Kbd>,</Kbd>
+                  </KbdGroup>
+                </DropdownMenuShortcut>
+              ) : null}
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={handleSignOut}>
+              <LogOut />
+              Sign out
+            </DropdownMenuItem>
+          </DropdownMenuGroup>
+          <DropdownMenuSeparator />
+          <DropdownMenuGroup>
+            <DropdownMenuLabel className="font-normal">
+              Version {CONFIG.version}
+            </DropdownMenuLabel>
+          </DropdownMenuGroup>
+        </DropdownMenuContent>
+      </DropdownMenu>
+      <SettingsDialog open={settingsOpen} onOpenChange={setSettingsOpen} />
+    </>
   )
 }

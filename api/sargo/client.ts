@@ -49,10 +49,10 @@ export class SargoClient extends BaseApiClient {
 
   // Auth Endpoints (No Caching)
   async login(identifier: string, password: string): Promise<UserAuthResponse> {
-    const headers: HeadersInit = {
-      'Content-Type': 'application/json',
-      Accept: 'application/json',
-    }
+    const headers = await this.getHeaders(
+      CONFIG.api.endpoints.sargo.auth.login,
+      true
+    )
 
     return this.fetch(CONFIG.api.endpoints.sargo.auth.login, {
       init: {
@@ -153,42 +153,6 @@ export class SargoClient extends BaseApiClient {
       },
     })
     return response.data
-  }
-
-  async getSpotsByCountry(isPublic = true): Promise<{ data: Spot[] }> {
-    const queryParams = new URLSearchParams({
-      [POPULATE_FULL_LOCATION]: 'true',
-      'populate[webcam]': 'true',
-      'fields[0]': 'name',
-      'fields[1]': 'location_lat',
-      'fields[2]': 'location_long',
-      'sort[0]': 'municipality.district.region.country.name',
-      'sort[1]': 'municipality.district.region.name',
-      'sort[2]': 'municipality.district.name',
-      'sort[3]': 'municipality.name',
-      'sort[4]': 'name',
-    }).toString()
-
-    const headers = await this.getHeaders(
-      CONFIG.api.endpoints.sargo.spots.byCountry,
-      isPublic
-    )
-
-    const response = await this.fetch<{ data: Spot[] }>(
-      `${CONFIG.api.endpoints.sargo.spots.byCountry}?${queryParams}`,
-      {
-        init: {
-          headers,
-          next: {
-            revalidate: 3600,
-          },
-        },
-      }
-    )
-
-    return {
-      data: response.data,
-    }
   }
 
   async getNearbySpots(

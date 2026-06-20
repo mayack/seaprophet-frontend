@@ -1,326 +1,320 @@
 'use client'
 
-import { useCallback, useState, useRef, useEffect, useMemo } from 'react'
-import { Search, SearchX, X } from 'lucide-react'
-import { Input } from '@/components/ui/input'
-import { Button } from '@/components/ui/button'
-import { SpotCard } from '../SpotCard'
-import { searchSpots } from '@/api/sargo/actions/spot'
-import { SpotSummary } from '@/api/sargo/interfaces/spot'
-import { debounce } from '@/lib/debounce'
-import { Skeleton } from '@/components/ui/skeleton'
-import Link from 'next/link'
+import React, { useCallback, useEffect, useRef, useState } from 'react'
+import { flushSync } from 'react-dom'
 import { usePathname } from 'next/navigation'
-import React from 'react'
+import type { DialogRoot } from '@base-ui/react/dialog'
+import { Search, Video } from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import {
+  Command,
+  CommandDialog,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+  CommandShortcut,
+} from '@/components/ui/command'
+import { Kbd, KbdGroup } from '@/components/ui/kbd'
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '@/components/ui/tooltip'
+import { getHotkeyModifier, isEditableTarget } from '@/lib/hotkeys'
+import { useIsDesktop } from '@/hooks/useIsDesktop'
+import { useSpotNavigation } from '@/hooks/useSpotNavigation'
+import { useVisualViewport } from '@/hooks/useVisualViewport'
+import { type SearchResultSpot, useSpotSearch } from './useSpotSearch'
 import { cn } from '@/lib/utils'
-import { useSpotIndex } from './useSpotIndex'
-import type { SpotIndex, SpotIndexEntry } from '@/lib/spotSearchIndex'
-import { CONFIG } from '@/constants/config'
+
+/** Ignore sloppy touch outside-press that fires on the same tap as open. */
+const OPEN_DISMISS_GRACE_MS = 500
+
+/** Mobile dialog gap from the screen edge — equal on top/left/right (px). */
+const MOBILE_DIALOG_INSET = 16
 
 interface SearchSpotsProps {
-  className?: string
   placeholder?: string
 }
 
-const MAX_RESULTS = CONFIG.search.maxResults
-const FALLBACK_DEBOUNCE_MS = CONFIG.search.fallback.debounceMs
+function SpotSearchCommand({
+  inputRef,
+  placeholder,
+  query,
+  onInputValueChange,
+  groupedItems,
+  showGroupLabels,
+  isLoading,
+  error,
+  spotCount,
+  onSelect,
+  isMobile,
+}: {
+  inputRef: React.RefObject<HTMLInputElement | null>
+  placeholder: string
+  query: string
+  onInputValueChange: (value: string) => void
+  groupedItems: ReturnType<typeof useSpotSearch>['groupedItems']
+  showGroupLabels: boolean
+  isLoading: boolean
+  error: string | null
+  spotCount: number | null
+  onSelect: (spot: SearchResultSpot) => void
+  isMobile: boolean
+}): React.JSX.Element {
+  const hasQuery = query.trim().length > 0
+  const emptyPrompt =
+    spotCount !== null
+      ? `${spotCount.toLocaleString()} spots available`
+      : 'Start typing to search spots'
 
-interface SearchResultSpot extends SpotSummary {
-  country: string | null
-  countryEmoji: string | null
-}
-
-interface CountryGroup {
-  key: string
-  label: string
-  spots: SearchResultSpot[]
-}
-
-const UNKNOWN_COUNTRY_KEY = '__unknown__'
-
-function entryToResult(entry: SpotIndexEntry): SearchResultSpot {
-  return {
-    id: entry.id,
-    name: entry.name,
-    location: { lat: entry.location_lat, long: entry.location_long },
-    webcam: entry.webcam ?? undefined,
-    country: entry.country,
-    countryEmoji: entry.country_emoji,
-  }
-}
-
-function searchLocalIndex(index: SpotIndex, query: string): SearchResultSpot[] {
-  const trimmed = query.trim()
-  if (!trimmed) return []
-
-  const results = index.search.search(trimmed)
-  const spots: SearchResultSpot[] = []
-  for (const result of results) {
-    const entry = index.byId.get(result.id as number)
-    if (entry) spots.push(entryToResult(entry))
-    if (spots.length >= MAX_RESULTS) break
-  }
-  return spots
-}
-
-// Groups results by country while preserving relevance order: countries are
-// ordered by the relevance of their best-matching spot, and spots within each
-// country keep MiniSearch's ranking.
-function groupByCountry(spots: SearchResultSpot[]): CountryGroup[] {
-  const groups = new Map<string, CountryGroup>()
-
-  for (const spot of spots) {
-    const key = spot.country ?? UNKNOWN_COUNTRY_KEY
-    const label = spot.country
-      ? `${spot.countryEmoji ? `${spot.countryEmoji} ` : ''}${spot.country}`
-      : 'Other'
-
-    const existing = groups.get(key)
-    if (existing) {
-      existing.spots.push(spot)
-    } else {
-      groups.set(key, { key, label, spots: [spot] })
-    }
-  }
-
-  return Array.from(groups.values())
+  return (
+    <Command
+      shouldFilter={false}
+      className={isMobile ? 'h-auto w-full' : undefined}
+    >
+      <CommandInput
+        ref={inputRef}
+        placeholder={placeholder}
+        value={query}
+        onValueChange={onInputValueChange}
+        inputMode="search"
+        enterKeyHint="search"
+        autoComplete="off"
+      />
+      <CommandList
+        className={
+          isMobile && hasQuery
+            ? 'max-h-[calc(var(--search-dialog-max)-2.5rem)]'
+            : undefined
+        }
+      >
+        <CommandEmpty className="text-muted-foreground">
+          {hasQuery
+            ? isLoading
+              ? 'Searching...'
+              : (error ?? 'No spots found')
+            : emptyPrompt}
+        </CommandEmpty>
+        {groupedItems.map((group) => (
+          <CommandGroup
+            key={group.value}
+            heading={showGroupLabels && group.label ? group.label : undefined}
+            className="**:[[cmdk-group-heading]]:text-foreground"
+          >
+            {group.items.map((spot) => (
+              <CommandItem
+                key={spot.id}
+                value={`${spot.id}-${spot.name}`}
+                onSelect={() => onSelect(spot)}
+              >
+                {spot.name}
+                {spot.webcam && (
+                  <CommandShortcut>
+                    <Video />
+                  </CommandShortcut>
+                )}
+              </CommandItem>
+            ))}
+          </CommandGroup>
+        ))}
+      </CommandList>
+    </Command>
+  )
 }
 
 export function SearchSpots({
-  className,
   placeholder = 'Search spots...',
 }: SearchSpotsProps): React.JSX.Element {
   const pathname = usePathname()
-  const spotIndex = useSpotIndex()
-  const [query, setQuery] = useState('')
-  const [spots, setSpots] = useState<SearchResultSpot[]>([])
-  const [isLoading, setIsLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const [isOpen, setIsOpen] = useState(false)
-  const containerRef = useRef<HTMLDivElement>(null)
-  // Tracks the most recent query so out-of-order fallback responses can be ignored.
-  const fallbackRequestIdRef = useRef(0)
+  const isDesktop = useIsDesktop()
+  const { openSpot } = useSpotNavigation()
+  const [open, setOpen] = useState(false)
+  const [hotkeyModifier] = useState(getHotkeyModifier)
+  const searchTriggerRef = useRef<HTMLButtonElement>(null)
+  const searchInputRef = useRef<HTMLInputElement>(null)
+  const openedAtRef = useRef(0)
+  const {
+    query,
+    onInputValueChange,
+    groupedItems,
+    showGroupLabels,
+    isLoading,
+    error,
+    spotCount,
+    clearSearch,
+  } = useSpotSearch()
 
-  const clearSearch = useCallback((): void => {
-    setQuery('')
-    setSpots([])
-    setError(null)
-    setIsOpen(false)
-    setIsLoading(false)
-  }, [])
-
-  // Clear search UI state whenever the user navigates to a new route so the
-  // dropdown doesn't linger across pages. We intentionally avoid
-  // router.refresh() here — it forces a full RSC refetch on every navigation,
-  // which fights with the page's own data fetching and can flash stale state.
-  useEffect((): void => {
+  const [prevPathname, setPrevPathname] = useState(pathname)
+  if (prevPathname !== pathname) {
+    setPrevPathname(pathname)
+    setOpen(false)
     clearSearch()
-  }, [pathname, clearSearch])
+  }
 
-  // Server-action fallback for the rare case where the user types before
-  // the in-memory index has loaded (cold first visit, slow network, etc.).
-  const fallbackSearch = useRef(
-    debounce(async (searchQuery: string, requestId: number): Promise<void> => {
-      try {
-        const response = await searchSpots(searchQuery)
-        if (requestId !== fallbackRequestIdRef.current) return
-        if (response.error) {
-          setError(response.error)
-          setSpots([])
-        } else {
-          // Server-action results don't carry country metadata yet; mark as
-          // unknown so they fall into a single "Other" group below.
-          setSpots(
-            (response.data || []).map((spot) => ({
-              ...spot,
-              country: null,
-              countryEmoji: null,
-            }))
-          )
-          setError(null)
+  // On mobile, pin the dialog to the top with equal top/left/right insets.
+  // Height wraps the search input until there is a query, then grows with
+  // results up to the space above the keyboard (visual viewport).
+  const viewport = useVisualViewport(open && !isDesktop)
+  const mobileAvailableHeight = viewport
+    ? viewport.height - MOBILE_DIALOG_INSET * 2
+    : null
+  const mobileContentStyle:
+    | (React.CSSProperties & {
+        '--search-dialog-max'?: string
+      })
+    | undefined =
+    !isDesktop && viewport && mobileAvailableHeight !== null
+      ? {
+          top: viewport.offsetTop + MOBILE_DIALOG_INSET,
+          left: MOBILE_DIALOG_INSET,
+          right: MOBILE_DIALOG_INSET,
+          width: 'auto',
+          maxWidth: 'none',
+          height: 'auto',
+          maxHeight: mobileAvailableHeight,
+          '--search-dialog-max': `${mobileAvailableHeight}px`,
+          // Tailwind v4 centers via the `translate` property (not `transform`),
+          // so clear that to cancel the base `-translate-x/y-1/2`.
+          translate: 'none',
+          transform: 'none',
         }
-      } catch (err) {
-        if (requestId !== fallbackRequestIdRef.current) return
-        setError(err instanceof Error ? err.message : 'Search failed')
-        setSpots([])
-      } finally {
-        if (requestId === fallbackRequestIdRef.current) {
-          setIsLoading(false)
-        }
-      }
-    }, FALLBACK_DEBOUNCE_MS)
-  ).current
+      : undefined
 
-  useEffect((): (() => void) => {
-    return () => {
-      fallbackSearch.cancel()
+  const openSearch = useCallback((fromTouch = false): void => {
+    openedAtRef.current = Date.now()
+    if (fromTouch) {
+      flushSync(() => setOpen(true))
+      searchInputRef.current?.focus({ preventScroll: true })
+      return
     }
-  }, [fallbackSearch])
-
-  useEffect((): (() => void) => {
-    const handleClickOutside = (event: MouseEvent): void => {
-      if (
-        containerRef.current &&
-        !containerRef.current.contains(event.target as Node)
-      ) {
-        setIsOpen(false)
-      }
-    }
-
-    document.addEventListener('mousedown', handleClickOutside)
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside)
-    }
+    setOpen(true)
   }, [])
 
-  const handleInputChange = useCallback(
-    (event: React.ChangeEvent<HTMLInputElement>): void => {
-      const newQuery = event.target.value
-      setQuery(newQuery)
+  // Touch screens: open synchronously on touchend so outside-press dismiss does
+  // not race the open state (see OPEN_DISMISS_GRACE_MS). preventDefault blocks
+  // the synthetic click. Mouse pointers at mobile widths rely on onClick above.
+  useEffect(() => {
+    if (isDesktop) return undefined
 
-      if (!newQuery.trim()) {
-        fallbackSearch.cancel()
-        fallbackRequestIdRef.current += 1
-        setSpots([])
-        setError(null)
-        setIsOpen(false)
-        setIsLoading(false)
+    const trigger = searchTriggerRef.current
+    if (!trigger) return undefined
+
+    const onTouchEnd = (event: TouchEvent): void => {
+      event.preventDefault()
+      openSearch(true)
+    }
+
+    trigger.addEventListener('touchend', onTouchEnd, { passive: false })
+    return (): void => trigger.removeEventListener('touchend', onTouchEnd)
+  }, [isDesktop, openSearch])
+
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent): void => {
+      if (event.key.toLowerCase() !== 'k') return
+      if (!event.metaKey && !event.ctrlKey) return
+      if (isEditableTarget(event.target)) return
+
+      event.preventDefault()
+      openSearch()
+      requestAnimationFrame(() =>
+        searchInputRef.current?.focus({ preventScroll: true })
+      )
+    }
+
+    window.addEventListener('keydown', onKeyDown)
+    return (): void => window.removeEventListener('keydown', onKeyDown)
+  }, [openSearch])
+
+  const handleOpenChange = useCallback(
+    (next: boolean, eventDetails: DialogRoot.ChangeEventDetails): void => {
+      if (
+        !next &&
+        (eventDetails.reason === 'outside-press' ||
+          eventDetails.reason === 'focus-out') &&
+        Date.now() - openedAtRef.current < OPEN_DISMISS_GRACE_MS
+      ) {
+        eventDetails.cancel()
         return
       }
 
-      setIsOpen(true)
-
-      if (spotIndex) {
-        // Hot path: results come from the synchronous `displayedSpots` memo,
-        // so we only reset transient fallback state here.
-        fallbackSearch.cancel()
-        fallbackRequestIdRef.current += 1
-        setError(null)
-        setIsLoading(false)
-        return
-      }
-
-      // Cold path: index hasn't loaded yet — defer to the server action.
-      setIsLoading(true)
-      setError(null)
-      fallbackRequestIdRef.current += 1
-      fallbackSearch(newQuery, fallbackRequestIdRef.current)
+      setOpen(next)
+      if (!next) clearSearch()
     },
-    [spotIndex, fallbackSearch]
+    [clearSearch]
   )
 
-  const handleInputFocus = useCallback((): void => {
-    if (query.trim()) {
-      setIsOpen(true)
-    }
-  }, [query])
+  const handleSelect = useCallback(
+    (spot: SearchResultSpot): void => {
+      openSpot({
+        id: spot.id,
+        lng: spot.location.long,
+        lat: spot.location.lat,
+        name: spot.name,
+      })
+      clearSearch()
+      setOpen(false)
+    },
+    [openSpot, clearSearch]
+  )
 
-  // When the in-memory index is available we filter it synchronously; the
-  // `spots` state only holds cold-start server-action results. Deriving here
-  // (rather than writing state on every keystroke) avoids searching twice.
-  const displayedSpots = useMemo<SearchResultSpot[]>(() => {
-    if (spotIndex && query.trim()) {
-      return searchLocalIndex(spotIndex, query)
-    }
-    return spots
-  }, [spotIndex, query, spots])
-
-  const showDropdown = isOpen && query.length > 0
-  const groupedSpots = groupByCountry(displayedSpots)
-  // Hide the section label when there's only one group of results without a
-  // country (typical of the cold-start fallback path).
-  const showGroupLabels =
-    groupedSpots.length > 1 || groupedSpots[0]?.key !== UNKNOWN_COUNTRY_KEY
+  const searchTrigger = (
+    <Button
+      ref={searchTriggerRef}
+      variant="elevated"
+      size="icon-circle"
+      onClick={() => openSearch()}
+      aria-label="Search spots"
+      aria-expanded={open}
+    >
+      <Search />
+    </Button>
+  )
 
   return (
-    <div ref={containerRef} className={cn('md:relative', className)}>
-      <div className="relative">
-        <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-        <Input
-          type="text"
-          placeholder={placeholder}
-          value={query}
-          onChange={handleInputChange}
-          onFocus={handleInputFocus}
-          className="px-9"
-          variant="muted"
-        />
-        {query && (
-          <Button
-            variant="ghost"
-            size="icon"
-            className="absolute right-1 top-1/2 -translate-y-1/2 rounded-full"
-            onClick={clearSearch}
-            type="button"
-          >
-            <X className="size-4" />
-            <span className="sr-only">Clear search</span>
-          </Button>
+    <>
+      <Tooltip>
+        <TooltipTrigger render={searchTrigger} />
+        <TooltipContent side="right" sideOffset={12}>
+          Search spots
+          {isDesktop && (
+            <KbdGroup>
+              <Kbd>{hotkeyModifier}</Kbd>
+              <Kbd>K</Kbd>
+            </KbdGroup>
+          )}
+        </TooltipContent>
+      </Tooltip>
+      <CommandDialog
+        open={open}
+        onOpenChange={handleOpenChange}
+        title="Search spots"
+        description="Search for a surf spot by name"
+        showCloseButton
+        closeButtonClassName="top-2 right-2 text-muted-foreground"
+        initialFocus={searchInputRef}
+        contentStyle={mobileContentStyle}
+        className={cn(
+          !isDesktop ? 'h-auto auto-rows-min' : undefined,
+          'rounded-2xl!'
         )}
-      </div>
-
-      {showDropdown && (
-        <div className="absolute inset-x-0 top-16 z-50 max-h-[calc(100dvh-64px)] overflow-auto bg-background p-3 text-foreground shadow-md transition-all duration-300 md:top-14 md:rounded-2xl md:border md:bg-popover">
-          {isLoading && (
-            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-              {[...Array(4)].map((_, i) => (
-                <Skeleton key={i} className="h-12 w-full rounded-lg" />
-              ))}
-            </div>
-          )}
-
-          {!isLoading && error && (
-            <div className="flex h-12 flex-col items-center justify-center gap-px rounded-lg bg-muted text-center">
-              <div className="mb-0.5 flex items-center gap-2 font-medium">
-                <SearchX className="size-4" strokeWidth="2" />
-                {error}
-              </div>
-            </div>
-          )}
-
-          {!isLoading && !error && displayedSpots.length === 0 && (
-            <div className="flex h-12 flex-col items-center justify-center gap-px rounded-lg bg-muted text-center">
-              <div className="mb-0.5 flex items-center gap-2 font-medium">
-                <SearchX className="size-4" strokeWidth="2" />
-                No spots found
-              </div>
-            </div>
-          )}
-
-          {!isLoading && displayedSpots.length > 0 && (
-            <div className="space-y-3">
-              {groupedSpots.map((group) => (
-                <div key={group.key}>
-                  {showGroupLabels && group.key !== UNKNOWN_COUNTRY_KEY && (
-                    <div className="mb-2 px-1 text-sm font-semibold">
-                      {group.label}
-                    </div>
-                  )}
-                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                    {group.spots.map((spot) => (
-                      <Link
-                        key={spot.id}
-                        href={`/spot/${spot.id}`}
-                        onClick={() => {
-                          setIsOpen(false)
-                          clearSearch()
-                        }}
-                      >
-                        <SpotCard
-                          id={spot.id}
-                          name={spot.name}
-                          webcam={spot.webcam}
-                          compact={true}
-                        />
-                      </Link>
-                    ))}
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
-    </div>
+      >
+        <SpotSearchCommand
+          inputRef={searchInputRef}
+          placeholder={placeholder}
+          query={query}
+          onInputValueChange={onInputValueChange}
+          groupedItems={groupedItems}
+          showGroupLabels={showGroupLabels}
+          isLoading={isLoading}
+          error={error}
+          spotCount={spotCount}
+          onSelect={handleSelect}
+          isMobile={!isDesktop}
+        />
+      </CommandDialog>
+    </>
   )
 }
