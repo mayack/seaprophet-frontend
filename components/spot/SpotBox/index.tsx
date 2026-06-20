@@ -29,7 +29,6 @@ export function SpotBox(): React.JSX.Element | null {
     closeSpot,
     rendered,
     entered,
-    hasMounted,
     snap,
     onHeaderPointerDown,
     onPeekPanelPointerDown,
@@ -85,7 +84,7 @@ export function SpotBox(): React.JSX.Element | null {
       aria-hidden={!isSpotOpen}
       data-spot-panel
       data-snap={!isDesktop && isSpotOpen ? snap : undefined}
-      style={!isDesktop && hasMounted ? sheetStyle : undefined}
+      style={!isDesktop ? sheetStyle : undefined}
       className={cn(
         'fixed inset-x-0 bottom-0 z-40 mx-auto flex h-[calc(100dvh-68px)] min-h-0 max-w-md flex-col overflow-hidden rounded-t-xl bg-background shadow-xl ring-1 ring-foreground/10 select-none',
         'sm:max-w-2xl',

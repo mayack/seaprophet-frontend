@@ -31,7 +31,6 @@ export function useSpotPanelController({
   closeSpot: () => void
   rendered: boolean
   entered: boolean
-  hasMounted: boolean
   viewportWidth: number
   snap: ReturnType<typeof useMobileSpotSheet>['snap']
   onHeaderPointerDown: ReturnType<
@@ -50,14 +49,6 @@ export function useSpotPanelController({
 
   const [rendered, setRendered] = useState(isSpotOpen)
   const [entered, setEntered] = useState(false)
-  const [hasMounted, setHasMounted] = useState(false)
-
-  useEffect(() => {
-    // Standard post-hydration flag — gates mobile sheet transforms so they
-    // don't apply during SSR/hydration. Runs once.
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setHasMounted(true)
-  }, [])
 
   useLayoutEffect(() => {
     if (isSpotOpen) {
@@ -144,7 +135,6 @@ export function useSpotPanelController({
     closeSpot,
     rendered,
     entered,
-    hasMounted,
     viewportWidth,
     snap,
     onHeaderPointerDown,
