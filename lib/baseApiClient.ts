@@ -33,11 +33,15 @@ export abstract class BaseApiClient {
         const message =
           data.error?.message || `Request failed with status ${response.status}`
         // Treat 401 and 403 as auth failures so callers (Polvo retry,
-        // Sargo signout fallback) can react uniformly. 403 used to be
-        // tagged separately by PolvoClient before it migrated to this
-        // base class; centralizing the rule keeps both clients
-        // consistent.
-        const isAuthStatus = response.status === 401 || response.status === 403
+        // Sargo signout fallback) can react uniformly. Strapi's local login
+        // returns 400 for invalid credentials, so classify that endpoint as
+        // auth as well without making every validation error an auth failure.
+        const isLoginAuthFailure =
+          endpoint.includes('/auth/local') && response.status === 400
+        const isAuthStatus =
+          response.status === 401 ||
+          response.status === 403 ||
+          isLoginAuthFailure
         throw createError(message, isAuthStatus ? 'auth' : 'network')
       }
 

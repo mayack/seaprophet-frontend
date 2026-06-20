@@ -106,17 +106,12 @@ export function useMapSpots({
       if (cancelled) return
 
       updateSpotsInView()
-
-      // Geolocation flyTo often finishes after the first viewport read — refresh
-      // once the camera settles (and again after debounced moveend if needed).
-      map.once('moveend', updateSpotsInView)
     }
 
     void loadInitialSpots()
 
     return (): void => {
       cancelled = true
-      map.off('moveend', updateSpotsInView)
     }
   }, [
     map,

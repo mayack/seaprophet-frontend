@@ -354,6 +354,7 @@ function clusterSymbolLayout(): mapboxgl.SymbolLayerSpecification['layout'] {
 }
 
 let lastSpotDataSignature: string | null = null
+let lastSpotDataSource: mapboxgl.GeoJSONSource | null = null
 let lastSpotsForLayers: SpotSummary[] = []
 let selectedSpotId: number | null = null
 let hasNudgedSymbolPlacement = false
@@ -368,6 +369,7 @@ function spotDataSignature(spots: SpotSummary[]): string {
 
 function resetSpotLayerDataCache(): void {
   lastSpotDataSignature = null
+  lastSpotDataSource = null
   lastSpotsForLayers = []
   hasNudgedSymbolPlacement = false
   activeClusterHoverId = null
@@ -415,10 +417,7 @@ export function spotsToFeatureCollection(
   }
 }
 
-export async function ensureSpotLayers(
-  map: mapboxgl.Map,
-  _state: SpotLayerState
-): Promise<void> {
+export async function ensureSpotLayers(map: mapboxgl.Map): Promise<void> {
   await whenStyleReady(map)
 
   const { minPoints } = CONFIG.map.clusters
@@ -521,9 +520,11 @@ function pushSpotLayerData(map: mapboxgl.Map): void {
   if (!source) return
 
   const signature = spotDataSignature(lastSpotsForLayers)
-  if (signature === lastSpotDataSignature) return
+  if (signature === lastSpotDataSignature && source === lastSpotDataSource)
+    return
 
   lastSpotDataSignature = signature
+  lastSpotDataSource = source
   hasNudgedSymbolPlacement = false
   source.setData(spotsToFeatureCollection(lastSpotsForLayers))
 
