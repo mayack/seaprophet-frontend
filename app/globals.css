@@ -157,11 +157,7 @@
 
   html,
   body {
-    @apply h-full min-h-dvh min-h-full min-h-screen;
-  }
-
-  body {
-    @apply bg-background text-foreground;
+    @apply h-full min-h-dvh min-h-full min-h-screen bg-background text-foreground;
   }
 }
 

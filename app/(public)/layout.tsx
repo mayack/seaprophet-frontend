@@ -1,14 +1,10 @@
 import type { Metadata } from 'next'
 import { Inter } from 'next/font/google'
-import './globals.css'
+import '../globals.css'
 import React from 'react'
 import { ThemeProvider } from '@/contexts/ThemeContext'
-import { SpotIndexPreloader } from '@/components/common/SpotIndexPreloader'
 import { cn } from '@/lib/utils'
 
-// Exposes the font as `--font-inter`; globals.css maps `--font-sans` to it.
-// (The var name must differ from `--font-sans` to avoid a self-referential
-// `--font-sans: var(--font-sans)` in the Tailwind theme.)
 const inter = Inter({
   subsets: ['latin'],
   variable: '--font-inter',
@@ -19,7 +15,7 @@ export const metadata: Metadata = {
   title: 'Sea Prophet',
 }
 
-export default function RootLayout({
+export default function PublicRootLayout({
   children,
 }: {
   children: React.ReactNode
@@ -27,12 +23,11 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={cn('font-sans', inter.variable)}
+      className={cn('font-sans h-full min-h-full', inter.variable)}
       suppressHydrationWarning
     >
-      <body className="antialiased" suppressHydrationWarning>
+      <body className="antialiased h-full min-h-full" suppressHydrationWarning>
         <ThemeProvider>{children}</ThemeProvider>
-        <SpotIndexPreloader />
       </body>
     </html>
   )

@@ -117,7 +117,7 @@ export function useMobileSpotSheet({
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setDragY(null)
     sessionRef.current = null
-    if (isPresented) {
+    if (isPresented && wasPresentedRef.current) {
       setSnap('peek')
     }
   }, [enabled, dragEnabled, isPresented])
@@ -171,8 +171,16 @@ export function useMobileSpotSheet({
   useEffect(() => {
     if (!enabled) return
 
+    let frame: number | null = null
+
     if (isPresented && !wasPresentedRef.current) {
-      setSnap('peek')
+      // Commit the off-screen closed transform first, then animate into peek.
+      setSnap('closed')
+      frame = requestAnimationFrame(() => {
+        frame = requestAnimationFrame(() => {
+          setSnap('peek')
+        })
+      })
     }
 
     if (!isPresented) {
@@ -183,6 +191,10 @@ export function useMobileSpotSheet({
     }
 
     wasPresentedRef.current = isPresented
+
+    return (): void => {
+      if (frame !== null) cancelAnimationFrame(frame)
+    }
   }, [enabled, isPresented])
 
   useEffect(() => {
@@ -315,8 +327,7 @@ export function useMobileSpotSheet({
     return (): void => document.removeEventListener('touchmove', onTouchMove)
   }, [enabled, isPresented, snap])
 
-  const translateY =
-    dragY ?? offsetForSnap(dragEnabled ? snap : 'peek', height, peekVisiblePx)
+  const translateY = dragY ?? offsetForSnap(snap, height, peekVisiblePx)
   const isDragging = dragY !== null
 
   return {

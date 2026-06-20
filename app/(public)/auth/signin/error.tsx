@@ -1,4 +1,3 @@
-// app/auth/signin/error.tsx
 'use client'
 
 import React from 'react'
