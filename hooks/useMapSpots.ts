@@ -110,8 +110,20 @@ export function useMapSpots({
 
     void loadInitialSpots()
 
+    // Safety net: re-sync spots once the map settles after load (the `idle`
+    // event), including after any geolocation flyTo. When the map lands
+    // directly at a cached location there's no flyTo and therefore no
+    // `moveend` to drive the normal viewport sync — this provides the same
+    // recovery a manual pan/zoom does, so spots aren't left unsynced.
+    const handleInitialIdle = (): void => {
+      if (cancelled) return
+      updateSpotsInView()
+    }
+    map.once('idle', handleInitialIdle)
+
     return (): void => {
       cancelled = true
+      map.off('idle', handleInitialIdle)
     }
   }, [
     map,

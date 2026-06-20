@@ -357,7 +357,6 @@ let lastSpotDataSignature: string | null = null
 let lastSpotDataSource: mapboxgl.GeoJSONSource | null = null
 let lastSpotsForLayers: SpotSummary[] = []
 let selectedSpotId: number | null = null
-let hasNudgedSymbolPlacement = false
 
 function spotDataSignature(spots: SpotSummary[]): string {
   if (spots.length === 0) return ''
@@ -371,27 +370,7 @@ function resetSpotLayerDataCache(): void {
   lastSpotDataSignature = null
   lastSpotDataSource = null
   lastSpotsForLayers = []
-  hasNudgedSymbolPlacement = false
   activeClusterHoverId = null
-}
-
-function nudgeSymbolPlacementOnce(map: mapboxgl.Map): void {
-  if (hasNudgedSymbolPlacement) return
-
-  const repaint = (): void => {
-    if (hasNudgedSymbolPlacement) return
-    hasNudgedSymbolPlacement = true
-    map.once('idle', () => {
-      map.triggerRepaint()
-    })
-  }
-
-  if (map.isStyleLoaded()) {
-    repaint()
-    return
-  }
-
-  map.once('style.load', repaint)
 }
 
 export function spotsToFeatureCollection(
@@ -467,6 +446,10 @@ export async function ensureSpotLayers(map: mapboxgl.Map): Promise<void> {
     })
   }
 
+  // Load the icon images and (re-)apply icon-image/colors AFTER the layers
+  // exist. This is what a theme switch does, and it's the step that makes the
+  // symbols actually render — removing it left clusters invisible until a
+  // style change forced this to run.
   await updateSpotLayerTheme(map)
 
   applyUnclusteredPinFilters(map)
@@ -513,6 +496,24 @@ function applyClusterSizeLayout(map: mapboxgl.Map): void {
   )
 }
 
+/**
+ * Force a render once the spots source has finished (re-)loading. Clustering
+ * runs in a worker, so cluster features aren't ready synchronously after
+ * setData; when the map is idle it may not auto-repaint once they land, leaving
+ * symbols invisible until interaction. Repainting on `isSourceLoaded` is
+ * deterministic (unlike a one-shot `idle`, which can race the worker).
+ */
+function repaintWhenSpotsSourceLoaded(map: mapboxgl.Map): void {
+  const onSourceData = (
+    event: mapboxgl.MapSourceDataEvent & { isSourceLoaded?: boolean }
+  ): void => {
+    if (event.sourceId !== SPOTS_SOURCE_ID || !event.isSourceLoaded) return
+    map.off('sourcedata', onSourceData)
+    map.triggerRepaint()
+  }
+  map.on('sourcedata', onSourceData)
+}
+
 function pushSpotLayerData(map: mapboxgl.Map): void {
   const source = map.getSource(SPOTS_SOURCE_ID) as
     | mapboxgl.GeoJSONSource
@@ -525,12 +526,8 @@ function pushSpotLayerData(map: mapboxgl.Map): void {
 
   lastSpotDataSignature = signature
   lastSpotDataSource = source
-  hasNudgedSymbolPlacement = false
   source.setData(spotsToFeatureCollection(lastSpotsForLayers))
-
-  if (lastSpotsForLayers.length > 0) {
-    nudgeSymbolPlacementOnce(map)
-  }
+  repaintWhenSpotsSourceLoaded(map)
 
   applyUnclusteredPinFilters(map)
 }
