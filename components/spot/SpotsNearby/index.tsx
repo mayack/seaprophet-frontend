@@ -126,7 +126,7 @@ export function SpotsNearby({
                     }
                   >
                     <ItemContent className="gap-y-0.5">
-                      <ItemTitle>{spot.name}</ItemTitle>
+                      <ItemTitle className="truncate text-nowrap">{spot.name}</ItemTitle>
                       {spot.distance !== undefined && (
                         <ItemDescription className="text-xs">
                           {formatDistance(spot.distance)}
