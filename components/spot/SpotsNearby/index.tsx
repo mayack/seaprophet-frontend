@@ -115,7 +115,7 @@ export function SpotsNearby({
                   <Item
                     variant="outline"
                     size="sm"
-                    className="h-full cursor-pointer"
+                    className="h-full cursor-pointer flex-nowrap"
                     onClick={() =>
                       openSpot({
                         id: spot.id,
@@ -125,8 +125,10 @@ export function SpotsNearby({
                       })
                     }
                   >
-                    <ItemContent className="gap-y-0.5">
-                      <ItemTitle className="truncate text-nowrap">{spot.name}</ItemTitle>
+                    <ItemContent className="min-w-0 gap-y-0.5">
+                      <ItemTitle className="truncate">
+                        {spot.name}
+                      </ItemTitle>
                       {spot.distance !== undefined && (
                         <ItemDescription className="text-xs">
                           {formatDistance(spot.distance)}
