@@ -103,10 +103,10 @@ export function SpotDetailHeader({
               )}
               {locationPath.region && (
                 <>
-                  <BreadcrumbItem>
+                  <BreadcrumbItem className="hidden sm:block">
                     <BreadcrumbLink>{locationPath.region}</BreadcrumbLink>
                   </BreadcrumbItem>
-                  <BreadcrumbSeparator />
+                  <BreadcrumbSeparator className="hidden sm:block" />
                 </>
               )}
               {locationPath.district && (
