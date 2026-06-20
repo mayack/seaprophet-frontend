@@ -33,6 +33,9 @@ import type { UseMapboxOptions, UseMapboxReturn } from '@/types/map'
 import { CONFIG } from '@/constants/config'
 import { SpotSummary } from '@/api/sargo/interfaces/spot'
 
+const ZOOM_BUTTON_DURATION_MS = 300
+const ZOOM_BUTTON_DELTA = 1
+
 export function useMapbox(options: UseMapboxOptions = {}): UseMapboxReturn {
   const {
     center = CONFIG.map.defaults.center,
@@ -285,15 +288,27 @@ export function useMapbox(options: UseMapboxOptions = {}): UseMapboxReturn {
   }, [])
 
   const zoomIn = useCallback(() => {
-    if (mapInstance.current) {
-      mapInstance.current.zoomIn()
-    }
+    const map = mapInstance.current
+    if (!map) return
+
+    map.stop()
+    map.easeTo({
+      zoom: map.getZoom() + ZOOM_BUTTON_DELTA,
+      duration: ZOOM_BUTTON_DURATION_MS,
+      essential: true,
+    })
   }, [])
 
   const zoomOut = useCallback(() => {
-    if (mapInstance.current) {
-      mapInstance.current.zoomOut()
-    }
+    const map = mapInstance.current
+    if (!map) return
+
+    map.stop()
+    map.easeTo({
+      zoom: map.getZoom() - ZOOM_BUTTON_DELTA,
+      duration: ZOOM_BUTTON_DURATION_MS,
+      essential: true,
+    })
   }, [])
 
   // Retries re-invoke through a ref so the callback never references itself
