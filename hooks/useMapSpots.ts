@@ -13,41 +13,29 @@ import { spotToSummary } from '@/lib/spotSummary'
 
 interface UseMapSpotsOptions {
   map: mapboxgl.Map | null
+  isLoaded: boolean
   spotLoadCenter: [number, number]
   initialRadius: number
   viewportPadding: number
-  isSpotOpen: boolean
   activeSpotId: number | null
-  addSpotMarkers: (spots: SpotSummary[]) => void
-  clearSpotMarkers: () => void
+  updateSpotLayers: (spots: SpotSummary[]) => void
 }
 
 export function useMapSpots({
   map,
+  isLoaded,
   spotLoadCenter,
   initialRadius,
   viewportPadding,
-  isSpotOpen,
   activeSpotId,
-  addSpotMarkers,
-  clearSpotMarkers,
+  updateSpotLayers,
 }: UseMapSpotsOptions): { isLoading: boolean } {
   const [isLoading, setIsLoading] = useState(false)
-  const [isFetching, setIsFetching] = useState(false)
+  // In-flight guard — a ref (not state) so toggling it doesn't re-subscribe
+  // the moveend/zoomend handler below.
+  const isFetchingRef = useRef(false)
   const spotsRequestIdRef = useRef(0)
   const hasShownFetchErrorRef = useRef(false)
-  const spotOpenRef = useRef(false)
-
-  useEffect(() => {
-    spotOpenRef.current = isSpotOpen || activeSpotId !== null
-  }, [isSpotOpen, activeSpotId])
-
-  useEffect(() => {
-    hasShownFetchErrorRef.current = false
-    return (): void => {
-      hasShownFetchErrorRef.current = false
-    }
-  }, [])
 
   const updateSpotsInView = useCallback(() => {
     if (!map) return
@@ -64,18 +52,14 @@ export function useMapSpots({
 
     const spotsInView = spotsCache.getSpotsInBounds(currentBounds)
     const spotsToShow = withActiveSpot(spotsInView, activeSpotId)
-
-    if (!spotOpenRef.current) {
-      clearSpotMarkers()
-    }
-    addSpotMarkers(spotsToShow)
-  }, [map, activeSpotId, addSpotMarkers, clearSpotMarkers])
+    updateSpotLayers(spotsToShow)
+  }, [map, activeSpotId, updateSpotLayers])
 
   const fetchSpotsForViewport = useCallback(
     async (bounds: GeographicBounds): Promise<boolean> => {
       spotsRequestIdRef.current += 1
       const myId = spotsRequestIdRef.current
-      setIsFetching(true)
+      isFetchingRef.current = true
       setIsLoading(true)
 
       try {
@@ -96,7 +80,7 @@ export function useMapSpots({
       } finally {
         if (myId === spotsRequestIdRef.current) {
           setIsLoading(false)
-          setIsFetching(false)
+          isFetchingRef.current = false
         }
       }
     },
@@ -104,7 +88,9 @@ export function useMapSpots({
   )
 
   useEffect(() => {
-    if (!map || isFetching) return
+    if (!map || !isLoaded) return
+
+    let cancelled = false
 
     const loadInitialSpots = async (): Promise<void> => {
       const bounds = calculateBounds(
@@ -117,15 +103,26 @@ export function useMapSpots({
         await fetchSpotsForViewport(bounds)
       }
 
+      if (cancelled) return
+
       updateSpotsInView()
+
+      // Geolocation flyTo often finishes after the first viewport read — refresh
+      // once the camera settles (and again after debounced moveend if needed).
+      map.once('moveend', updateSpotsInView)
     }
 
     void loadInitialSpots()
+
+    return (): void => {
+      cancelled = true
+      map.off('moveend', updateSpotsInView)
+    }
   }, [
     map,
+    isLoaded,
     spotLoadCenter,
     initialRadius,
-    isFetching,
     updateSpotsInView,
     fetchSpotsForViewport,
   ])
@@ -134,7 +131,11 @@ export function useMapSpots({
     if (!map) return
 
     const handleMapMovement = async (): Promise<void> => {
-      if (isFetching) return
+      // Always sync layers to the current viewport, even while a fetch is in
+      // flight (e.g. initial load + geolocation flyTo racing).
+      updateSpotsInView()
+
+      if (isFetchingRef.current) return
 
       const mapBounds = map.getBounds()
       if (!mapBounds) return
@@ -145,8 +146,6 @@ export function useMapSpots({
         east: mapBounds.getEast(),
         west: mapBounds.getWest(),
       }
-
-      updateSpotsInView()
 
       if (spotsCache.hasCoverage(currentBounds)) return
 
@@ -177,20 +176,14 @@ export function useMapSpots({
       map.off('moveend', debouncedHandler)
       map.off('zoomend', debouncedHandler)
     }
-  }, [
-    map,
-    viewportPadding,
-    updateSpotsInView,
-    isFetching,
-    fetchSpotsForViewport,
-  ])
+  }, [map, viewportPadding, updateSpotsInView, fetchSpotsForViewport])
 
   useEffect(() => {
     if (!map || !activeSpotId) return
 
     let cancelled = false
 
-    const ensureActiveSpotMarker = async (): Promise<void> => {
+    const ensureActiveSpotInCache = async (): Promise<void> => {
       if (spotsCache.getSpot(activeSpotId)) {
         updateSpotsInView()
         return
@@ -206,7 +199,7 @@ export function useMapSpots({
       updateSpotsInView()
     }
 
-    void ensureActiveSpotMarker()
+    void ensureActiveSpotInCache()
 
     return (): void => {
       cancelled = true

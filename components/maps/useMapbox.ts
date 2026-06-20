@@ -12,23 +12,23 @@ import { useUser } from '@/contexts/UserContext'
 import {
   createMap,
   createUserLocationMarker,
-  spotsCache,
   useMapTheme,
   switchMapStyle,
-  createMapError,
-  getMarkerSizeForZoom,
-  applyMarkerSize,
-  debounce,
+  getMapStyle,
   isUserCloseToLocation,
   isUserPannedAway,
-  type MapError,
+  type UserLocationLayer,
 } from './utils'
 import {
-  addSpotsToMap,
-  clearSpotMarkersFromMap,
-  setSelectedSpotMarkerId,
-  type SpotMarkerRefs,
-} from './spotMarkers'
+  attachSpotLayerInteractions,
+  ensureSpotLayers,
+  removeSpotLayers,
+  resetSpotLayerState,
+  updateSpotLayerData,
+  updateSpotLayerTheme,
+  SPOTS_CLUSTERS_LAYER_ID,
+  type SpotLayerState,
+} from './spotClusters'
 import type { UseMapboxOptions, UseMapboxReturn } from '@/types/map'
 import { CONFIG } from '@/constants/config'
 import { SpotSummary } from '@/api/sargo/interfaces/spot'
@@ -40,40 +40,22 @@ export function useMapbox(options: UseMapboxOptions = {}): UseMapboxReturn {
     showUserLocation = false,
     disablePanning = false,
     disableZooming = false,
-    onMapLoad,
-    onMapError,
-    onMove,
-    onFlyStart,
     onSpotClick,
     skipInitialFlyTo = false,
     skipAutoUserLocation = false,
   } = options
 
-  // Keep the latest spot-click handler in a ref so the memoized
-  // `addSpotMarkers` (which only re-creates on theme change) always calls
-  // the current callback without needing it as a dependency.
+  // Keep the latest spot-click handler in a ref so layer interactions always
+  // call the current callback without needing it as a dependency.
   const onSpotClickRef = useRef(onSpotClick)
   useEffect(() => {
     onSpotClickRef.current = onSpotClick
   }, [onSpotClick])
 
   const mapRef = useRef<HTMLDivElement>(null)
-  // Live handle used by every callback in this hook. Kept as a ref to
-  // avoid stale closures across `useCallback` recreations.
   const mapInstance = useRef<mapboxgl.Map | null>(null)
-  // State mirror of `mapInstance.current` so consumers re-render once
-  // the map has been created. Previously the hook returned the bare ref
-  // value (`mapInstance.current`), which is `null` on first render and
-  // never triggered a re-render after the layout effect populated it —
-  // so MapNavigator's effects keyed on `map` could miss the initial
-  // ready signal.
   const [map, setMap] = useState<mapboxgl.Map | null>(null)
-  const spotMarkerRefs = useRef<SpotMarkerRefs>({
-    markers: {},
-    hoverPopup: null,
-    selectedSpotId: null,
-  })
-  const userLocationMarker = useRef<mapboxgl.Marker | null>(null)
+  const userLocationMarker = useRef<UserLocationLayer | null>(null)
   const moveHandlerRef = useRef<(() => void) | null>(null)
   const isInitialized = useRef(false)
   const isMountedRef = useRef(true)
@@ -94,31 +76,27 @@ export function useMapbox(options: UseMapboxOptions = {}): UseMapboxReturn {
   // via a separate effect below.
   const initialCenterRef = useRef(center)
   const initialZoomRef = useRef(zoom)
-  // Store cleanup handles so the init effect can fully tear down every
-  // listener/timeout/debounced function it registered.
-  const debouncedMoveHandlerRef = useRef<
-    (((...args: unknown[]) => void) & { cancel: () => void }) | null
-  >(null)
   const loadHandlerRef = useRef<(() => void) | null>(null)
   const errorHandlerRef = useRef<
     ((e: { error?: { message?: string } }) => void) | null
   >(null)
   const initLocationTimeoutRef = useRef<NodeJS.Timeout | null>(null)
-  // Live zoom handler that resizes existing spot/webcam marker DOM nodes
-  // in place rather than recreating markers, so dragging the zoom feels
-  // smooth even with hundreds of pins on screen.
-  const zoomHandlerRef = useRef<(() => void) | null>(null)
+  const spotLayerStateRef = useRef<SpotLayerState>({
+    listenersAttached: false,
+    hoverPopup: null,
+  })
+  const lastSpotLayerDataRef = useRef<SpotSummary[]>([])
+  const appliedMapStyleRef = useRef<string | null>(null)
 
   const USER_MARKER_MAX_RETRIES = CONFIG.map.userMarker.maxRetries
   const USER_MARKER_RETRY_DELAY_MS = CONFIG.map.userMarker.retryDelayMs
 
   const [isLoaded, setIsLoaded] = useState(false)
-  const [error, setError] = useState<MapError | null>(null)
   const [locationState, setLocationState] =
     useState<UseMapboxReturn['locationState']>('idle')
   const [retryCount, setRetryCount] = useState(0)
 
-  const { isDark, mapStyle } = useMapTheme()
+  const { isDark, mapStyle, isThemeReady } = useMapTheme()
   const { userData, requestLocation } = useUser()
 
   const MAX_RETRIES = CONFIG.map.location.maxRetries
@@ -151,7 +129,8 @@ export function useMapbox(options: UseMapboxOptions = {}): UseMapboxReturn {
         userLocationMarker.current = createUserLocationMarker(
           mapInstance.current,
           location,
-          userLocationMarker.current
+          userLocationMarker.current,
+          SPOTS_CLUSTERS_LAYER_ID
         )
         userMarkerRetryCountRef.current = 0
       } catch {
@@ -240,55 +219,70 @@ export function useMapbox(options: UseMapboxOptions = {}): UseMapboxReturn {
     setLocationState(isClose ? 'centered' : 'off-center')
   }, [])
 
-  // Public API functions with updated types
-  const clearMarkers = useCallback(() => {
-    Object.values(spotMarkerRefs.current.markers).forEach((marker) =>
-      marker.remove()
-    )
-    spotMarkerRefs.current.markers = {}
-    spotMarkerRefs.current.hoverPopup?.remove()
-    spotMarkerRefs.current.hoverPopup = null
-  }, [])
-
-  const addSpotMarkers = useCallback(
-    (spots: SpotSummary[]) => {
-      if (!mapInstance.current) return
-      addSpotsToMap(
-        mapInstance.current,
-        spots,
-        isDark,
-        spotMarkerRefs.current,
-        (spot) => onSpotClickRef.current?.(spot)
-      )
-    },
-    [isDark]
-  )
-
-  const clearSpotMarkers = useCallback(() => {
-    clearSpotMarkersFromMap(spotMarkerRefs.current)
-  }, [])
-
-  const setSelectedSpotId = useCallback((id: number | null): void => {
-    setSelectedSpotMarkerId(spotMarkerRefs.current, id)
-  }, [])
-
-  const flyTo = useCallback(
-    (center: [number, number], zoomLevel?: number) => {
-      if (mapInstance.current) {
-        // Notify that flyTo is starting
-        onFlyStart?.()
-
-        mapInstance.current.flyTo({
-          center,
-          zoom: zoomLevel || mapInstance.current.getZoom(),
-          duration: 1000,
-          // curve 1 = linear path; default 1.42 zooms out mid-flight (looks like a twitch)
-          curve: 1,
-        })
+  const syncSpotLayersToMap = useCallback(
+    async (map: mapboxgl.Map, spots: SpotSummary[]): Promise<void> => {
+      try {
+        await ensureSpotLayers(map, spotLayerStateRef.current)
+        attachSpotLayerInteractions(map, spotLayerStateRef.current, (spot) =>
+          onSpotClickRef.current?.(spot)
+        )
+        updateSpotLayerData(map, spots)
+      } catch (err) {
+        console.error('Failed to sync spot layers', err)
       }
     },
-    [onFlyStart]
+    []
   )
+
+  const refreshSpotLayerTheme = useCallback(async (): Promise<void> => {
+    const map = mapInstance.current
+    if (!map || !isLoaded) return
+    try {
+      await updateSpotLayerTheme(map)
+    } catch (err) {
+      console.error('Failed to refresh spot layer theme', err)
+    }
+  }, [isLoaded])
+
+  const restoreSpotLayers = useCallback(
+    async (map: mapboxgl.Map): Promise<void> => {
+      resetSpotLayerState(spotLayerStateRef.current)
+      await syncSpotLayersToMap(map, lastSpotLayerDataRef.current)
+    },
+    [syncSpotLayersToMap]
+  )
+
+  const updateSpotLayers = useCallback(
+    (spots: SpotSummary[]): void => {
+      const map = mapInstance.current
+      if (!map) return
+
+      lastSpotLayerDataRef.current = spots
+      if (!isLoaded) return
+
+      void syncSpotLayersToMap(map, spots)
+    },
+    [isLoaded, syncSpotLayersToMap]
+  )
+
+  // Spots can be fetched before the map fires `load`; replay once ready.
+  useEffect(() => {
+    if (!isLoaded || !mapInstance.current) return
+    const spots = lastSpotLayerDataRef.current
+    if (spots.length === 0) return
+    void syncSpotLayersToMap(mapInstance.current, spots)
+  }, [isLoaded, syncSpotLayersToMap])
+
+  const flyTo = useCallback((center: [number, number], zoomLevel?: number) => {
+    if (!mapInstance.current) return
+
+    mapInstance.current.flyTo({
+      center,
+      zoom: zoomLevel || mapInstance.current.getZoom(),
+      duration: 1000,
+      curve: 1,
+    })
+  }, [])
 
   const zoomIn = useCallback(() => {
     if (mapInstance.current) {
@@ -391,51 +385,31 @@ export function useMapbox(options: UseMapboxOptions = {}): UseMapboxReturn {
   // to `center` are routed through the dedicated `flyTo` effect below so
   // they never tear down the Mapbox instance.
   useLayoutEffect(() => {
-    if (isInitialized.current || !mapRef.current) return
+    if (!isThemeReady || isInitialized.current || !mapRef.current) return
 
     isMountedRef.current = true
     isInitialized.current = true
-    setError(null)
 
     try {
+      const initTheme = isDark ? 'dark' : 'light'
+      const initStyle = getMapStyle(isDark)
+      appliedMapStyleRef.current = initStyle
+
       const map = createMap({
         container: mapRef.current,
         center: initialCenterRef.current,
         zoom: initialZoomRef.current,
-        theme: isDark ? 'dark' : 'light',
+        theme: initTheme,
         disablePanning,
         disableZooming,
       })
 
       mapInstance.current = map
-      // Mirror the ref into state so React-based consumers re-render
-      // once the map exists. Effects in MapNavigator key on `map`, so
-      // this is what wires up "load spots once the map is ready".
       setMap(map)
-
-      // Setup move callback
-      const debouncedMoveHandler = debounce(() => {
-        if (onMove && mapInstance.current) {
-          const c = mapInstance.current.getCenter()
-          const z = mapInstance.current.getZoom()
-          onMove([c.lng, c.lat], z)
-        }
-      }, CONFIG.map.interaction.debounce.moveHandler)
-      debouncedMoveHandlerRef.current = debouncedMoveHandler as unknown as ((
-        ...args: unknown[]
-      ) => void) & { cancel: () => void }
 
       const handleLoad = (): void => {
         setIsLoaded(true)
-        onMapLoad?.(mapInstance.current!)
 
-        // Hide Mapbox logo
-        const logo = mapRef.current?.querySelector('.mapboxgl-ctrl-logo')
-        if (logo) {
-          ;(logo as HTMLElement).style.display = 'none'
-        }
-
-        // Auto-request user location if enabled - after map is loaded
         if (showUserLocation) {
           // Small delay to ensure map is fully ready
           initLocationTimeoutRef.current = setTimeout(() => {
@@ -489,58 +463,27 @@ export function useMapbox(options: UseMapboxOptions = {}): UseMapboxReturn {
       loadHandlerRef.current = handleLoad
 
       const handleError = (e: { error?: { message?: string } }): void => {
-        const errorMessage = e.error?.message || 'Map failed to load'
-        setError(createMapError(errorMessage, 'initialization'))
-        onMapError?.(errorMessage)
+        const message = e.error?.message ?? ''
+        // Mapbox fires this when addInteraction hover paths call getFeatureState
+        // on features without a top-level id (e.g. clusters). Harmless noise.
+        if (message.includes('feature id parameter must be provided')) return
+        console.error('Map error:', message || 'unknown error')
       }
       errorHandlerRef.current = handleError
 
       mapInstance.current.on('load', handleLoad)
       mapInstance.current.on('error', handleError)
-
-      if (onMove) {
-        mapInstance.current.on('moveend', debouncedMoveHandler)
-        mapInstance.current.on('zoomend', debouncedMoveHandler)
-      }
-
-      // Resize spot/webcam markers live during zoom gestures. We mutate
-      // the existing DOM nodes in place (cheap) instead of recreating
-      // markers, and skip non-spot keys so the user-location marker
-      // isn't touched.
-      const handleZoom = (): void => {
-        if (!mapInstance.current) return
-        const newSize = getMarkerSizeForZoom(mapInstance.current.getZoom())
-        const entries = Object.entries(spotMarkerRefs.current.markers)
-        for (const [key, marker] of entries) {
-          if (!key.startsWith('spot-')) continue
-          const el = marker.getElement() as HTMLDivElement | null
-          if (!el) continue
-          applyMarkerSize(el, newSize)
-        }
-      }
-      zoomHandlerRef.current = handleZoom
-      mapInstance.current.on('zoom', handleZoom)
     } catch (err) {
-      const errorMessage =
-        err instanceof Error ? err.message : 'Failed to initialize map'
-      setError(createMapError(errorMessage, 'initialization'))
-      onMapError?.(errorMessage)
+      console.error('Failed to initialize map:', err)
     }
 
-    // Cleanup function — tear down every listener/timeout/debounced fn
-    // this effect registered. Previously several of these (moveend/zoomend
-    // debounced handlers, load/error listeners, the 100ms location timeout)
-    // leaked across unmounts.
     return (): void => {
       isMountedRef.current = false
       const map = mapInstance.current
 
       if (map) {
-        clearMarkers()
-        if (spotMarkerRefs.current.hoverPopup) {
-          spotMarkerRefs.current.hoverPopup.remove()
-          spotMarkerRefs.current.hoverPopup = null
-        }
+        removeSpotLayers(map)
+        resetSpotLayerState(spotLayerStateRef.current)
         if (userLocationMarker.current) {
           userLocationMarker.current.remove()
           userLocationMarker.current = null
@@ -562,19 +505,6 @@ export function useMapbox(options: UseMapboxOptions = {}): UseMapboxReturn {
           )
           errorHandlerRef.current = null
         }
-        if (debouncedMoveHandlerRef.current) {
-          const handler = debouncedMoveHandlerRef.current as unknown as (
-            ...args: unknown[]
-          ) => void
-          map.off('moveend', handler)
-          map.off('zoomend', handler)
-          debouncedMoveHandlerRef.current.cancel()
-          debouncedMoveHandlerRef.current = null
-        }
-        if (zoomHandlerRef.current) {
-          map.off('zoom', zoomHandlerRef.current)
-          zoomHandlerRef.current = null
-        }
         map.remove()
         mapInstance.current = null
         setMap(null)
@@ -595,16 +525,13 @@ export function useMapbox(options: UseMapboxOptions = {}): UseMapboxReturn {
       userMarkerRetryCountRef.current = 0
 
       setIsLoaded(false)
-      setError(null)
       setRetryCount(0)
       isInitialized.current = false
+      appliedMapStyleRef.current = null
     }
-    // Intentionally run once per mount. `center`/`zoom`/callbacks are
-    // captured via refs and dedicated effects to avoid rebuilding the
-    // entire Mapbox instance on every prop change (especially when
-    // geolocation resolves after first paint).
+    // Init once after next-themes resolves so the map starts on the correct style.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, [isThemeReady])
 
   // Fly to the consumer-provided center whenever it changes after init.
   // Keeps the (now-stable) map instance intact while still letting callers
@@ -629,31 +556,6 @@ export function useMapbox(options: UseMapboxOptions = {}): UseMapboxReturn {
       curve: 1,
     })
   }, [center, isLoaded])
-
-  // Handle theme changes for spot markers
-  useEffect(() => {
-    if (!isLoaded || !mapInstance.current) return
-
-    // When theme changes, recreate all spot markers with new theme
-    const spotMarkerKeys = Object.keys(spotMarkerRefs.current.markers).filter(
-      (key) => key.startsWith('spot-')
-    )
-    if (spotMarkerKeys.length > 0) {
-      // Get all current spots data before clearing
-      const currentSpots: SpotSummary[] = []
-      spotMarkerKeys.forEach((key) => {
-        const spotId = parseInt(key.replace('spot-', ''))
-        const spot = spotsCache.getSpot(spotId)
-        if (spot) currentSpots.push(spot)
-      })
-
-      // Clear existing spot markers
-      clearSpotMarkers()
-
-      // Re-add with new theme
-      addSpotMarkers(currentSpots)
-    }
-  }, [isDark, isLoaded, clearSpotMarkers, addSpotMarkers])
 
   // Handle user location changes without reinitializing map
   useEffect(() => {
@@ -685,30 +587,60 @@ export function useMapbox(options: UseMapboxOptions = {}): UseMapboxReturn {
     syncLocationStateToMapCenter,
   ])
 
-  // Handle theme changes (simplified)
+  // Re-apply spot layers after style reloads (theme toggle).
   useLayoutEffect(() => {
     if (!mapInstance.current || !isLoaded) return
 
-    switchMapStyle(mapInstance.current, mapStyle, true)
-  }, [mapStyle, isLoaded])
+    const map = mapInstance.current
+
+    const handleStyleLoad = (): void => {
+      // setStyle() wipes all GL sources/layers. Restore the spot layers, then
+      // re-add the user-location dot beneath them from its last known position.
+      void restoreSpotLayers(map).then(() => {
+        const existing = userLocationMarker.current
+        if (!existing) return
+        const { lat, lng } = existing.getLngLat()
+        existing.remove()
+        userLocationMarker.current = createUserLocationMarker(
+          map,
+          { latitude: lat, longitude: lng },
+          undefined,
+          SPOTS_CLUSTERS_LAYER_ID
+        )
+      })
+    }
+
+    map.on('style.load', handleStyleLoad)
+
+    if (appliedMapStyleRef.current !== mapStyle) {
+      switchMapStyle(map, mapStyle, true)
+      appliedMapStyleRef.current = mapStyle
+    }
+
+    return (): void => {
+      map.off('style.load', handleStyleLoad)
+    }
+  }, [mapStyle, isLoaded, restoreSpotLayers])
+
+  // Regenerate pin images after CSS theme vars settle (map style switch is handled above).
+  useEffect(() => {
+    if (!isLoaded) return
+    const frame = requestAnimationFrame(() => {
+      void refreshSpotLayerTheme()
+    })
+    return (): void => cancelAnimationFrame(frame)
+  }, [isDark, isLoaded, refreshSpotLayerTheme])
 
   return {
     mapRef,
-    // Return the state value so consumers re-render when the map is
-    // created/destroyed. Using `mapInstance.current` here would always
-    // be `null` on the first render and never re-trigger consumers.
     map,
     isLoaded,
-    error: error?.message || null, // Convert back to string for compatibility
-    addSpotMarkers,
-    clearSpotMarkers,
-    flyTo,
+    updateSpotLayers,
     zoomIn,
     zoomOut,
     locationState,
     requestUserLocation,
     recenterToUser,
     retryCount,
-    setSelectedSpotId,
   }
 }

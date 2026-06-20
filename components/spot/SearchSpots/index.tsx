@@ -25,10 +25,15 @@ import {
 import { getHotkeyModifier, isEditableTarget } from '@/lib/hotkeys'
 import { useIsDesktop } from '@/hooks/useIsDesktop'
 import { useSpotNavigation } from '@/hooks/useSpotNavigation'
+import { useVisualViewport } from '@/hooks/useVisualViewport'
 import { type SearchResultSpot, useSpotSearch } from './useSpotSearch'
+import { cn } from '@/lib/utils'
 
 /** Ignore sloppy touch outside-press that fires on the same tap as open. */
 const OPEN_DISMISS_GRACE_MS = 500
+
+/** Mobile dialog gap from the screen edge — equal on top/left/right (px). */
+const MOBILE_DIALOG_INSET = 16
 
 interface SearchSpotsProps {
   placeholder?: string
@@ -43,7 +48,9 @@ function SpotSearchCommand({
   showGroupLabels,
   isLoading,
   error,
+  spotCount,
   onSelect,
+  isMobile,
 }: {
   inputRef: React.RefObject<HTMLInputElement | null>
   placeholder: string
@@ -53,29 +60,50 @@ function SpotSearchCommand({
   showGroupLabels: boolean
   isLoading: boolean
   error: string | null
+  spotCount: number | null
   onSelect: (spot: SearchResultSpot) => void
+  isMobile: boolean
 }): React.JSX.Element {
+  const hasQuery = query.trim().length > 0
+  const emptyPrompt =
+    spotCount !== null
+      ? `${spotCount.toLocaleString()} spots available`
+      : 'Start typing to search spots'
+
   return (
-    <Command shouldFilter={false}>
+    <Command
+      shouldFilter={false}
+      className={isMobile ? 'h-auto w-full' : undefined}
+      
+    >
       <CommandInput
         ref={inputRef}
         placeholder={placeholder}
         value={query}
         onValueChange={onInputValueChange}
-        className="text-base md:text-sm"
         inputMode="search"
         enterKeyHint="search"
         autoComplete="off"
       />
-      <CommandList>
-        <CommandEmpty>
-          {query.trim() &&
-            (isLoading ? 'Searching...' : (error ?? 'No spots found'))}
+      <CommandList
+        className={
+          isMobile && hasQuery
+            ? 'max-h-[calc(var(--search-dialog-max)-2.5rem)]'
+            : undefined
+        }
+      >
+        <CommandEmpty className="text-muted-foreground">
+          {hasQuery
+            ? isLoading
+              ? 'Searching...'
+              : (error ?? 'No spots found')
+            : emptyPrompt}
         </CommandEmpty>
         {groupedItems.map((group) => (
           <CommandGroup
             key={group.value}
             heading={showGroupLabels && group.label ? group.label : undefined}
+            className="**:[[cmdk-group-heading]]:text-foreground"
           >
             {group.items.map((spot) => (
               <CommandItem
@@ -116,6 +144,7 @@ export function SearchSpots({
     showGroupLabels,
     isLoading,
     error,
+    spotCount,
     clearSearch,
   } = useSpotSearch()
 
@@ -125,6 +154,35 @@ export function SearchSpots({
     setOpen(false)
     clearSearch()
   }
+
+  // On mobile, pin the dialog to the top with equal top/left/right insets.
+  // Height wraps the search input until there is a query, then grows with
+  // results up to the space above the keyboard (visual viewport).
+  const viewport = useVisualViewport(open && !isDesktop)
+  const mobileAvailableHeight = viewport
+    ? viewport.height - MOBILE_DIALOG_INSET * 2
+    : null
+  const mobileContentStyle:
+    | (React.CSSProperties & {
+        '--search-dialog-max'?: string
+      })
+    | undefined =
+    !isDesktop && viewport && mobileAvailableHeight !== null
+      ? {
+          top: viewport.offsetTop + MOBILE_DIALOG_INSET,
+          left: MOBILE_DIALOG_INSET,
+          right: MOBILE_DIALOG_INSET,
+          width: 'auto',
+          maxWidth: 'none',
+          height: 'auto',
+          maxHeight: mobileAvailableHeight,
+          '--search-dialog-max': `${mobileAvailableHeight}px`,
+          // Tailwind v4 centers via the `translate` property (not `transform`),
+          // so clear that to cancel the base `-translate-x/y-1/2`.
+          translate: 'none',
+          transform: 'none',
+        }
+      : undefined
 
   const openSearch = useCallback((fromTouch = false): void => {
     openedAtRef.current = Date.now()
@@ -136,6 +194,9 @@ export function SearchSpots({
     setOpen(true)
   }, [])
 
+  // Touch screens: open synchronously on touchend so outside-press dismiss does
+  // not race the open state (see OPEN_DISMISS_GRACE_MS). preventDefault blocks
+  // the synthetic click. Mouse pointers at mobile widths rely on onClick above.
   useEffect(() => {
     if (isDesktop) return undefined
 
@@ -205,7 +266,7 @@ export function SearchSpots({
       ref={searchTriggerRef}
       variant="elevated"
       size="icon-circle"
-      onClick={isDesktop ? () => openSearch() : undefined}
+      onClick={() => openSearch()}
       aria-label="Search spots"
       aria-expanded={open}
     >
@@ -215,27 +276,28 @@ export function SearchSpots({
 
   return (
     <>
-      {isDesktop ? (
-        <Tooltip>
-          <TooltipTrigger render={searchTrigger} />
-          <TooltipContent side="right" sideOffset={12}>
-            Search spots
+      <Tooltip>
+        <TooltipTrigger render={searchTrigger} />
+        <TooltipContent side="right" sideOffset={12}>
+          Search spots
+          {isDesktop && (
             <KbdGroup>
               <Kbd>{hotkeyModifier}</Kbd>
               <Kbd>K</Kbd>
             </KbdGroup>
-          </TooltipContent>
-        </Tooltip>
-      ) : (
-        searchTrigger
-      )}
+          )}
+        </TooltipContent>
+      </Tooltip>
       <CommandDialog
         open={open}
         onOpenChange={handleOpenChange}
         title="Search spots"
         description="Search for a surf spot by name"
         showCloseButton
+        closeButtonClassName="top-2 right-2 text-muted-foreground"
         initialFocus={searchInputRef}
+        contentStyle={mobileContentStyle}
+        className={cn(!isDesktop ? 'h-auto auto-rows-min' : undefined, 'rounded-2xl!')}
       >
         <SpotSearchCommand
           inputRef={searchInputRef}
@@ -246,7 +308,9 @@ export function SearchSpots({
           showGroupLabels={showGroupLabels}
           isLoading={isLoading}
           error={error}
+          spotCount={spotCount}
           onSelect={handleSelect}
+          isMobile={!isDesktop}
         />
       </CommandDialog>
     </>

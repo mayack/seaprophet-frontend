@@ -1,12 +1,19 @@
 import type { Metadata } from 'next'
-import { Geist } from 'next/font/google'
+import { Inter } from 'next/font/google'
 import './globals.css'
 import React from 'react'
 import { ThemeProvider } from '@/contexts/ThemeContext'
 import { SpotIndexPreloader } from '@/components/common/SpotIndexPreloader'
 import { cn } from '@/lib/utils'
 
-const geist = Geist({ subsets: ['latin'], variable: '--font-sans' })
+// Exposes the font as `--font-inter`; globals.css maps `--font-sans` to it.
+// (The var name must differ from `--font-sans` to avoid a self-referential
+// `--font-sans: var(--font-sans)` in the Tailwind theme.)
+const inter = Inter({
+  subsets: ['latin'],
+  variable: '--font-inter',
+  display: 'swap',
+})
 
 export const metadata: Metadata = {
   title: 'Sea Prophet',
@@ -28,7 +35,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={cn('font-sans', 'font-sans', geist.variable)}
+      className={cn('font-sans', inter.variable)}
       suppressHydrationWarning
     >
       <body className="antialiased" suppressHydrationWarning>

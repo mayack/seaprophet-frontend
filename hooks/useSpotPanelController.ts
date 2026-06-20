@@ -1,6 +1,7 @@
 'use client'
 
 import {
+  useCallback,
   useEffect,
   useLayoutEffect,
   useRef,
@@ -11,10 +12,19 @@ import { useSpotPanel } from '@/contexts/SpotPanelContext'
 import { useSpotNavigation } from '@/hooks/useSpotNavigation'
 import { useBreakpoint } from '@/hooks/useBreakpoint'
 import { useMobileSpotSheet } from '@/hooks/useMobileSpotSheet'
-import { getMobileBottomInset } from '@/lib/spotFocusPadding'
+import {
+  getMobileBottomInset,
+  type SpotSheetSnap,
+} from '@/lib/spotFocusPadding'
 import { SPOT_PANEL } from '@/constants/spotPanel'
 
-export function useSpotPanelController(): {
+interface UseSpotPanelControllerOptions {
+  sheetDragEnabled?: boolean
+}
+
+export function useSpotPanelController({
+  sheetDragEnabled = true,
+}: UseSpotPanelControllerOptions = {}): {
   panelRef: RefObject<HTMLDivElement | null>
   isDesktop: boolean
   isSpotOpen: boolean
@@ -22,6 +32,7 @@ export function useSpotPanelController(): {
   rendered: boolean
   entered: boolean
   hasMounted: boolean
+  viewportWidth: number
   snap: ReturnType<typeof useMobileSpotSheet>['snap']
   onHeaderPointerDown: ReturnType<
     typeof useMobileSpotSheet
@@ -29,11 +40,12 @@ export function useSpotPanelController(): {
   onPeekPanelPointerDown: ReturnType<
     typeof useMobileSpotSheet
   >['onPeekPanelPointerDown']
-  sheetMotionStyle: ReturnType<typeof useMobileSpotSheet>['sheetMotionStyle']
+  sheetStyle: ReturnType<typeof useMobileSpotSheet>['sheetStyle']
 } {
   const spotPanel = useSpotPanel()
   const { isSpotOpen, closeSpot } = useSpotNavigation()
-  const { isDesktop } = useBreakpoint()
+  const { isSpotPanelDesktop: isDesktop, width: viewportWidth } =
+    useBreakpoint()
   const panelRef = useRef<HTMLDivElement>(null)
 
   const [rendered, setRendered] = useState(isSpotOpen)
@@ -61,19 +73,30 @@ export function useSpotPanelController(): {
 
   const isMobile = !isDesktop && rendered
 
-  const {
-    snap,
-    onHeaderPointerDown,
-    onPeekPanelPointerDown,
-    sheetMotionStyle,
-  } = useMobileSpotSheet({
-    enabled: isMobile,
-    isPresented: isSpotOpen && entered,
-    onRequestClose: closeSpot,
-    onSnapChange: isMobile ? spotPanel.setMobileSheetSnap : undefined,
-    panelRef,
-    transitionMs: SPOT_PANEL.transitionMs,
-  })
+  const handleSnapChange = useCallback(
+    (snap: SpotSheetSnap): void => {
+      spotPanel.setMobileSheetSnap(snap)
+      spotPanel.setMobileBottomInset(
+        snap === 'closed' ? null : getMobileBottomInset(snap, viewportWidth)
+      )
+    },
+    [spotPanel.setMobileBottomInset, spotPanel.setMobileSheetSnap, viewportWidth]
+  )
+
+  const { snap, onHeaderPointerDown, onPeekPanelPointerDown, sheetStyle } =
+    useMobileSpotSheet({
+      enabled: isMobile,
+      isPresented: isSpotOpen && entered,
+      dragEnabled: sheetDragEnabled,
+      onRequestClose: closeSpot,
+      onSnapChange: isMobile ? handleSnapChange : undefined,
+      panelRef,
+    })
+
+  useEffect(() => {
+    if (!isMobile || sheetDragEnabled) return
+    handleSnapChange('peek')
+  }, [isMobile, sheetDragEnabled, handleSnapChange])
 
   useEffect(() => {
     spotPanel.setIsPanelPresented(isSpotOpen && entered)
@@ -85,13 +108,21 @@ export function useSpotPanelController(): {
       return
     }
 
-    spotPanel.setMobileBottomInset(getMobileBottomInset('peek'))
-    const onResize = (): void => {
-      spotPanel.setMobileBottomInset(getMobileBottomInset('peek'))
+    const syncInset = (): void => {
+      handleSnapChange(spotPanel.mobileSheetSnap)
     }
-    window.addEventListener('resize', onResize)
-    return (): void => window.removeEventListener('resize', onResize)
-  }, [isSpotOpen, isDesktop, spotPanel.setMobileBottomInset])
+
+    syncInset()
+    window.addEventListener('resize', syncInset)
+    return (): void => window.removeEventListener('resize', syncInset)
+  }, [
+    isSpotOpen,
+    isDesktop,
+    handleSnapChange,
+    spotPanel.mobileSheetSnap,
+    spotPanel.setMobileBottomInset,
+    viewportWidth,
+  ])
 
   useEffect(() => {
     if (!isSpotOpen) return
@@ -110,9 +141,10 @@ export function useSpotPanelController(): {
     rendered,
     entered,
     hasMounted,
+    viewportWidth,
     snap,
     onHeaderPointerDown,
     onPeekPanelPointerDown,
-    sheetMotionStyle,
+    sheetStyle,
   }
 }

@@ -75,6 +75,7 @@ export function useSpotSearch(): {
   showGroupLabels: boolean
   isLoading: boolean
   error: string | null
+  spotCount: number | null
   clearSearch: () => void
 } {
   const spotIndex = useSpotIndex()
@@ -180,6 +181,7 @@ export function useSpotSearch(): {
     showGroupLabels,
     isLoading: Boolean(query.trim()) && isLoading,
     error: query.trim() ? error : null,
+    spotCount: spotIndex?.count ?? null,
     clearSearch,
   }
 }

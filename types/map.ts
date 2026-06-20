@@ -36,32 +36,9 @@ export interface MapInteractionProps {
   disablePanning?: boolean
   /** Disable map zooming */
   disableZooming?: boolean
-  /** Disable all interactions (sets both panning and zooming to false) */
-  interactive?: boolean
 }
 
-export interface MapCallbackProps {
-  /** Callback when map loads successfully */
-  onMapLoad?: (map: mapboxgl.Map) => void
-  /** Callback when map encounters an error */
-  onMapError?: (error: string) => void
-  /** Callback when map is moved or zoomed */
-  onMove?: (center: Coordinates, zoom: number) => void
-  /** Callback when flyTo operation starts */
-  onFlyStart?: () => void
-}
-
-export interface MapNavigatorProps extends BaseMapProps {
-  /** Initial radius for loading spots (km) */
-  initialRadius?: number
-  /** Viewport padding for spot loading (percentage) */
-  viewportPadding?: number
-  /** Initial zoom level (renamed from zoom for clarity) */
-  initialZoom?: number
-}
-
-export interface UseMapboxOptions
-  extends BaseMapProps, MapInteractionProps, MapCallbackProps {
+export interface UseMapboxOptions extends BaseMapProps, MapInteractionProps {
   /** Show user location marker */
   showUserLocation?: boolean
   /** Soft-navigate to a spot when its marker is clicked */
@@ -76,6 +53,15 @@ export interface UseMapboxOptions
   skipAutoUserLocation?: boolean
 }
 
+export interface MapNavigatorProps extends BaseMapProps {
+  /** Initial radius for loading spots (km) */
+  initialRadius?: number
+  /** Viewport padding for spot loading (percentage) */
+  viewportPadding?: number
+  /** Initial zoom level (renamed from zoom for clarity) */
+  initialZoom?: number
+}
+
 export interface UseMapboxReturn {
   /** React ref for map container */
   mapRef: React.RefObject<HTMLDivElement | null>
@@ -83,14 +69,8 @@ export interface UseMapboxReturn {
   map: mapboxgl.Map | null
   /** Whether map has loaded */
   isLoaded: boolean
-  /** Current error state */
-  error: string | null
-  /** Add spot markers */
-  addSpotMarkers: (spots: SpotSummary[]) => void
-  /** Clear all spot markers */
-  clearSpotMarkers: () => void
-  /** Fly to location */
-  flyTo: (center: Coordinates, zoom?: number) => void
+  /** Update clustered + symbol pin layers from spots in view. */
+  updateSpotLayers: (spots: SpotSummary[]) => void
   /** Zoom in one level */
   zoomIn: () => void
   /** Zoom out one level */
@@ -103,11 +83,6 @@ export interface UseMapboxReturn {
   recenterToUser: () => void
   /** Current retry count for location */
   retryCount: number
-  /**
-   * Mark a spot as selected so its marker is scaled up (or pass null to
-   * clear). Survives panning and marker refreshes.
-   */
-  setSelectedSpotId: (id: number | null) => void
 }
 
 // Configuration types
@@ -146,21 +121,29 @@ export interface MapInteractionConfig {
   /** Debounce delays for different interactions */
   debounce: {
     mapMovement: number
-    moveHandler: number
   }
-}
-
-export interface MapCarouselConfig {
-  /** Responsive breakpoints */
-  breakpoints: {
-    mobile: number
-    tablet: number
+  /** Drag-pan inertia tuning — passed to Mapbox Map constructor. */
+  dragPan: {
+    linearity: number
+    maxSpeed: number
+    deceleration: number
   }
-  /** Visible slides per breakpoint */
-  visibleSlides: {
-    mobile: number
-    tablet: number
-    desktop: number
+  /**
+   * Pinch-zoom tuning (touch screens). Mapbox does not expose pinch inertia
+   * options publicly; stopInertiaOnRelease cancels the default long coast.
+   */
+  touchZoom: {
+    stopInertiaOnRelease: boolean
+  }
+  /**
+   * Trackpad / mouse-wheel zoom. MacBook two-finger scroll and pinch both
+   * route through scrollZoom — not touchZoom.
+   */
+  scrollZoom: {
+    /** Higher = faster zoom per trackpad delta (Mapbox default 1/100). */
+    trackpadZoomRate: number
+    /** Higher = faster zoom per mouse-wheel tick (Mapbox default 1/450). */
+    wheelZoomRate: number
   }
 }
 
@@ -183,8 +166,6 @@ export interface MapboxStylesConfig {
 export interface MapSpotsCacheConfig {
   /** FIFO eviction beyond this many loaded regions */
   maxLoadedRegions: number
-  /** Margin (fraction) when matching loaded regions against a query bounds */
-  coverageTolerance: number
 }
 
 export interface MapUserMarkerConfig {
@@ -195,23 +176,30 @@ export interface MapUserMarkerConfig {
 }
 
 export interface MapMarkersConfig {
-  /** Default marker size in px (used at and above `resizeStartZoom`) */
-  baseSize: number
-  /** Smallest marker size in px (used at and below `resizeEndZoom`) */
-  minSize: number
-  /** Zoom level at and above which markers stay at `baseSize` */
-  resizeStartZoom: number
-  /** Zoom level at and below which markers stay at `minSize` */
-  resizeEndZoom: number
+  /** Spot marker size in px (fixed; does not scale with zoom). */
+  size: number
+  /** Webcam glyph size in px inside the marker hit area. */
+  webcamIconSize: number
+}
+
+export interface MapClustersConfig {
+  /** Minimum points required to form a cluster (2 = any pair can cluster). */
+  minPoints: number
+  /** Pixel radius — spots within this distance on screen can cluster. */
+  radius: number
+  /** Cluster circle diameter relative to pin size (1.5 = 50% larger). */
+  sizeRatio: number
+  /** Count label font size inside cluster circles. */
+  textSize: number
 }
 
 export interface MapConfig {
   defaults: MapDefaults
   location: MapLocationConfig
   interaction: MapInteractionConfig
-  carousel: MapCarouselConfig
   ui: MapUIConfig
   spotsCache: MapSpotsCacheConfig
   userMarker: MapUserMarkerConfig
   markers: MapMarkersConfig
+  clusters: MapClustersConfig
 }

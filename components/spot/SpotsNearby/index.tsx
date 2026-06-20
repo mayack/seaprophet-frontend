@@ -16,6 +16,7 @@ import { Button } from '@/components/ui/button'
 import { useSpotNavigation } from '@/hooks/useSpotNavigation'
 import React, { useCallback, useEffect, useState } from 'react'
 import { cn } from '@/lib/utils'
+import { SPOT_PANEL } from '@/constants/spotPanel'
 
 interface SpotsNearbyProps {
   spots: SpotSummary[]
@@ -25,7 +26,7 @@ interface SpotsNearbyProps {
 }
 
 /**
- * "Spots nearby" carousel for the spot panel — 2 cards on mobile, 3 on desktop.
+ * "Spots nearby" carousel for the spot panel — 2 cards below sm, 3 from sm up.
  */
 export function SpotsNearby({
   className,
@@ -38,7 +39,7 @@ export function SpotsNearby({
     align: 'start',
     containScroll: 'keepSnaps',
     breakpoints: {
-      '(min-width: 768px)': { watchDrag: false },
+      [`(min-width: ${SPOT_PANEL.breakpoints.sm}px)`]: { watchDrag: false },
     },
   })
   const [canPrev, setCanPrev] = useState(false)
@@ -67,10 +68,10 @@ export function SpotsNearby({
 
   return (
     <div className={className}>
-      <div className="mb-2 flex min-h-8 items-center justify-between gap-2 px-4 sm:px-6">
+      <div className="mb-1.5 sm:mb-2 flex min-h-8 items-center justify-between px-4 sm:px-6">
         <h2 className="grow text-base font-semibold">{title}</h2>
         {spots.length > 0 && (
-          <div className="hidden shrink-0 md:flex">
+          <div className="hidden shrink-0 sm:flex">
             <Button
               variant="outline"
               size="icon-sm"
@@ -109,7 +110,7 @@ export function SpotsNearby({
               {spots.map((spot) => (
                 <div
                   key={spot.id}
-                  className="embla__slide min-w-0 flex-[0_0_calc(50%-0.25rem)] md:flex-[0_0_calc(33.333%-0.5rem)]"
+                  className="embla__slide min-w-0 flex-[0_0_calc(50%-0.25rem)] sm:flex-[0_0_calc(33.333%-0.334rem)]"
                 >
                   <Item
                     variant="outline"

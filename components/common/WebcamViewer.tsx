@@ -422,10 +422,8 @@ export function WebcamViewer({
 
   return (
     <div
-      className={cn(
-        'relative aspect-video w-full bg-black dark:bg-white/5',
-        className
-      )}
+      data-theme="dark"
+      className={cn('relative aspect-video w-full bg-background text-foreground', className)}
     >
       <video
         ref={videoRef}
@@ -438,9 +436,9 @@ export function WebcamViewer({
 
       {isLoading && !isAfk && (
         <Overlay>
-          <Spinner className="size-8 text-white" />
+          <Spinner className="size-8" />
           {config.website_url && (
-            <p className="mt-4 text-sm text-white">
+            <p className="mt-4 text-sm">
               This camera takes longer to load
             </p>
           )}
@@ -449,11 +447,11 @@ export function WebcamViewer({
 
       {error && !isAfk && (
         <Overlay>
-          <p className="text-white">{error}</p>
+          <p>{error}</p>
           <Button
             onClick={handleRetry}
-            variant="ghost"
-            className="mt-4 bg-white/10 text-white hover:bg-white/20"
+            variant="overlay"
+            className="mt-4"
           >
             <RefreshCw />
             Retry
@@ -463,11 +461,11 @@ export function WebcamViewer({
 
       {isAfk && (
         <Overlay>
-          <p className="text-white">Still watching?</p>
+          <p>Still watching?</p>
           <Button
             onClick={handleKeepWatching}
-            variant="ghost"
-            className="mt-4 bg-white/10 text-white hover:bg-white/20"
+            variant="overlay"
+            className="mt-4"
           >
             <Play />
             Continue
@@ -476,16 +474,14 @@ export function WebcamViewer({
       )}
 
       {configs.length > 1 && !isAfk && (
-        <div className="absolute bottom-6 left-6 flex gap-2">
+        <div className="absolute bottom-4 left-4 flex gap-2 sm:bottom-6 sm:left-6">
           {configs.map((cam, i) => (
             <Button
               key={i}
               onClick={() => setActiveIndex(i)}
               size="xs"
-              variant="ghost"
-              className={`text-white hover:bg-white/20 ${
-                i === activeIndex ? 'bg-white/25' : 'bg-white/10'
-              }`}
+              variant="overlay"
+              data-active={i === activeIndex || undefined}
             >
               {cam.name || `CAM ${i + 1}`}
             </Button>
@@ -500,9 +496,9 @@ export function WebcamViewer({
               render={
                 <Button
                   onClick={toggleFullscreen}
-                  size="icon"
-                  variant="ghost"
-                  className="absolute right-6 bottom-6 bg-white/10 text-white hover:bg-white/20"
+                  size="icon-sm"
+                  variant="overlay"
+                  className="absolute right-4 bottom-4 sm:right-6 sm:bottom-6"
                 >
                   {isFullscreen ? <Shrink /> : <Expand />}
                 </Button>

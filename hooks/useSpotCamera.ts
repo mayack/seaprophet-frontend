@@ -24,7 +24,6 @@ interface UseSpotCameraOptions {
   isSpotOpen: boolean
   activeSpot: SpotCameraTarget | null
   mobileBottomInset: number | null
-  initialZoom: number
 }
 
 function paddingKey(
@@ -44,7 +43,6 @@ export function useSpotCamera({
   isSpotOpen,
   activeSpot,
   mobileBottomInset,
-  initialZoom,
 }: UseSpotCameraOptions): { resetFocus: () => void } {
   const { width: viewportWidth } = useBreakpoint()
   const spotFocusCoordsRef = useRef<[number, number] | null>(null)
@@ -114,6 +112,7 @@ export function useSpotCamera({
   const resetFocus = useCallback((): void => {
     if (!map) return
 
+    const zoom = map.getZoom()
     const center = map.getCenter()
     const target =
       spotFocusCoordsRef.current ??
@@ -122,14 +121,16 @@ export function useSpotCamera({
     cameraRef.current = { spotId: null, paddingKey: '' }
 
     map.stop()
+    // Drop panel padding but keep the zoom the user arrived at (cluster expand,
+    // spot flyTo, manual pinch, etc.) so they don't have to zoom in again.
     map.easeTo({
       center: target,
-      zoom: initialZoom,
+      zoom,
       padding: { top: 0, bottom: 0, left: 0, right: 0 },
       duration: RESTORE_DURATION_MS,
       essential: true,
     })
-  }, [map, initialZoom])
+  }, [map])
 
   return { resetFocus }
 }

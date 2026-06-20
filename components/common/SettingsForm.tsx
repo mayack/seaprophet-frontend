@@ -10,7 +10,6 @@ import {
 import { useTheme } from 'next-themes'
 import { Monitor, Moon, Sun } from 'lucide-react'
 import { toast } from 'sonner'
-import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Button, buttonVariants } from '@/components/ui/button'
 import {
   Dialog,
@@ -23,8 +22,6 @@ import {
 } from '@/components/ui/dialog'
 import {
   Field,
-  FieldContent,
-  FieldDescription,
   FieldGroup,
   FieldLabel,
   FieldSeparator,
@@ -106,6 +103,7 @@ export function SettingsForm(): React.JSX.Element {
 
   const units = normalizedSettings.units
   const devModeEnabled = normalizedSettings.camObserverEnabled
+  const devModeAccess = hasDevModeAccess(userData)
   const initial = (username || userData.email).charAt(0).toUpperCase()
 
   // Defer the first paint a frame so we don't set state synchronously in the
@@ -131,6 +129,8 @@ export function SettingsForm(): React.JSX.Element {
   }, [])
 
   const handleDevModeChange = (enabled: boolean): void => {
+    if (!hasDevModeAccess(userData)) return
+
     const previous = getWorkingSettings()
     const newSettings = normalizeUserSettings({
       ...previous,
@@ -202,12 +202,7 @@ export function SettingsForm(): React.JSX.Element {
           >
             <FieldGroup>
               <Field orientation="horizontal">
-                <FieldContent>
-                  <FieldLabel>Appearance</FieldLabel>
-                  <FieldDescription>
-                    Choose how Sea Prophet looks to you.
-                  </FieldDescription>
-                </FieldContent>
+                <FieldLabel>Appearance</FieldLabel>
                 {themeMounted ? (
                   <Tabs
                     value={theme || CONFIG.defaultTheme}
@@ -241,25 +236,16 @@ export function SettingsForm(): React.JSX.Element {
                 ) : null}
               </Field>
 
-              {hasDevModeAccess(userData) ? (
-                <>
-                  <FieldSeparator />
-                  <Field orientation="horizontal">
-                    <FieldContent>
-                      <FieldLabel htmlFor="dev-mode">Dev mode</FieldLabel>
-                      <FieldDescription>
-                        Enable experimental features.
-                      </FieldDescription>
-                    </FieldContent>
-                    <Switch
-                      id="dev-mode"
-                      checked={devModeEnabled}
-                      disabled={isDevModeSaving}
-                      onCheckedChange={handleDevModeChange}
-                    />
-                  </Field>
-                </>
-              ) : null}
+              <FieldSeparator />
+              <Field orientation="horizontal">
+                <FieldLabel htmlFor="dev-mode">Dev mode</FieldLabel>
+                <Switch
+                  id="dev-mode"
+                  checked={devModeEnabled}
+                  disabled={!devModeAccess || isDevModeSaving}
+                  onCheckedChange={handleDevModeChange}
+                />
+              </Field>
             </FieldGroup>
           </div>
           <div
@@ -270,28 +256,11 @@ export function SettingsForm(): React.JSX.Element {
             )}
           >
             <FieldGroup>
-              <div className="flex items-center gap-3">
-                <Avatar>
-                  <AvatarFallback className="font-semibold text-popover-foreground">
-                    {initial}
-                  </AvatarFallback>
-                </Avatar>
-                <div className="flex min-w-0 flex-col">
-                  <span className="truncate text-sm font-medium">
-                    {username}
-                  </span>
-                  <span className="truncate text-xs text-muted-foreground">
-                    {userData.email}
-                  </span>
-                </div>
-              </div>
-
-              <FieldSeparator />
               <Field orientation="horizontal">
                 <FieldLabel htmlFor="newPassword">Username</FieldLabel>
                 <div className="flex items-center gap-4">
                   {username}
-                  <Button variant="outline" onClick={() => setEdit('username')}>
+                  <Button variant="outline" onClick={() => setEdit('username')} size="sm">
                     Change
                   </Button>
                 </div>
@@ -301,7 +270,7 @@ export function SettingsForm(): React.JSX.Element {
                 <FieldLabel htmlFor="newPassword">Password</FieldLabel>
                 <div className="flex items-center gap-4">
                   <span className="tracking-widest">••••••••</span>
-                  <Button variant="outline" onClick={() => setEdit('password')}>
+                  <Button variant="outline" onClick={() => setEdit('password')} size="sm">
                     Change
                   </Button>
                 </div>

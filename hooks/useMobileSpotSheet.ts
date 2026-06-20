@@ -5,28 +5,34 @@ import {
   useEffect,
   useRef,
   useState,
+  type CSSProperties,
   type PointerEvent as ReactPointerEvent,
   type RefObject,
 } from 'react'
 import { SPOT_PANEL } from '@/constants/spotPanel'
+import { useBreakpoint } from '@/hooks/useBreakpoint'
 import {
   getMobilePanelHeightPx,
+  getMobilePeekVisiblePx,
   type SpotSheetSnap,
 } from '@/lib/spotFocusPadding'
 
-const VELOCITY_THRESHOLD = 0.4 // px/ms — flick to snap
+const DRAG_THRESHOLD_PX = 10
+const FLING_VELOCITY = 0.5 // px/ms
 
 function clamp(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, value))
 }
 
-function getPeekOffset(panelHeight: number): number {
-  return panelHeight * (1 - SPOT_PANEL.mobilePeekRatio)
-}
-
-function snapToOffset(snap: SpotSheetSnap, panelHeight: number): number {
+function offsetForSnap(
+  snap: SpotSheetSnap,
+  panelHeight: number,
+  peekVisiblePx: number
+): number {
   if (snap === 'expanded') return 0
-  if (snap === 'peek') return getPeekOffset(panelHeight)
+  if (snap === 'peek') {
+    return Math.max(0, panelHeight - peekVisiblePx)
+  }
   return panelHeight
 }
 
@@ -38,113 +44,110 @@ function isInteractiveTarget(target: EventTarget | null): boolean {
   )
 }
 
-/** Peek panel drag — skip carousel so horizontal swipes stay on Embla. */
-function isPeekPanelTarget(target: EventTarget | null): boolean {
+/** Peek drag — skip carousel so horizontal swipes stay on Embla. */
+function isPeekDragBlocked(target: EventTarget | null): boolean {
   return (
     isInteractiveTarget(target) ||
     (target instanceof Element && target.closest('.embla') !== null)
   )
 }
 
+type PointerSession = {
+  pointerId: number
+  startY: number
+  startOffset: number
+  dragging: boolean
+  lastY: number
+  lastTime: number
+  velocityY: number
+}
+
 interface UseMobileSpotSheetOptions {
   enabled: boolean
   isPresented: boolean
+  dragEnabled?: boolean
   onRequestClose: () => void
   onSnapChange?: (snap: SpotSheetSnap) => void
   panelRef: RefObject<HTMLElement | null>
-  transitionMs: number
 }
 
 export interface UseMobileSpotSheetResult {
   snap: SpotSheetSnap
-  /** Expanded — header only. */
   onHeaderPointerDown: (event: ReactPointerEvent<HTMLElement>) => void
-  /** Peek — anywhere on the panel except interactive targets / Embla. */
   onPeekPanelPointerDown: (event: ReactPointerEvent<HTMLElement>) => void
-  sheetMotionStyle: {
-    transform: string
-    transition: string
-  }
+  sheetStyle: CSSProperties | undefined
 }
 
 export function useMobileSpotSheet({
   enabled,
   isPresented,
+  dragEnabled = true,
   onRequestClose,
   onSnapChange,
   panelRef,
-  transitionMs,
 }: UseMobileSpotSheetOptions): UseMobileSpotSheetResult {
-  const [panelHeight, setPanelHeight] = useState(0)
+  const { width: viewportWidth } = useBreakpoint()
+  const peekVisiblePx = getMobilePeekVisiblePx(viewportWidth)
+
   const [snap, setSnap] = useState<SpotSheetSnap>('closed')
+  const [panelHeight, setPanelHeight] = useState(0)
   const [dragY, setDragY] = useState<number | null>(null)
 
   const snapRef = useRef(snap)
-  const panelHeightRef = useRef(panelHeight)
-  const dragYRef = useRef(dragY)
-  const isDraggingRef = useRef(false)
+  const heightRef = useRef(0)
+  const dragYRef = useRef<number | null>(null)
+  const sessionRef = useRef<PointerSession | null>(null)
   const wasPresentedRef = useRef(false)
-  const dragStateRef = useRef({
-    pointerId: -1,
-    startY: 0,
-    startOffset: 0,
-    lastY: 0,
-    lastTime: 0,
-    velocityY: 0,
-  })
+  const peekVisibleRef = useRef(peekVisiblePx)
+  const dragEnabledRef = useRef(dragEnabled)
 
-  // Mirror the latest state into refs so the window-level pointer handlers
-  // (registered once) read fresh values mid-drag without re-subscribing.
-  /* eslint-disable react-hooks/refs */
+  const height = panelHeight || getMobilePanelHeightPx()
+
+  /* eslint-disable react-hooks/refs -- sync for pointer handlers between renders */
   snapRef.current = snap
-  panelHeightRef.current = panelHeight || getMobilePanelHeightPx()
+  heightRef.current = height
   dragYRef.current = dragY
+  peekVisibleRef.current = peekVisiblePx
+  dragEnabledRef.current = dragEnabled
   /* eslint-enable react-hooks/refs */
 
-  const settleAtY = useCallback(
+  useEffect(() => {
+    if (!enabled || dragEnabled) return
+
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setDragY(null)
+    sessionRef.current = null
+    if (isPresented) {
+      setSnap('peek')
+    }
+  }, [enabled, dragEnabled, isPresented])
+
+  const resolveSnap = useCallback(
     (y: number, velocityY: number): void => {
-      const height = panelHeightRef.current
-      const peekY = getPeekOffset(height)
+      const panelH = heightRef.current
+      const peekY = offsetForSnap('peek', panelH, peekVisibleRef.current)
+      const midExpandedPeek = peekY / 2
+      const midPeekClosed = (peekY + panelH) / 2
 
-      if (velocityY > VELOCITY_THRESHOLD) {
-        if (y < peekY * 0.6) {
-          setSnap('peek')
-        } else {
-          setSnap('closed')
-          onRequestClose()
-        }
-        return
-      }
-
-      if (velocityY < -VELOCITY_THRESHOLD) {
+      if (velocityY < -FLING_VELOCITY) {
         setSnap('expanded')
         return
       }
 
-      const candidates: { snap: SpotSheetSnap; offset: number }[] = [
-        { snap: 'expanded', offset: 0 },
-        { snap: 'peek', offset: peekY },
-        { snap: 'closed', offset: height },
-      ]
-
-      let nearest = candidates[0]
-      let nearestDistance = Math.abs(y - candidates[0].offset)
-
-      for (let i = 1; i < candidates.length; i += 1) {
-        const distance = Math.abs(y - candidates[i].offset)
-        if (distance < nearestDistance) {
-          nearest = candidates[i]
-          nearestDistance = distance
-        }
-      }
-
-      if (nearest.snap === 'closed') {
+      if (velocityY > FLING_VELOCITY && y > midExpandedPeek) {
         setSnap('closed')
         onRequestClose()
         return
       }
 
-      setSnap(nearest.snap)
+      if (y < midExpandedPeek) {
+        setSnap('expanded')
+      } else if (y < midPeekClosed) {
+        setSnap('peek')
+      } else {
+        setSnap('closed')
+        onRequestClose()
+      }
     },
     [onRequestClose]
   )
@@ -173,11 +176,10 @@ export function useMobileSpotSheet({
     }
 
     if (!isPresented) {
-      // Sync sheet state to the `isPresented` prop when the panel closes.
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setSnap('closed')
       setDragY(null)
-      isDraggingRef.current = false
+      sessionRef.current = null
     }
 
     wasPresentedRef.current = isPresented
@@ -188,96 +190,106 @@ export function useMobileSpotSheet({
     onSnapChange(enabled ? snap : 'closed')
   }, [enabled, snap, onSnapChange])
 
-  const finishDrag = useCallback((): void => {
-    if (!isDraggingRef.current) return
-
-    const height = panelHeightRef.current
-    const currentY = dragYRef.current ?? snapToOffset(snapRef.current, height)
-    const { velocityY } = dragStateRef.current
-
-    isDraggingRef.current = false
-    setDragY(null)
-    settleAtY(currentY, velocityY)
-  }, [settleAtY])
-
-  const startDrag = useCallback(
+  const beginSession = useCallback(
     (event: ReactPointerEvent<HTMLElement>): void => {
+      if (!dragEnabledRef.current) return
       const panel = panelRef.current
       if (!panel) return
 
-      const height = panelHeightRef.current
-      dragStateRef.current = {
+      sessionRef.current = {
         pointerId: event.pointerId,
         startY: event.clientY,
-        startOffset: dragYRef.current ?? snapToOffset(snapRef.current, height),
+        startOffset: offsetForSnap(
+          snapRef.current,
+          heightRef.current,
+          peekVisibleRef.current
+        ),
+        dragging: false,
         lastY: event.clientY,
         lastTime: event.timeStamp,
         velocityY: 0,
       }
 
       panel.setPointerCapture(event.pointerId)
-      isDraggingRef.current = true
-      setDragY(dragYRef.current ?? snapToOffset(snapRef.current, height))
     },
     [panelRef]
   )
 
   const onHeaderPointerDown = useCallback(
     (event: ReactPointerEvent<HTMLElement>): void => {
-      if (!enabled || !isPresented || isInteractiveTarget(event.target)) return
-      startDrag(event)
+      if (!enabled || !isPresented || !dragEnabled || isInteractiveTarget(event.target))
+        return
+      beginSession(event)
     },
-    [enabled, isPresented, startDrag]
+    [enabled, isPresented, dragEnabled, beginSession]
   )
 
   const onPeekPanelPointerDown = useCallback(
     (event: ReactPointerEvent<HTMLElement>): void => {
-      if (!enabled || !isPresented || isPeekPanelTarget(event.target)) return
-      startDrag(event)
+      if (!enabled || !isPresented || !dragEnabled || isPeekDragBlocked(event.target))
+        return
+      beginSession(event)
     },
-    [enabled, isPresented, startDrag]
+    [enabled, isPresented, dragEnabled, beginSession]
   )
 
   useEffect(() => {
-    if (!enabled || !isPresented) return
+    if (!enabled || !isPresented || !dragEnabled) return
 
     const onPointerMove = (event: PointerEvent): void => {
-      if (!isDraggingRef.current) return
-      if (event.pointerId !== dragStateRef.current.pointerId) return
+      const session = sessionRef.current
+      if (!session || event.pointerId !== session.pointerId) return
 
-      const height = panelHeightRef.current
-      const deltaY = event.clientY - dragStateRef.current.startY
-      const nextY = clamp(dragStateRef.current.startOffset + deltaY, 0, height)
+      const deltaY = event.clientY - session.startY
 
-      const dt = event.timeStamp - dragStateRef.current.lastTime
-      if (dt > 0) {
-        dragStateRef.current.velocityY =
-          (event.clientY - dragStateRef.current.lastY) / dt
+      if (!session.dragging) {
+        if (Math.abs(deltaY) < DRAG_THRESHOLD_PX) return
+        session.dragging = true
       }
-      dragStateRef.current.lastY = event.clientY
-      dragStateRef.current.lastTime = event.timeStamp
+
+      const panelH = heightRef.current
+      const nextY = clamp(session.startOffset + deltaY, 0, panelH)
+
+      const dt = event.timeStamp - session.lastTime
+      if (dt > 0) {
+        session.velocityY = (event.clientY - session.lastY) / dt
+      }
+      session.lastY = event.clientY
+      session.lastTime = event.timeStamp
 
       setDragY(nextY)
     }
 
-    const onPointerUp = (event: PointerEvent): void => {
-      if (!isDraggingRef.current) return
-      if (event.pointerId !== dragStateRef.current.pointerId) return
-      finishDrag()
+    const endSession = (event: PointerEvent): void => {
+      const session = sessionRef.current
+      if (!session || event.pointerId !== session.pointerId) return
+
+      sessionRef.current = null
+
+      if (!session.dragging) {
+        if (snapRef.current === 'peek') {
+          setSnap('expanded')
+        }
+        return
+      }
+
+      const y = dragYRef.current ?? session.startOffset
+      setDragY(null)
+      resolveSnap(y, session.velocityY)
     }
 
     window.addEventListener('pointermove', onPointerMove)
-    window.addEventListener('pointerup', onPointerUp)
-    window.addEventListener('pointercancel', onPointerUp)
+    window.addEventListener('pointerup', endSession)
+    window.addEventListener('pointercancel', endSession)
 
     return (): void => {
       window.removeEventListener('pointermove', onPointerMove)
-      window.removeEventListener('pointerup', onPointerUp)
-      window.removeEventListener('pointercancel', onPointerUp)
+      window.removeEventListener('pointerup', endSession)
+      window.removeEventListener('pointercancel', endSession)
     }
-  }, [enabled, isPresented, finishDrag])
+  }, [enabled, isPresented, dragEnabled, resolveSnap])
 
-  // Peek only — stop iOS body rubber-band while dragging the sheet.
+  // Peek only — stop iOS body rubber-band while the sheet is resting in peek.
   useEffect(() => {
     if (!enabled || !isPresented || snap !== 'peek') return
 
@@ -293,17 +305,22 @@ export function useMobileSpotSheet({
     return (): void => document.removeEventListener('touchmove', onTouchMove)
   }, [enabled, isPresented, snap])
 
-  const height = panelHeight || getMobilePanelHeightPx()
-  const translateY = dragY ?? snapToOffset(snap, height)
+  const translateY =
+    dragY ??
+    offsetForSnap(dragEnabled ? snap : 'peek', height, peekVisiblePx)
+  const isDragging = dragY !== null
 
   return {
     snap,
     onHeaderPointerDown,
     onPeekPanelPointerDown,
-    sheetMotionStyle: {
-      transform: `translateY(${translateY}px)`,
-      transition:
-        dragY !== null ? 'none' : `transform ${transitionMs}ms ease-out`,
-    },
+    sheetStyle: enabled
+      ? {
+          transform: `translateY(${translateY}px)`,
+          transition: isDragging
+            ? 'none'
+            : `transform ${SPOT_PANEL.transitionMs}ms ease-out`,
+        }
+      : undefined,
   }
 }

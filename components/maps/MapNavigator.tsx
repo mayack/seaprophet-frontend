@@ -33,6 +33,7 @@ import {
 import { useMapInitialCenter } from '@/hooks/useMapInitialCenter'
 import { spotsCache } from '@/components/maps/utils'
 import { getSpotIdFromRoute } from '@/lib/spotNavigation'
+import { syncActiveSpotPinState } from '@/components/maps/spotClusters'
 
 export function MapNavigator({
   className = '',
@@ -44,7 +45,7 @@ export function MapNavigator({
   const spotPanel = useSpotPanel()
   const { openSpot, isSpotOpen } = useSpotNavigation()
   const { userData } = useUser()
-  const { isDesktop } = useBreakpoint()
+  const { isSpotPanelDesktop: isDesktop } = useBreakpoint()
   const pathname = usePathname()
   const directSpotId = getSpotIdFromRoute(pathname)
   const isDirectSpotLink = directSpotId !== null
@@ -84,15 +85,13 @@ export function MapNavigator({
     mapRef,
     map,
     isLoaded,
-    addSpotMarkers,
-    clearSpotMarkers,
+    updateSpotLayers,
     zoomIn,
     zoomOut,
     locationState,
     requestUserLocation,
     recenterToUser,
     retryCount,
-    setSelectedSpotId,
   } = useMapbox({
     center: mapInitCenter,
     zoom: initialView?.zoom ?? initialZoom,
@@ -120,14 +119,7 @@ export function MapNavigator({
     isSpotOpen,
     activeSpot,
     mobileBottomInset,
-    initialZoom,
   })
-
-  useEffect(() => {
-    const selectedId =
-      spotPanel.isPanelPresented && activeSpot ? activeSpot.id : null
-    setSelectedSpotId(selectedId)
-  }, [spotPanel.isPanelPresented, activeSpot?.id, setSelectedSpotId])
 
   useEffect(() => {
     if (!map || !isLoaded) return
@@ -139,27 +131,20 @@ export function MapNavigator({
 
   const { isLoading } = useMapSpots({
     map,
+    isLoaded,
     spotLoadCenter: effectiveSpotLoadCenter,
     initialRadius,
     viewportPadding,
-    isSpotOpen,
     activeSpotId: activeSpot?.id ?? null,
-    addSpotMarkers,
-    clearSpotMarkers,
+    updateSpotLayers,
   })
 
-  useEffect(() => {
-    if (isLoading || !spotPanel.isPanelPresented || !activeSpot) return
-    setSelectedSpotId(activeSpot.id)
-  }, [
-    isLoading,
-    spotPanel.isPanelPresented,
-    activeSpot?.id,
-    setSelectedSpotId,
-    activeSpot,
-  ])
-
   useMapViewMemory(map)
+
+  useEffect(() => {
+    if (!map || !isLoaded) return
+    syncActiveSpotPinState(map, activeSpot?.id ?? null)
+  }, [map, isLoaded, activeSpot?.id])
 
   const handleLocationButtonClick = useCallback((): void => {
     const action = getLocationButtonAction(locationState)
@@ -197,7 +182,7 @@ export function MapNavigator({
                   render={
                     <Button
                       variant="elevated"
-                      size="icon"
+                      size="icon-sm"
                       onClick={zoomIn}
                       aria-label="Zoom in"
                       className="rounded-t-md rounded-b-none shadow-none ring-0"
@@ -215,7 +200,7 @@ export function MapNavigator({
                   render={
                     <Button
                       variant="elevated"
-                      size="icon"
+                      size="icon-sm"
                       onClick={zoomOut}
                       aria-label="Zoom out"
                       className="rounded-t-none rounded-b-md shadow-none ring-0"
@@ -234,7 +219,7 @@ export function MapNavigator({
                 render={
                   <Button
                     variant="elevated"
-                    size="icon"
+                    size="icon-sm"
                     onClick={handleLocationButtonClick}
                     disabled={locationState === 'loading'}
                     aria-label={getLocationButtonLabel({

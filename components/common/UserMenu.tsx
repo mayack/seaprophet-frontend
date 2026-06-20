@@ -121,9 +121,6 @@ export function UserMenu({ user }: UserMenuProps): React.JSX.Element | null {
                 <span className="truncate text-sm font-medium text-popover-foreground">
                   {user.username}
                 </span>
-                <span className="truncate text-xs font-normal text-muted-foreground">
-                  {user.email}
-                </span>
               </div>
             </DropdownMenuLabel>
           </DropdownMenuGroup>

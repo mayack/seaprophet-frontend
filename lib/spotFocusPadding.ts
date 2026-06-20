@@ -12,7 +12,10 @@ export function getMobilePanelHeightPx(
     ? window.innerHeight
     : SSR_VIEWPORT_HEIGHT
 ): number {
-  return Math.round(viewportHeight * SPOT_PANEL.mobileHeightRatio)
+  return Math.max(
+    0,
+    Math.round(viewportHeight - SPOT_PANEL.mobileTopClearancePx)
+  )
 }
 
 /** Active Tailwind desktop tier from viewport width. */
@@ -31,13 +34,33 @@ export function getDesktopRightPaddingPx(
   return Math.round(remToPx(widthRem + gapRem))
 }
 
+/** Peek strip height for the current viewport (px). */
+export function getMobilePeekVisiblePx(
+  viewportWidth = typeof window !== 'undefined' ? window.innerWidth : 0
+): number {
+  return viewportWidth >= SPOT_PANEL.breakpoints.sm
+    ? SPOT_PANEL.mobilePeekVisibleSmPx
+    : SPOT_PANEL.mobilePeekVisiblePx
+}
+
+/** Spinner area in the peek loading strip (px) — peek minus 2× header for vertical balance. */
+export function getMobilePeekLoadingSpinnerHeightPx(
+  viewportWidth = typeof window !== 'undefined' ? window.innerWidth : 0
+): number {
+  return Math.max(
+    0,
+    getMobilePeekVisiblePx(viewportWidth) -
+      SPOT_PANEL.mobilePeekHeaderPx * 2
+  )
+}
+
 /** Visible bottom-sheet height on mobile for a given snap (px). */
-export function getMobileBottomInset(snap: SpotSheetSnap): number {
-  const panelHeight = getMobilePanelHeightPx()
-  if (snap === 'expanded') return panelHeight
-  if (snap === 'peek') {
-    return Math.round(panelHeight * SPOT_PANEL.mobilePeekRatio)
-  }
+export function getMobileBottomInset(
+  snap: SpotSheetSnap,
+  viewportWidth = typeof window !== 'undefined' ? window.innerWidth : 0
+): number {
+  if (snap === 'expanded') return getMobilePanelHeightPx()
+  if (snap === 'peek') return getMobilePeekVisiblePx(viewportWidth)
   return 0
 }
 

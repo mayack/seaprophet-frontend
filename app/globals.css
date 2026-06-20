@@ -11,10 +11,6 @@
   --animate-fade-in: fadeIn 0.5s ease-in;
   --animate-spin-slow: spin 2s linear infinite;
 
-  --breakpoint-xs: 480px;
-
-  --width-26: 6.5rem;
-
   @keyframes fadeIn {
     0% {
       opacity: 0;
@@ -59,17 +55,13 @@
 @utility wrapper-spacing {
   @apply space-y-8 sm:space-y-10 xl:space-y-12;
 }
-
+/* 
 @utility safe-area-bottom {
-  /* Mobile browser safe area support */
-  padding-bottom: env(safe-area-inset-bottom);
-}
+  @apply pb-[env(safe-area-inset-bottom)];
+} */
 
-@utility mobile-safe-bottom {
-  @media (max-width: 767px) {
-    /* Extra bottom padding on mobile to clear dynamic browser UI / home indicator */
-    padding-bottom: max(4rem, env(safe-area-inset-bottom));
-  }
+@utility tooltip-content {
+  @apply inline-flex w-fit max-w-xs items-center gap-1.5 rounded-md bg-foreground px-3 py-1.5 text-xs text-background;
 }
 
 @utility user-location-marker {
@@ -78,30 +70,14 @@
   }
 }
 
-@utility spot-marker--selected {
-  /* Selected spot pin: scaled up from its tip (bottom center) so it stands
-     out without moving off its coordinate. */
-  & svg {
-    transform: scale(1.3);
-    transform-origin: 50% 100%;
-    transition: transform 150ms ease;
-  }
-}
-
-@utility spot-marker--instant {
-  & svg {
-    transition: none;
-  }
-}
-
 @layer utilities {
   /* Hide Mapbox logo and attribution */
   .mapboxgl-ctrl-logo {
-    display: none !important;
+    @apply !hidden;
   }
 
   .mapboxgl-ctrl-attrib {
-    display: none !important;
+    @apply !hidden;
   }
 
   .mapboxgl-popup .mapboxgl-popup-tip {
@@ -112,11 +88,11 @@
   }
 
   .mapboxgl-popup.mapboxgl-popup-anchor-bottom .mapboxgl-popup-tip {
-    @apply border-t-card;
+    border-top-color: var(--card);
   }
 
   .mapboxgl-popup.mapboxgl-popup-anchor-top .mapboxgl-popup-tip {
-    @apply border-b-card;
+    border-bottom-color: var(--card);
   }
 }
 
@@ -126,36 +102,58 @@
  * layered rules always lose to unlayered ones regardless of specificity.
  */
 .mapboxgl-popup.spot-hover-popup .mapboxgl-popup-content {
-  @apply rounded-md bg-foreground px-3 py-1.5 text-xs font-medium text-background shadow-md;
+  @apply tooltip-content;
 }
 
+/* Mapbox draws the arrow via border tricks — keep tip rules as raw CSS. */
 .mapboxgl-popup.spot-hover-popup .mapboxgl-popup-tip {
   border-width: 5px;
 }
 
 .mapboxgl-popup.spot-hover-popup.mapboxgl-popup-anchor-bottom
   .mapboxgl-popup-tip {
-  @apply border-t-foreground;
+  border-top-color: var(--foreground);
 }
 
 .mapboxgl-popup.spot-hover-popup.mapboxgl-popup-anchor-top .mapboxgl-popup-tip {
-  @apply border-b-foreground;
+  border-bottom-color: var(--foreground);
+}
+
+.mapboxgl-popup.spot-hover-popup .mapboxgl-popup-content .spot-cluster-tooltip {
+  @apply flex flex-col gap-0.5;
+}
+
+.mapboxgl-popup.spot-hover-popup:has(.spot-cluster-tooltip)
+  .mapboxgl-popup-content {
+  @apply w-max max-w-none whitespace-normal;
+}
+
+.mapboxgl-popup.spot-hover-popup
+  .mapboxgl-popup-content
+  .spot-cluster-tooltip-names {
+  @apply flex flex-col items-start gap-0.25;
+}
+
+.mapboxgl-popup.spot-hover-popup
+  .mapboxgl-popup-content
+  .spot-cluster-tooltip-name {
+  @apply block max-w-full truncate leading-tight;
+}
+
+.mapboxgl-popup.spot-hover-popup
+  .mapboxgl-popup-content
+  .spot-cluster-tooltip-more {
+  @apply block leading-tight font-normal text-muted-foreground;
 }
 
 html.app-shell,
 html.app-shell body {
-  height: 100%;
-  overflow: hidden;
-  overscroll-behavior: none;
+  @apply h-full overflow-hidden overscroll-none;
 }
 
 @layer base {
   html {
-    font-synthesis: none;
-    text-rendering: optimizeLegibility;
-    -webkit-font-smoothing: antialiased;
-    -moz-osx-font-smoothing: grayscale;
-    touch-action: manipulation;
+    @apply touch-manipulation antialiased [font-synthesis:none] [text-rendering:optimizeLegibility];
   }
 
   * {
@@ -164,10 +162,7 @@ html.app-shell body {
 
   html,
   body {
-    @apply h-full min-h-full;
-    /* Support for dynamic viewport height on mobile */
-    min-height: 100vh;
-    min-height: 100dvh; /* Dynamic viewport height */
+    @apply h-full min-h-dvh min-h-full min-h-screen;
   }
 
   body {
@@ -175,12 +170,10 @@ html.app-shell body {
   }
 
   /* iOS won't auto-zoom focused fields at 16px+; backup if viewport alone isn't enough. */
-  @media (max-width: 767px) {
-    input,
-    textarea,
-    select {
-      font-size: max(16px, 1em);
-    }
+  input,
+  textarea,
+  select {
+    @apply max-md:text-[max(16px,1em)];
   }
 }
 
@@ -199,8 +192,8 @@ html.app-shell body {
 */
 
 @theme inline {
-  --font-heading: var(--font-sans);
-  --font-sans: var(--font-sans);
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  --font-heading: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);

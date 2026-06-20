@@ -84,6 +84,10 @@ export function clearTokensAndRedirect(request: NextRequest): NextResponse {
 
     for (const tokenName of tokensToDelete) {
       try {
+        // Clear by writing an already-expired cookie with the SAME attributes
+        // used at write time — an attribute mismatch leaves a phantom cookie
+        // (Safari especially). A bare `cookies.delete(name)` uses default
+        // attributes and isn't reliable here, so this single set replaces it.
         response.cookies.set({
           name: tokenName,
           value: '',
@@ -93,7 +97,6 @@ export function clearTokensAndRedirect(request: NextRequest): NextResponse {
           secure: process.env.NODE_ENV === 'production',
           sameSite: 'lax',
         })
-        response.cookies.delete(tokenName)
       } catch (cookieError) {
         console.error(`Error clearing cookie ${tokenName}:`, cookieError)
       }

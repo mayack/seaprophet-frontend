@@ -1,6 +1,6 @@
 'use client'
 
-import { Mountain, Waves } from 'lucide-react'
+import { Mountain, RefreshCw, Waves } from 'lucide-react'
 import { useUser } from '@/contexts/UserContext'
 import { isDevModeActive } from '@/lib/userSettings'
 import {
@@ -32,7 +32,7 @@ function DataIndicator({
         render={
           <button
             type="button"
-            className="flex cursor-help items-center gap-1 text-muted-foreground transition-colors hover:text-foreground"
+            className="flex cursor-help items-center gap-1.5 text-muted-foreground transition-colors hover:text-foreground"
           />
         }
       >
@@ -66,9 +66,36 @@ export function SpotPanelHeaderMeta({
   if (!showDataFlags && !meta.updatedAt) return null
 
   return (
-    <div className="flex flex-1 items-center gap-3 text-xs text-muted-foreground">
-      {showDataFlags ? (
-        <TooltipProvider>
+    <TooltipProvider>
+      <div className="flex flex-1 items-center gap-3 text-xs text-muted-foreground">
+        {meta.updatedAt ? (
+          <Tooltip>
+            <TooltipTrigger
+              render={
+                <span className="flex min-w-0 cursor-help items-center gap-1.5 truncate transition-colors hover:text-foreground" />
+              }
+            >
+              <RefreshCw className="size-3 shrink-0" />
+              <span className="truncate">
+                {new Date(meta.updatedAt).toLocaleString('en-GB', {
+                  day: '2-digit',
+                  month: '2-digit',
+                  year: '2-digit',
+                  hour: '2-digit',
+                  minute: '2-digit',
+                })}
+              </span>
+            </TooltipTrigger>
+            <TooltipContent
+              className="text-xs leading-tight"
+              side="bottom"
+              sideOffset={10}
+            >
+              Last updated
+            </TooltipContent>
+          </Tooltip>
+        ) : null}
+        {showDataFlags ? (
           <div className="flex shrink-0 items-center gap-3">
             {meta.terrainData ? (
               <DataIndicator
@@ -85,20 +112,8 @@ export function SpotPanelHeaderMeta({
               />
             ) : null}
           </div>
-        </TooltipProvider>
-      ) : null}
-      {meta.updatedAt ? (
-        <span className="truncate">
-          Updated on{' '}
-          {new Date(meta.updatedAt).toLocaleString('en-GB', {
-            hour: '2-digit',
-            minute: '2-digit',
-            day: '2-digit',
-            month: '2-digit',
-            year: 'numeric',
-          })}
-        </span>
-      ) : null}
-    </div>
+        ) : null}
+      </div>
+    </TooltipProvider>
   )
 }

@@ -22,16 +22,12 @@ import { toggleFavorite } from '@/api/sargo/actions/user'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
+import type { LocationInfo } from '@/api/sargo/interfaces/spot'
 
 interface SpotDetailHeaderProps {
   spotName: string
   spotId?: number
-  locationPath?: {
-    country?: string
-    region?: string
-    district?: string
-    municipality?: string
-  }
+  locationPath?: LocationInfo
   className?: string
 }
 
@@ -84,7 +80,7 @@ export function SpotDetailHeader({
   return (
     <div
       className={cn(
-        'flex items-center justify-between gap-3 px-4 pt-4 sm:px-6 sm:pt-6',
+        'flex items-center justify-between gap-3 px-4 pt-2 sm:px-6 sm:pt-4',
         className
       )}
     >
@@ -92,10 +88,15 @@ export function SpotDetailHeader({
         {locationPath && (
           <Breadcrumb className="flex-1">
             <BreadcrumbList>
-              {locationPath.country && (
+              {(locationPath.countryEmoji || locationPath.country) && (
                 <>
                   <BreadcrumbItem>
-                    <BreadcrumbLink>{locationPath.country}</BreadcrumbLink>
+                    <BreadcrumbLink
+                      aria-label={locationPath.country || undefined}
+                      className="text-base leading-none"
+                    >
+                      {locationPath.countryEmoji || locationPath.country}
+                    </BreadcrumbLink>
                   </BreadcrumbItem>
                   <BreadcrumbSeparator />
                 </>

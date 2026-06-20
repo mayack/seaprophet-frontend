@@ -22,7 +22,7 @@ export function MapLayoutShell({
     <SpotPanelProvider>
       <SpotDirectLinkHydrator />
       <div className="relative h-dvh overflow-hidden overscroll-none">
-        <MapNavigator height="100dvh" initialRadius={250} />
+        <MapNavigator height="100dvh" />
         {children}
         <SpotBox />
       </div>

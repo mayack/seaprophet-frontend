@@ -2,7 +2,7 @@ import { Droplet, Sun } from 'lucide-react'
 import { General } from '@/api/polvo/interfaces/forecast'
 import { UserUnits } from '@/api/sargo/interfaces/user'
 import { Badge } from '@/components/ui/badge'
-import { formatValueWithUnit } from '@/lib/units'
+import { formatValueWithUnitSeparated } from '@/lib/units'
 import { cn } from '@/lib/utils'
 import React from 'react'
 
@@ -22,10 +22,10 @@ function DayGeneralInfoItem({
   children: React.ReactNode
 }): React.JSX.Element {
   return (
-    <Badge variant="secondary" className="font-normal">
+    <Badge variant="secondary" className="font-normal items-center">
       {icon}
-      <span>{label}</span>
-      <span>{children}</span>
+      <div>{label}</div>
+      <div>{children}</div>
     </Badge>
   )
 }
@@ -38,7 +38,7 @@ export function DayGeneralInfo({
   return (
     <div className={cn('flex items-center gap-x-1.5', className)}>
       <DayGeneralInfoItem icon={<Droplet />} label="Water">
-        {formatValueWithUnit(
+        {formatValueWithUnitSeparated(
           general.averageWaterTemperature,
           units.temperature
         )}

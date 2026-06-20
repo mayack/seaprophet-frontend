@@ -27,7 +27,7 @@ export function SpotDetailView({
       />
 
       {data.webcams.length > 0 ? (
-        <WebcamViewer configs={data.webcams} className="mt-6" />
+        <WebcamViewer configs={data.webcams} className="mt-4 sm:mt-6" />
       ) : null}
 
       {data.nearbySpots.length > 0 ? (
@@ -35,18 +35,18 @@ export function SpotDetailView({
           spots={data.nearbySpots}
           maxDistance={NEARBY_RADIUS_KM}
           title="Spots nearby"
-          className="mt-6"
+          className="mt-4 sm:mt-6"
         />
       ) : null}
 
       {data.forecastDays ? (
         <ForecastContainer
-          className="mt-12"
+          className="mt-8 sm:mt-12"
           initialDays={data.forecastDays}
           forecastParams={data.forecastParams}
         />
       ) : (
-        <div className="mt-12 p-4 text-destructive">
+        <div className="mt-10 p-4 text-destructive sm:mt-12 sm:p-6">
           Forecast not found: {data.forecastError}.{' '}
           <ReloadButton className="ml-2 underline" />
         </div>

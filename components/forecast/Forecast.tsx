@@ -53,7 +53,7 @@ export function Forecast({ days }: ForecastProps): React.JSX.Element {
 
   return (
     <TooltipProvider>
-      <div className="relative space-y-12 px-4 pb-2 sm:px-6 sm:pb-4">
+      <div className="relative space-y-8 px-4 pb-2 sm:space-y-12 sm:px-6 sm:pb-4">
         {days.slice(0, visibleDays).map((day) => (
           <div className="animate-fade-in" key={day.date}>
             <ForecastItem day={day} units={units} />

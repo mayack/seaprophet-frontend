@@ -49,10 +49,10 @@ export class SargoClient extends BaseApiClient {
 
   // Auth Endpoints (No Caching)
   async login(identifier: string, password: string): Promise<UserAuthResponse> {
-    const headers: HeadersInit = {
-      'Content-Type': 'application/json',
-      Accept: 'application/json',
-    }
+    const headers = await this.getHeaders(
+      CONFIG.api.endpoints.sargo.auth.login,
+      true
+    )
 
     return this.fetch(CONFIG.api.endpoints.sargo.auth.login, {
       init: {
