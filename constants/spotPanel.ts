@@ -35,9 +35,9 @@ export const SPOT_PANEL = {
    */
   mobileTopClearancePx: 68,
   /** Peek strip below `sm` (px). */
-  mobilePeekVisiblePx: 122,
+  mobilePeekVisiblePx: 160,
   /** Peek strip at `sm+` while still a bottom sheet (px). */
-  mobilePeekVisibleSmPx: 152,
+  mobilePeekVisibleSmPx: 200,
   /** Close-only header row in the peek loading strip (px). */
   mobilePeekHeaderPx: 44,
   /** Matches Tailwind `duration-300` on panel enter/exit. */
