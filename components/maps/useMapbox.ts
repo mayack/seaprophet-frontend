@@ -390,6 +390,11 @@ export function useMapbox(options: UseMapboxOptions = {}): UseMapboxReturn {
     isMountedRef.current = true
     isInitialized.current = true
 
+    // Captured for the cleanup below — the ref's identity is stable (created
+    // once, mutated in place), so reading it here avoids the exhaustive-deps
+    // warning about `.current` changing before cleanup runs.
+    const spotLayerState = spotLayerStateRef.current
+
     try {
       const initTheme = isDark ? 'dark' : 'light'
       const initStyle = getMapStyle(isDark)
@@ -483,7 +488,7 @@ export function useMapbox(options: UseMapboxOptions = {}): UseMapboxReturn {
 
       if (map) {
         removeSpotLayers(map)
-        resetSpotLayerState(spotLayerStateRef.current)
+        resetSpotLayerState(spotLayerState)
         if (userLocationMarker.current) {
           userLocationMarker.current.remove()
           userLocationMarker.current = null
