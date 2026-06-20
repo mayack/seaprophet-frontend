@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef } from 'react'
 import type mapboxgl from 'mapbox-gl'
-import { getSpotFocusPadding } from '@/lib/spotFocusPadding'
+import { getMobileBottomInset, getSpotFocusPadding } from '@/lib/spotFocusPadding'
 import { useBreakpoint } from '@/hooks/useBreakpoint'
 
 const SELECTED_SPOT_ZOOM = 13
@@ -56,11 +56,14 @@ export function useSpotCamera({
     if (!isDesktop && mobileBottomInset === null) return
 
     const coords: [number, number] = [activeSpot.lng, activeSpot.lat]
-    const key = paddingKey(isDesktop, viewportWidth, mobileBottomInset)
+    const focusBottomInset = isDesktop
+      ? mobileBottomInset
+      : getMobileBottomInset('peek', viewportWidth)
+    const key = paddingKey(isDesktop, viewportWidth, focusBottomInset)
     const padding = getSpotFocusPadding(
       isDesktop,
       viewportWidth,
-      mobileBottomInset
+      focusBottomInset
     )
     const zoom = Math.max(map.getZoom(), SELECTED_SPOT_ZOOM)
     const needsZoomIn = map.getZoom() < SELECTED_SPOT_ZOOM
