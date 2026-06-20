@@ -23,10 +23,10 @@ export default function PublicRootLayout({
   return (
     <html
       lang="en"
-      className={cn('font-sans h-full min-h-full', inter.variable)}
+      className={cn('h-full min-h-full font-sans', inter.variable)}
       suppressHydrationWarning
     >
-      <body className="antialiased h-full min-h-full" suppressHydrationWarning>
+      <body className="h-full min-h-full antialiased" suppressHydrationWarning>
         <ThemeProvider>{children}</ThemeProvider>
       </body>
     </html>

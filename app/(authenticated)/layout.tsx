@@ -48,13 +48,13 @@ export default async function AuthenticatedLayout({
     <html
       lang="en"
       className={cn(
-        'font-sans overflow-hidden overscroll-none h-full min-h-full',
+        'h-full min-h-full overflow-hidden overscroll-none font-sans',
         inter.variable
       )}
       suppressHydrationWarning
     >
       <body
-        className="overflow-hidden overscroll-none antialiased h-full min-h-full"
+        className="h-full min-h-full overflow-hidden overscroll-none antialiased"
         suppressHydrationWarning
       >
         <ThemeProvider>

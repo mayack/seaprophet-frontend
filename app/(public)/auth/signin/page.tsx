@@ -22,7 +22,7 @@ export default function SignIn(): React.JSX.Element {
   }, [state?.success])
 
   return (
-    <div className="wrapper flex h-full flex-col items-center justify-center py-6 box-border">
+    <div className="wrapper box-border flex h-full flex-col items-center justify-center py-6">
       <div className="w-full max-w-sm space-y-8">
         <Card>
           <CardHeader>
