@@ -142,9 +142,9 @@ export const CONFIG = {
         mapMovement: 500,
       },
       dragPan: {
-        linearity: 0.25,
-        maxSpeed: 1600,
-        deceleration: 2000,
+        linearity: 0.32,
+        maxSpeed: 1700,
+        deceleration: 1750,
       },
       touchZoom: {
         stopInertiaOnRelease: true,

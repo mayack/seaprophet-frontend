@@ -114,6 +114,10 @@ function configureTouchZoom(map: mapboxgl.Map): void {
   canvas.addEventListener('touchcancel', settlePinchZoom, { passive: true })
 }
 
+function configureDragPan(map: mapboxgl.Map): void {
+  map.dragPan.enable(CONFIG.map.interaction.dragPan)
+}
+
 // Create map with theme support
 export function createMap(options: CreateMapOptions): mapboxgl.Map {
   const { container, center, zoom, theme, disablePanning, disableZooming } =
@@ -149,6 +153,9 @@ export function createMap(options: CreateMapOptions): mapboxgl.Map {
   } else {
     // Keep pinch-zoom; block two-finger bearing rotation.
     map.touchZoomRotate.disableRotation()
+    if (!disablePanning) {
+      configureDragPan(map)
+    }
     configureScrollZoom(map)
     configureTouchZoom(map)
   }
