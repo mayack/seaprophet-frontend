@@ -181,9 +181,9 @@ export function MapNavigator({
       />
 
       <TooltipProvider>
-        <div className="absolute top-4 left-4 flex flex-col items-start gap-4">
+        <div className="absolute top-4 left-4 flex flex-col items-start gap-3">
           <SearchSpots />
-          <div className="flex w-full flex-col items-center gap-y-4">
+          <div className="flex w-full flex-col items-center gap-y-3">
             <div className="flex flex-col rounded-md shadow-sm ring-1 ring-foreground/10">
               <Tooltip>
                 <TooltipTrigger
@@ -272,7 +272,7 @@ export function MapNavigator({
           </div>
         </div>
 
-        <div className="absolute top-4 right-4 flex flex-row items-center gap-2">
+        <div className="absolute top-4 right-4 flex flex-row items-center gap-3">
           <FavoritesPopover />
           <UserMenu user={userData} />
         </div>

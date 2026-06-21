@@ -5,7 +5,6 @@ import {
   Item,
   ItemContent,
   ItemDescription,
-  ItemMedia,
   ItemTitle,
 } from '@/components/ui/item'
 import { cn } from '@/lib/utils'
@@ -48,20 +47,16 @@ export function SpotSummaryCard({
       }}
     >
       <ItemContent className="min-w-0 gap-y-0.5">
-        <ItemTitle className="[display:block] w-full max-w-full truncate [-webkit-line-clamp:unset]">
+        <ItemTitle className="block min-w-0 max-w-full truncate whitespace-nowrap [-webkit-line-clamp:unset]">
           {spot.name}
         </ItemTitle>
         {spot.distance !== undefined && (
-          <ItemDescription className="text-xs">
-            {formatDistance(spot.distance)}
+          <ItemDescription className="flex items-center gap-2 text-xs">
+            <div className="flex-1">{formatDistance(spot.distance)}</div>
+            {spot.webcam && <Video className="size-3.5" strokeWidth={1.5} />}
           </ItemDescription>
         )}
       </ItemContent>
-      {spot.webcam && (
-        <ItemMedia variant="icon" className="text-muted-foreground">
-          <Video />
-        </ItemMedia>
-      )}
     </Item>
   )
 }
