@@ -113,7 +113,7 @@ function SpotSearchCommand({
                 {spot.name}
                 {spot.webcam && (
                   <CommandShortcut>
-                    <Video />
+                    <Video strokeWidth={1.5} />
                   </CommandShortcut>
                 )}
               </CommandItem>

@@ -167,7 +167,7 @@ export function FavoritesPopover(): React.JSX.Element {
                     {spot.name}
                     {spot.hasWebcam && (
                       <DropdownMenuShortcut>
-                        <Video />
+                        <Video strokeWidth={1.5} />
                       </DropdownMenuShortcut>
                     )}
                   </DropdownMenuItem>
