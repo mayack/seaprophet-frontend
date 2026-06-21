@@ -120,7 +120,7 @@ export function FavoritesPopover(): React.JSX.Element {
         >
           <Heart />
         </TooltipTrigger>
-        <TooltipContent side={isDesktop ? 'right' : 'bottom'} sideOffset={12}>
+        <TooltipContent side="bottom" sideOffset={12}>
           Favorites
         </TooltipContent>
       </Tooltip>

@@ -99,7 +99,7 @@ export function UserMenu({ user }: UserMenuProps): React.JSX.Element | null {
           >
             {initial}
           </TooltipTrigger>
-          <TooltipContent side={isDesktop ? 'right' : 'bottom'} sideOffset={12}>
+          <TooltipContent side="bottom" sideOffset={12}>
             Account
           </TooltipContent>
         </Tooltip>
