@@ -72,7 +72,7 @@ export function ViewportSpotsCarousel({
       )}
     >
       {showControls && (
-        <div className="hidden items-center justify-end px-4 sm:flex sm:px-6">
+        <div className="hidden items-center justify-end px-4 sm:flex">
           <div className="flex rounded-md shadow-sm ring-1 ring-foreground/10">
             <Button
               variant="elevated"
