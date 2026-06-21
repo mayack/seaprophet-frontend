@@ -5,7 +5,7 @@ import type mapboxgl from 'mapbox-gl'
 import { getSpot } from '@/api/sargo/actions/spot'
 import { spotsCache, debounce } from '@/components/maps/utils'
 import { loadSpotsForBounds } from '@/components/maps/loadSpotsForBounds'
-import { calculateBounds } from '@/utils/location'
+import { calculateBounds, calculateDistance } from '@/utils/location'
 import type { GeographicBounds } from '@/types/map'
 import type { SpotSummary } from '@/api/sargo/interfaces/spot'
 import { CONFIG } from '@/constants/config'
@@ -18,6 +18,7 @@ interface UseMapSpotsOptions {
   initialRadius: number
   viewportPadding: number
   activeSpotId: number | null
+  userLocation?: { latitude: number; longitude: number }
   updateSpotLayers: (spots: SpotSummary[]) => void
 }
 
@@ -28,9 +29,11 @@ export function useMapSpots({
   initialRadius,
   viewportPadding,
   activeSpotId,
+  userLocation,
   updateSpotLayers,
-}: UseMapSpotsOptions): { isLoading: boolean } {
+}: UseMapSpotsOptions): { isLoading: boolean; visibleSpots: SpotSummary[] } {
   const [isLoading, setIsLoading] = useState(false)
+  const [visibleSpots, setVisibleSpots] = useState<SpotSummary[]>([])
   // In-flight guard — a ref (not state) so toggling it doesn't re-subscribe
   // the moveend/zoomend handler below.
   const isFetchingRef = useRef(false)
@@ -52,8 +55,14 @@ export function useMapSpots({
 
     const spotsInView = spotsCache.getSpotsInBounds(currentBounds)
     const spotsToShow = withActiveSpot(spotsInView, activeSpotId)
+    const spotsForCarousel = addDistanceFromUserLocation(
+      spotsToShow,
+      userLocation
+    )
+
+    setVisibleSpots(spotsForCarousel)
     updateSpotLayers(spotsToShow)
-  }, [map, activeSpotId, updateSpotLayers])
+  }, [map, activeSpotId, userLocation, updateSpotLayers])
 
   const fetchSpotsForViewport = useCallback(
     async (bounds: GeographicBounds): Promise<boolean> => {
@@ -219,7 +228,7 @@ export function useMapSpots({
     }
   }, [])
 
-  return { isLoading }
+  return { isLoading, visibleSpots }
 }
 
 function withActiveSpot(
@@ -232,4 +241,25 @@ function withActiveSpot(
   if (!active || spots.some((spot) => spot.id === activeSpotId)) return spots
 
   return [...spots, active]
+}
+
+function addDistanceFromUserLocation(
+  spots: SpotSummary[],
+  userLocation?: { latitude: number; longitude: number }
+): SpotSummary[] {
+  if (!userLocation) {
+    return spots.map((spot) => ({ ...spot, distance: undefined }))
+  }
+
+  return [...spots]
+    .map((spot) => ({
+      ...spot,
+      distance: calculateDistance(
+        userLocation.latitude,
+        userLocation.longitude,
+        spot.location.lat,
+        spot.location.long
+      ),
+    }))
+    .sort((a, b) => (a.distance ?? Infinity) - (b.distance ?? Infinity))
 }

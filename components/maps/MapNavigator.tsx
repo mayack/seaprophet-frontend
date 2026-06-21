@@ -34,6 +34,7 @@ import { useMapInitialCenter } from '@/hooks/useMapInitialCenter'
 import { spotsCache } from '@/components/maps/utils'
 import { getSpotIdFromRoute } from '@/lib/spotNavigation'
 import { syncActiveSpotPinState } from '@/components/maps/spotClusters'
+import { ViewportSpotsCarousel } from '@/components/maps/ViewportSpotsCarousel'
 
 export function MapNavigator({
   className = '',
@@ -49,15 +50,14 @@ export function MapNavigator({
   const pathname = usePathname()
   const directSpotId = getSpotIdFromRoute(pathname)
   const isDirectSpotLink = directSpotId !== null
-  const cachedDirectSpot = directSpotId
-    ? spotsCache.getSpot(directSpotId)
-    : undefined
-  const directSpotCenter = cachedDirectSpot
-    ? ([cachedDirectSpot.location.long, cachedDirectSpot.location.lat] as [
-        number,
-        number,
-      ])
-    : null
+  const directSpotCenter = useMemo((): [number, number] | null => {
+    if (!directSpotId) return null
+
+    const cachedDirectSpot = spotsCache.getSpot(directSpotId)
+    if (!cachedDirectSpot) return null
+
+    return [cachedDirectSpot.location.long, cachedDirectSpot.location.lat]
+  }, [directSpotId])
 
   const { initialView, mapInitCenter, spotLoadCenter } = useMapInitialCenter(
     getRememberedMapView(),
@@ -111,6 +111,13 @@ export function MapNavigator({
   const mobileBottomInset = spotPanel.mobileBottomInset
   const mapTouchBlocked =
     !isDesktop && isSpotOpen && spotPanel.mobileSheetSnap === 'expanded'
+  const userLocation = useMemo(() => {
+    if (userData.latitude === undefined || userData.longitude === undefined) {
+      return undefined
+    }
+
+    return { latitude: userData.latitude, longitude: userData.longitude }
+  }, [userData.latitude, userData.longitude])
 
   const { resetFocus } = useSpotCamera({
     map,
@@ -129,13 +136,14 @@ export function MapNavigator({
     }
   }, [map, isLoaded, resetFocus, spotPanel])
 
-  const { isLoading } = useMapSpots({
+  const { isLoading, visibleSpots } = useMapSpots({
     map,
     isLoaded,
     spotLoadCenter: effectiveSpotLoadCenter,
     initialRadius,
     viewportPadding,
     activeSpotId: activeSpot?.id ?? null,
+    userLocation,
     updateSpotLayers,
   })
 
@@ -256,7 +264,7 @@ export function MapNavigator({
           </div>
         </div>
 
-        <div className="absolute top-4 right-4 flex flex-row items-center gap-2 md:top-auto md:right-auto md:bottom-4 md:left-4 md:flex-col md:items-stretch">
+        <div className="absolute top-4 right-4 flex flex-row items-center gap-2">
           <FavoritesPopover />
           <UserMenu user={userData} />
         </div>
@@ -273,6 +281,11 @@ export function MapNavigator({
           </span>
         </div>
       )}
+      <ViewportSpotsCarousel
+        spots={visibleSpots}
+        visible={!isSpotOpen}
+        onSelectSpot={handleSpotClick}
+      />
     </div>
   )
 }

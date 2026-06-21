@@ -134,6 +134,12 @@ export function UserProvider({
       // getStoredLocation() already drops entries past LOCATION_CACHE_MAX_AGE.
       const cached = getStoredLocation()
       if (cached.latitude !== undefined && cached.longitude !== undefined) {
+        setUserData((prev) => ({
+          ...prev,
+          latitude: cached.latitude,
+          longitude: cached.longitude,
+        }))
+        setLastLocationUpdate(cached.timestamp ?? Date.now())
         return { latitude: cached.latitude, longitude: cached.longitude }
       }
 
