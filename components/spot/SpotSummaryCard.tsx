@@ -47,7 +47,7 @@ export function SpotSummaryCard({
       }}
     >
       <ItemContent className="min-w-0 gap-y-0.5">
-        <ItemTitle className="block min-w-0 max-w-full truncate whitespace-nowrap [-webkit-line-clamp:unset]">
+        <ItemTitle className="block max-w-full min-w-0 truncate whitespace-nowrap [-webkit-line-clamp:unset]">
           {spot.name}
         </ItemTitle>
         {spot.distance !== undefined && (
