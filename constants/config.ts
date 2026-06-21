@@ -106,7 +106,10 @@ export const CONFIG = {
   search: {
     index: {
       storageKey: 'spot-search-index-v3',
-      ttlMs: 60 * 60 * 1000, // 1 hour client-side cache
+      // Serve the cached index instantly, but revalidate against the backend
+      // `version` once it's older than this (and on tab focus). Short, since
+      // revalidation is cheap and only rebuilds when the catalog changed.
+      ttlMs: 5 * 60 * 1000, // 5 minutes
       preloadIdleTimeoutMs: 2000,
       preloadFallbackDelayMs: 500,
     },

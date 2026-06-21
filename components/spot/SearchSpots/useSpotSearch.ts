@@ -133,8 +133,9 @@ export function useSpotSearch(): {
   const onInputValueChange = useCallback(
     (value: string): void => {
       setQuery(value)
+      const trimmed = value.trim()
 
-      if (!value.trim()) {
+      if (!trimmed) {
         fallbackSearch.cancel()
         fallbackRequestIdRef.current += 1
         setSpots([])
@@ -143,7 +144,11 @@ export function useSpotSearch(): {
         return
       }
 
-      if (spotIndex) {
+      // With the local index loaded, search it directly. Only when it returns
+      // nothing do we hit the live backend — this makes a spot added since the
+      // index was built findable immediately (the index itself catches up
+      // within minutes via background revalidation).
+      if (spotIndex && searchLocalIndex(spotIndex, trimmed).length > 0) {
         fallbackSearch.cancel()
         fallbackRequestIdRef.current += 1
         setError(null)
@@ -161,8 +166,10 @@ export function useSpotSearch(): {
 
   const displayedSpots = useMemo<SearchResultSpot[]>(() => {
     if (spotIndex && query.trim()) {
-      return searchLocalIndex(spotIndex, query)
+      const local = searchLocalIndex(spotIndex, query)
+      if (local.length > 0) return local
     }
+    // No index, or the index had no match → live backend results (if any).
     return spots
   }, [spotIndex, query, spots])
 
