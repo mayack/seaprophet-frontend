@@ -284,6 +284,7 @@ export function useMapbox(options: UseMapboxOptions = {}): UseMapboxReturn {
       zoom: zoomLevel || mapInstance.current.getZoom(),
       duration: 1000,
       curve: 1,
+      essential: true,
     })
   }, [])
 
@@ -574,6 +575,7 @@ export function useMapbox(options: UseMapboxOptions = {}): UseMapboxReturn {
       zoom: mapInstance.current.getZoom(),
       duration: 1000,
       curve: 1,
+      essential: true,
     })
   }, [center, isLoaded])
 
