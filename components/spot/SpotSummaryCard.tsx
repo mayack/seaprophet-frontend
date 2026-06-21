@@ -31,7 +31,7 @@ export function SpotSummaryCard({
   const interactiveClasses =
     variant === 'elevated'
       ? 'cursor-pointer hover:border-muted hover:bg-muted hover:text-foreground aria-expanded:bg-muted aria-expanded:text-foreground dark:hover:border-muted dark:hover:bg-muted'
-      : 'cursor-pointer hover:bg-muted hover:text-foreground aria-expanded:bg-muted aria-expanded:text-foreground dark:hover:bg-muted/50'
+      : 'cursor-pointer shadow-xs hover:bg-muted hover:text-foreground aria-expanded:bg-muted aria-expanded:text-foreground dark:hover:bg-muted/50'
 
   return (
     <Item

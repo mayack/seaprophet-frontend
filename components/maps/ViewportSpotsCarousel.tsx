@@ -97,8 +97,11 @@ export function ViewportSpotsCarousel({
           </div>
         </div>
       )}
-      <div className="embla overflow-hidden p-4 pt-3 sm:px-6" ref={emblaRef}>
-        <div className="embla__container flex gap-2">
+      <div
+        className="embla overflow-hidden px-4 pt-3 pb-2 sm:px-6 sm:pb-4"
+        ref={emblaRef}
+      >
+        <div className="embla__container flex gap-2 pb-2">
           {spots.map((spot) => (
             <div
               key={spot.id}

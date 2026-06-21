@@ -183,7 +183,7 @@ export function MapNavigator({
       <TooltipProvider>
         <div className="absolute top-4 left-4 flex flex-col items-start gap-4">
           <SearchSpots />
-          <div className="flex w-full flex-col items-center gap-y-2">
+          <div className="flex w-full flex-col items-center gap-y-4">
             <div className="flex flex-col rounded-md shadow-sm ring-1 ring-foreground/10">
               <Tooltip>
                 <TooltipTrigger
@@ -261,6 +261,14 @@ export function MapNavigator({
                 })}
               </TooltipContent>
             </Tooltip>
+            {isLoading && (
+              <div
+                className="flex size-8 items-center justify-center"
+                aria-label={CONFIG.map.ui.loadingText}
+              >
+                <Loader2 className="size-4 animate-spin text-muted-foreground" />
+              </div>
+            )}
           </div>
         </div>
 
@@ -270,17 +278,6 @@ export function MapNavigator({
         </div>
       </TooltipProvider>
 
-      {isLoading && (
-        <div className="absolute bottom-10 left-1/2 flex -translate-x-1/2 items-center gap-2 rounded-full bg-card px-4 py-2 text-card-foreground shadow">
-          <Loader2
-            className="animate-spin"
-            size={CONFIG.map.ui.loadingIcon.size}
-          />
-          <span className="text-sm font-medium">
-            {CONFIG.map.ui.loadingText}
-          </span>
-        </div>
-      )}
       <ViewportSpotsCarousel
         spots={visibleSpots}
         visible={!isSpotOpen}

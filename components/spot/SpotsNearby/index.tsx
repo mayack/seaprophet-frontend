@@ -7,7 +7,6 @@ import useEmblaCarousel from 'embla-carousel-react'
 import { Button } from '@/components/ui/button'
 import { useSpotNavigation } from '@/hooks/useSpotNavigation'
 import React, { useCallback, useEffect, useState } from 'react'
-import { cn } from '@/lib/utils'
 import { SPOT_PANEL } from '@/constants/spotPanel'
 import { SpotSummaryCard } from '@/components/spot/SpotSummaryCard'
 
@@ -63,18 +62,18 @@ export function SpotsNearby({
   return (
     <div className={className}>
       <div className="mb-1.5 flex min-h-8 items-center justify-between px-4 sm:mb-2 sm:px-6">
-        <h2 className="grow text-base font-semibold">{title}</h2>
+        <h2 className="grow font-semibold sm:text-lg">{title}</h2>
         {spots.length > 0 && showControls && (
-          <div className="hidden shrink-0 sm:flex">
+          <div className="hidden shrink-0 rounded-md border border-border bg-background shadow-xs sm:flex dark:bg-transparent">
             <Button
               variant="outline"
               size="icon-sm"
               onClick={scrollPrev}
               disabled={!canPrev}
               aria-label="Previous nearby spots"
-              className="rounded-r-none border-r-0 disabled:opacity-100"
+              className="rounded-r-none border-0 shadow-none ring-0 disabled:text-foreground/30 disabled:opacity-100"
             >
-              <ChevronLeft className={cn(!canPrev && 'opacity-10')} />
+              <ChevronLeft />
             </Button>
             <Button
               variant="outline"
@@ -82,9 +81,9 @@ export function SpotsNearby({
               onClick={scrollNext}
               disabled={!canNext}
               aria-label="Next nearby spots"
-              className="rounded-l-none border-l-0 disabled:opacity-100"
+              className="rounded-l-none border-0 shadow-none ring-0 disabled:text-foreground/30 disabled:opacity-100"
             >
-              <ChevronRight className={cn(!canNext && 'opacity-30')} />
+              <ChevronRight />
             </Button>
           </div>
         )}
@@ -100,7 +99,7 @@ export function SpotsNearby({
       ) : (
         <div className="relative">
           <div className="embla overflow-hidden px-4 sm:px-6" ref={emblaRef}>
-            <div className="embla__container flex gap-2">
+            <div className="embla__container flex gap-2 pb-2">
               {spots.map((spot) => (
                 <div
                   key={spot.id}
