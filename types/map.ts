@@ -106,6 +106,8 @@ export interface MapLocationConfig {
   retryDelays: number[]
   /** Distance threshold for "already at location" */
   alreadyAtLocationThreshold: number
+  /** How often to poll a fresh fix while the tab is visible (ms) */
+  pollIntervalMs: number
   /** Location request timeouts */
   timeouts: {
     standard: number

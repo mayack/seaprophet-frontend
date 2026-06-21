@@ -402,6 +402,10 @@ export function getLocationButtonAction(
       return 'request'
     case 'loading':
     case 'centered':
+    // Denial can't be cleared programmatically (the native prompt won't
+    // re-appear), so the blocked button is non-interactive — re-enabling
+    // happens in browser/OS settings, which the live permission listener
+    // then picks up.
     case 'permission-denied':
     default:
       return 'none'

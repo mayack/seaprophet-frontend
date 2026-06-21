@@ -22,11 +22,16 @@ interface UserContextType {
   // favorites update.
   updateUser: (patch: Partial<UserWithLocation>) => void
   requestLocation: (
-    highAccuracy?: boolean
+    highAccuracy?: boolean,
+    forceFresh?: boolean
   ) => Promise<
     | { latitude: number; longitude: number }
     | { error: 'permission' | 'unavailable' | 'timeout' | 'unsupported' }
   >
+  // Drop the user's location everywhere — clears the in-memory coords and the
+  // sessionStorage cache. Called when geolocation permission is denied/revoked
+  // so nothing (map dot, distances) keeps showing a stale position.
+  clearLocation: () => void
 }
 
 interface StoredLocation {
@@ -128,19 +133,24 @@ export function UserProvider({
   }, [])
 
   const requestLocation = useCallback(
-    async (highAccuracy: boolean = false) => {
-      // Read the cache from sessionStorage (always fresh) rather than closed-over
-      // state, which would go stale since this callback is memoized at mount.
-      // getStoredLocation() already drops entries past LOCATION_CACHE_MAX_AGE.
-      const cached = getStoredLocation()
-      if (cached.latitude !== undefined && cached.longitude !== undefined) {
-        setUserData((prev) => ({
-          ...prev,
-          latitude: cached.latitude,
-          longitude: cached.longitude,
-        }))
-        setLastLocationUpdate(cached.timestamp ?? Date.now())
-        return { latitude: cached.latitude, longitude: cached.longitude }
+    async (highAccuracy: boolean = false, forceFresh: boolean = false) => {
+      // `forceFresh` bypasses every cache (our sessionStorage entry AND the OS
+      // `maximumAge` below) so the caller gets a genuinely current fix — used by
+      // the location poll and the locate button.
+      if (!forceFresh) {
+        // Read the cache from sessionStorage (always fresh) rather than closed-over
+        // state, which would go stale since this callback is memoized at mount.
+        // getStoredLocation() already drops entries past LOCATION_CACHE_MAX_AGE.
+        const cached = getStoredLocation()
+        if (cached.latitude !== undefined && cached.longitude !== undefined) {
+          setUserData((prev) => ({
+            ...prev,
+            latitude: cached.latitude,
+            longitude: cached.longitude,
+          }))
+          setLastLocationUpdate(cached.timestamp ?? Date.now())
+          return { latitude: cached.latitude, longitude: cached.longitude }
+        }
       }
 
       if (!navigator.geolocation) {
@@ -174,9 +184,11 @@ export function UserProvider({
               {
                 enableHighAccuracy: highAccuracy,
                 timeout,
-                maximumAge: highAccuracy
-                  ? timeouts.maxAge.highAccuracy
-                  : timeouts.maxAge.standard,
+                maximumAge: forceFresh
+                  ? 0
+                  : highAccuracy
+                    ? timeouts.maxAge.highAccuracy
+                    : timeouts.maxAge.standard,
               }
             )
           }
@@ -201,6 +213,20 @@ export function UserProvider({
     [storeLocation]
   )
 
+  const clearLocation = useCallback(() => {
+    setUserData((prev) =>
+      prev.latitude == null && prev.longitude == null
+        ? prev
+        : { ...prev, latitude: undefined, longitude: undefined }
+    )
+    setLastLocationUpdate(null)
+    try {
+      sessionStorage.removeItem(LOCATION_CACHE_KEY)
+    } catch (error) {
+      console.error('Error clearing location cache:', error)
+    }
+  }, [])
+
   // Clear expired location on mount. Deferred a frame so state isn't set
   // synchronously inside the effect body.
   useEffect(() => {
@@ -222,6 +248,78 @@ export function UserProvider({
     return (): void => cancelAnimationFrame(raf)
   }, [lastLocationUpdate])
 
+  // Keep the location reasonably fresh without continuous `watchPosition`
+  // tracking: poll a fresh fix on an interval while the tab is visible. Gated
+  // on already having a fix (`hasLocationRef`) so it never triggers an
+  // unsolicited permission prompt, pauses while the tab is hidden, fetches
+  // immediately on resume (so reopening a backgrounded tab updates the dot),
+  // and stops permanently if permission is revoked.
+  const hasLocationRef = useRef(false)
+  useEffect(() => {
+    hasLocationRef.current =
+      userData.latitude !== undefined && userData.longitude !== undefined
+  }, [userData.latitude, userData.longitude])
+
+  useEffect(() => {
+    if (typeof navigator === 'undefined' || !navigator.geolocation) return
+
+    let permissionDenied = false
+    let intervalId: ReturnType<typeof setInterval> | null = null
+
+    const stop = (): void => {
+      if (intervalId !== null) {
+        clearInterval(intervalId)
+        intervalId = null
+      }
+    }
+
+    const tick = async (): Promise<void> => {
+      if (permissionDenied || document.hidden || !hasLocationRef.current) return
+      const result = await requestLocation(false, true)
+      if ('error' in result && result.error === 'permission') {
+        permissionDenied = true
+        stop()
+      }
+    }
+
+    const start = (): void => {
+      if (intervalId === null) {
+        intervalId = setInterval(
+          () => void tick(),
+          CONFIG.map.location.pollIntervalMs
+        )
+      }
+    }
+
+    const handleVisibility = (): void => {
+      if (document.hidden) {
+        stop()
+      } else {
+        void tick()
+        start()
+      }
+    }
+
+    // iOS restores backgrounded tabs from the bfcache without re-running this
+    // module; `pageshow` with `persisted` is the only reliable "we're back"
+    // signal there, so refresh on it too.
+    const handlePageShow = (event: PageTransitionEvent): void => {
+      if (event.persisted && !document.hidden) void tick()
+    }
+
+    // Refresh immediately on (re)mount so a returning user sees their current
+    // position right away rather than the cached seed until the first interval.
+    void tick()
+    start()
+    document.addEventListener('visibilitychange', handleVisibility)
+    window.addEventListener('pageshow', handlePageShow)
+    return (): void => {
+      stop()
+      document.removeEventListener('visibilitychange', handleVisibility)
+      window.removeEventListener('pageshow', handlePageShow)
+    }
+  }, [requestLocation])
+
   // Memoize so consumers don't re-render on every parent render with a
   // brand-new object identity. `setUserData` is a setState fn (stable);
   // `requestLocation` is already a stable useCallback.
@@ -230,8 +328,9 @@ export function UserProvider({
       userData,
       updateUser,
       requestLocation,
+      clearLocation,
     }),
-    [userData, updateUser, requestLocation]
+    [userData, updateUser, requestLocation, clearLocation]
   )
 
   return (

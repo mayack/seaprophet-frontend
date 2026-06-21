@@ -52,7 +52,7 @@ export function SpotSummaryCard({
         </ItemTitle>
         {spot.distance !== undefined && (
           <ItemDescription className="flex items-center gap-2 text-xs">
-            <div className="flex-1">{formatDistance(spot.distance)}</div>
+            <span className="flex-1">{formatDistance(spot.distance)}</span>
             {spot.webcam && <Video className="size-3.5" strokeWidth={1.5} />}
           </ItemDescription>
         )}

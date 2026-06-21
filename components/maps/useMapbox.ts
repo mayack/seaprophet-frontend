@@ -64,6 +64,9 @@ export function useMapbox(options: UseMapboxOptions = {}): UseMapboxReturn {
   const isMountedRef = useRef(true)
   const retryTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const locationStateRef = useRef<UseMapboxReturn['locationState']>('idle')
+  // Latest geolocation permission, kept in a ref so the async `load` handler can
+  // check it before seeding the dot from the cached location on a page refresh.
+  const locationPermissionRef = useRef<PermissionState | null>(null)
   const userLocationRef = useRef<{
     latitude: number
     longitude: number
@@ -100,7 +103,7 @@ export function useMapbox(options: UseMapboxOptions = {}): UseMapboxReturn {
   const [retryCount, setRetryCount] = useState(0)
 
   const { isDark, mapStyle, isThemeReady } = useMapTheme()
-  const { userData, requestLocation } = useUser()
+  const { userData, requestLocation, clearLocation } = useUser()
 
   const MAX_RETRIES = CONFIG.map.location.maxRetries
   const RETRY_DELAYS = CONFIG.map.location.retryDelays
@@ -158,6 +161,60 @@ export function useMapbox(options: UseMapboxOptions = {}): UseMapboxReturn {
   useEffect(() => {
     createUserLocationMarkerWrapperRef.current = createUserLocationMarkerWrapper
   }, [createUserLocationMarkerWrapper])
+
+  // Follow polled location updates (see UserContext): nudge the dot to the
+  // latest position, and keep the move handler's reference point current.
+  // While the user is centered (e.g. moving in a car) the camera follows too,
+  // but only past the GPS-jitter threshold so a stationary dot doesn't make the
+  // map twitch each poll. Panning away flips the state to off-center, which
+  // stops the following — same model as Google Maps.
+  useEffect(() => {
+    if (!isLoaded) return
+
+    // No coords (never located, or permission denied/cleared) → ensure no dot.
+    // This makes "do we have a location" the single source of truth for the
+    // dot, so a denied/cleared location can never leave a stale dot behind.
+    if (userData.latitude == null || userData.longitude == null) {
+      userLocationMarker.current?.remove()
+      userLocationMarker.current = null
+      return
+    }
+
+    if (!userLocationMarker.current) return
+
+    const location = {
+      latitude: userData.latitude,
+      longitude: userData.longitude,
+    }
+    createUserLocationMarkerWrapper(location)
+    userLocationRef.current = location
+
+    const map = mapInstance.current
+    if (!map || locationStateRef.current !== 'centered') return
+
+    const center = map.getCenter()
+    if (
+      isUserCloseToLocation(
+        location.latitude,
+        location.longitude,
+        center.lat,
+        center.lng
+      )
+    ) {
+      return
+    }
+
+    map.easeTo({
+      center: [location.longitude, location.latitude],
+      duration: 1000,
+      essential: true,
+    })
+  }, [
+    userData.latitude,
+    userData.longitude,
+    isLoaded,
+    createUserLocationMarkerWrapper,
+  ])
 
   // Setup move handler for location tracking
   const setupMoveHandler = useCallback(
@@ -327,7 +384,8 @@ export function useMapbox(options: UseMapboxOptions = {}): UseMapboxReturn {
     }
 
     setLocationState('loading')
-    const result = await requestLocation(false)
+    // Force a fresh fix so tapping locate truly re-locates (not a cached point).
+    const result = await requestLocation(false, true)
 
     if ('latitude' in result && 'longitude' in result) {
       // Reset retry count on success
@@ -342,6 +400,9 @@ export function useMapbox(options: UseMapboxOptions = {}): UseMapboxReturn {
         case 'permission':
           retryCountRef.current = 0
           setRetryCount(0)
+          // Clear any stale coords so the existing dot is removed (a denied
+          // retry from the button must not leave the old dot on the map).
+          clearLocation()
           setLocationState('permission-denied')
           break
         case 'unavailable':
@@ -375,6 +436,7 @@ export function useMapbox(options: UseMapboxOptions = {}): UseMapboxReturn {
     }
   }, [
     requestLocation,
+    clearLocation,
     createUserLocationMarkerWrapper,
     setupMoveHandler,
     flyTo,
@@ -384,6 +446,58 @@ export function useMapbox(options: UseMapboxOptions = {}): UseMapboxReturn {
   useEffect(() => {
     requestUserLocationRef.current = requestUserLocation
   }, [requestUserLocation])
+
+  // Live-detect permission changes via the Permissions API. Reliable on desktop
+  // browsers; on iOS the geolocation permission state is flaky, so there it's
+  // best-effort and the per-session reprompt + poll cover revocation instead.
+  // Revoking mid-session drops the dot and flips the button to the blocked
+  // state; re-granting (denied -> granted) re-locates the user.
+  useEffect(() => {
+    const permissions =
+      typeof navigator !== 'undefined' ? navigator.permissions : undefined
+    if (!permissions?.query) return
+
+    let status: PermissionStatus | null = null
+    let previous: PermissionState | null = null
+    let cancelled = false
+
+    const handleDenied = (): void => {
+      // Clear coords + cache at the source so nothing re-seeds a stale dot on
+      // refresh; the dot effect then removes the marker reactively.
+      clearLocation()
+      userLocationMarker.current?.remove()
+      userLocationMarker.current = null
+      setLocationState('permission-denied')
+    }
+
+    const handleChange = (): void => {
+      if (!status) return
+      const next = status.state
+      locationPermissionRef.current = next
+      if (next === 'denied') handleDenied()
+      else if (next === 'granted' && previous === 'denied') {
+        requestUserLocationRef.current?.()
+      }
+      previous = next
+    }
+
+    permissions
+      .query({ name: 'geolocation' as PermissionName })
+      .then((result) => {
+        if (cancelled) return
+        status = result
+        previous = result.state
+        locationPermissionRef.current = result.state
+        if (result.state === 'denied') handleDenied()
+        result.addEventListener('change', handleChange)
+      })
+      .catch(() => {})
+
+    return (): void => {
+      cancelled = true
+      status?.removeEventListener('change', handleChange)
+    }
+  }, [clearLocation])
 
   const recenterToUser = useCallback(() => {
     if (!userLocationMarker.current) return
@@ -436,6 +550,14 @@ export function useMapbox(options: UseMapboxOptions = {}): UseMapboxReturn {
           initLocationTimeoutRef.current = setTimeout(() => {
             initLocationTimeoutRef.current = null
             if (!mapInstance.current || !isMountedRef.current) return
+            // Don't seed the dot from the cached location if permission was
+            // revoked — otherwise a refresh shows a stale dot until the user
+            // interacts. (The permission listener resolves async; the ~100ms
+            // delay above means it's almost always settled by now.)
+            if (locationPermissionRef.current === 'denied') {
+              setLocationState('permission-denied')
+              return
+            }
             if (userData.latitude && userData.longitude) {
               // Create the user-location marker and set up the move
               // handler. Only flyTo when the map isn't already at the
