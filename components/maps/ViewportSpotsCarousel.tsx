@@ -102,7 +102,7 @@ export function ViewportSpotsCarousel({
           {spots.map((spot) => (
             <div
               key={spot.id}
-              className="embla__slide min-w-0 flex-[0_0_calc(50%-0.25rem)] sm:flex-[0_0_calc(33.333%-0.334rem)] lg:flex-[0_0_calc(25%-0.375rem)] 2xl:flex-[0_0_calc(20%-0.4rem)] min-[1680px]:!flex-[0_0_calc(16.666%-0.417rem)] min-[1920px]:!flex-[0_0_calc(14.285%-0.429rem)]"
+              className="embla__slide min-w-0 flex-[0_0_calc(50%-0.25rem)] min-[1680px]:!flex-[0_0_calc(16.666%-0.417rem)] min-[1920px]:!flex-[0_0_calc(14.285%-0.429rem)] sm:flex-[0_0_calc(33.333%-0.334rem)] lg:flex-[0_0_calc(25%-0.375rem)] 2xl:flex-[0_0_calc(20%-0.4rem)]"
             >
               <SpotSummaryCard
                 spot={spot}

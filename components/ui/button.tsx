@@ -12,7 +12,7 @@ const buttonVariants = cva(
         outline:
           'border-border bg-background shadow-xs hover:bg-muted hover:text-foreground aria-expanded:bg-muted aria-expanded:text-foreground dark:bg-transparent dark:hover:bg-muted/50',
         elevated:
-          'border-popover bg-popover text-foreground shadow-sm ring-1 ring-foreground/10 hover:border-muted hover:bg-muted hover:text-foreground aria-expanded:bg-muted aria-expanded:text-foreground disabled:opacity-100 disabled:text-foreground/30 dark:hover:border-muted dark:hover:bg-muted',
+          'border-popover bg-popover text-foreground shadow-sm ring-1 ring-foreground/10 hover:border-muted hover:bg-muted hover:text-foreground disabled:text-foreground/30 disabled:opacity-100 aria-expanded:bg-muted aria-expanded:text-foreground dark:hover:border-muted dark:hover:bg-muted',
         secondary:
           'bg-secondary text-secondary-foreground hover:bg-[color-mix(in_oklch,var(--secondary),var(--foreground)_5%)] aria-expanded:bg-secondary aria-expanded:text-secondary-foreground',
         overlay:

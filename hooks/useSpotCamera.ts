@@ -2,7 +2,10 @@
 
 import { useCallback, useEffect, useRef } from 'react'
 import type mapboxgl from 'mapbox-gl'
-import { getMobileBottomInset, getSpotFocusPadding } from '@/lib/spotFocusPadding'
+import {
+  getMobileBottomInset,
+  getSpotFocusPadding,
+} from '@/lib/spotFocusPadding'
 import { useBreakpoint } from '@/hooks/useBreakpoint'
 
 const SELECTED_SPOT_ZOOM = 13
