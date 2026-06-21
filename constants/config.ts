@@ -128,7 +128,7 @@ export const CONFIG = {
       maxRetries: 3,
       retryDelays: [3000, 3000, 3000], // ms - equal delays for consistent retry timing
       alreadyAtLocationThreshold: 100, // meters
-      pollIntervalMs: 60 * 1000, // re-fetch a fresh fix this often while the tab is visible
+      pollIntervalMs: 30 * 1000, // re-fetch a fresh fix this often while the tab is visible
       timeouts: {
         standard: 10000, // ms - standard location request timeout
         highAccuracy: 15000, // ms - high accuracy location request timeout
