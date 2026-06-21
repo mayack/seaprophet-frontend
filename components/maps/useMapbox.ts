@@ -17,6 +17,7 @@ import {
   getMapStyle,
   isUserCloseToLocation,
   isUserPannedAway,
+  isWebKitBrowser,
   type UserLocationLayer,
 } from './utils'
 import {
@@ -453,6 +454,11 @@ export function useMapbox(options: UseMapboxOptions = {}): UseMapboxReturn {
   // Revoking mid-session drops the dot and flips the button to the blocked
   // state; re-granting (denied -> granted) re-locates the user.
   useEffect(() => {
+    // Skip WebKit/iOS — its Permissions API geolocation state is unreliable and
+    // would flip the button to blocked even when location actually works. There
+    // we rely on getCurrentPosition results (requestUserLocation) instead.
+    if (isWebKitBrowser()) return
+
     const permissions =
       typeof navigator !== 'undefined' ? navigator.permissions : undefined
     if (!permissions?.query) return

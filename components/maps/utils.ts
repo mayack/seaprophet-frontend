@@ -412,6 +412,24 @@ export function getLocationButtonAction(
   }
 }
 
+/**
+ * WebKit (desktop Safari + every iOS browser, since they're all WebKit) reports
+ * the geolocation permission state unreliably via the Permissions API: it can
+ * return `denied`/`prompt` out of sync with reality and doesn't fire `change`
+ * consistently. So on WebKit we ignore the Permissions API and drive permission
+ * state from actual getCurrentPosition results instead.
+ */
+export function isWebKitBrowser(): boolean {
+  if (typeof navigator === 'undefined') return false
+  const ua = navigator.userAgent
+  const isIOS =
+    /iPad|iPhone|iPod/.test(ua) ||
+    (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)
+  const isDesktopSafari =
+    /safari/i.test(ua) && !/chrome|chromium|crios|edg|fxios|android/i.test(ua)
+  return isIOS || isDesktopSafari
+}
+
 // Module-level spots cache — persists for the SPA session while MapNavigator stays mounted.
 const MAX_LOADED_REGIONS = CONFIG.map.spotsCache.maxLoadedRegions
 
