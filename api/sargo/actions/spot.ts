@@ -1,13 +1,7 @@
 'use server'
 import { sargoClient } from '../client'
-import type {
-  SpotSummary,
-  Spot,
-  SpotActionResponse,
-  SpotsByCountry,
-} from '../interfaces/spot'
+import type { SpotSummary, Spot, SpotActionResponse } from '../interfaces/spot'
 import type { LocationInfo } from '../interfaces/spot'
-import { organizeSpotsByCountry } from '../utils/organizeSpotsByCountry'
 import { spotToSummary } from '@/lib/spotSummary'
 import { GeographicBounds } from '@/types/map'
 
@@ -160,43 +154,6 @@ export async function searchSpots(
     return {
       data: [],
       error: error instanceof Error ? error.message : 'Failed to search spots',
-      meta: { timestamp, source: 'error', success: false },
-    }
-  }
-}
-
-export async function getFavoriteSpots(
-  spotIds: number[]
-): Promise<SpotActionResponse<SpotsByCountry>> {
-  const timestamp = new Date().toISOString()
-
-  if (!spotIds || spotIds.length === 0) {
-    return {
-      data: {},
-      error: null,
-      meta: { timestamp, source: 'favorites-empty', success: true },
-    }
-  }
-
-  try {
-    // Fetch spots by their IDs directly using $in filter
-    const favoriteSpotsResponse = await sargoClient.getSpotsByIds(spotIds, true)
-    const favoriteSpots = favoriteSpotsResponse.data
-
-    const organizedSpots = organizeSpotsByCountry(favoriteSpots)
-    return {
-      data: organizedSpots,
-      error: null,
-      meta: { timestamp, source: 'favorites', success: true },
-    }
-  } catch (error) {
-    console.error('getFavoriteSpots error:', error)
-    return {
-      data: {},
-      error:
-        error instanceof Error
-          ? error.message
-          : 'Failed to load favorite spots',
       meta: { timestamp, source: 'error', success: false },
     }
   }
