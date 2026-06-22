@@ -110,7 +110,8 @@ function SpotSearchCommand({
                   className={cn(
                     'flex items-center gap-1.5 px-2 py-1.5 text-xs font-medium text-muted-foreground',
                     // small breathing room above every country block
-                    row.level === 'country' && 'mt-2 font-semibold text-foreground'
+                    row.level === 'country' &&
+                      'mt-2 font-semibold text-foreground'
                   )}
                 >
                   {row.emoji && <span aria-hidden>{row.emoji}</span>}
