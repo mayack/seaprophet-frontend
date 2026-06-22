@@ -135,7 +135,7 @@ export const SPOT_PIN_DEFAULT_ICON_SIZE = 1.15
 const SPOT_PIN_IMAGE_PIXEL_RATIO = 2
 
 const SPOT_PIN_ZOOM_SIZE_MULTIPLIERS = [
-  [8, 0.48],
+  [8, 0.6], // ~24px min diameter (35 × 1.15 × 0.6)
   [11, 0.78],
   [14, 1],
   [18, 1.22],
