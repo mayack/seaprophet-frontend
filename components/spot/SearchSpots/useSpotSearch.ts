@@ -6,22 +6,18 @@ import { SpotSummary } from '@/api/sargo/interfaces/spot'
 import { debounce } from '@/lib/debounce'
 import { CONFIG } from '@/constants/config'
 import type { SpotIndex, SpotIndexEntry } from '@/lib/spotSearchIndex'
+import { groupSpotsByGeo, type GeoRow } from '@/lib/groupSpotsByGeo'
 import { useSpotIndex } from './useSpotIndex'
 
 const MAX_RESULTS = CONFIG.search.maxResults
 const FALLBACK_DEBOUNCE_MS = CONFIG.search.fallback.debounceMs
-const UNKNOWN_COUNTRY_KEY = '__unknown__'
 
 export interface SearchResultSpot extends SpotSummary {
   country: string | null
   countryEmoji: string | null
 }
 
-export interface SpotSearchGroup {
-  value: string
-  label: string | null
-  items: SearchResultSpot[]
-}
+export type SpotSearchRow = GeoRow<SearchResultSpot>
 
 function entryToResult(entry: SpotIndexEntry): SearchResultSpot {
   return {
@@ -29,6 +25,7 @@ function entryToResult(entry: SpotIndexEntry): SearchResultSpot {
     name: entry.name,
     location: { lat: entry.location_lat, long: entry.location_long },
     webcam: entry.webcam ?? undefined,
+    municipality: entry.municipality ?? undefined,
     country: entry.country,
     countryEmoji: entry.country_emoji,
   }
@@ -48,31 +45,10 @@ function searchLocalIndex(index: SpotIndex, query: string): SearchResultSpot[] {
   return spots
 }
 
-function groupByCountry(spots: SearchResultSpot[]): SpotSearchGroup[] {
-  const groups = new Map<string, SpotSearchGroup>()
-
-  for (const spot of spots) {
-    const key = spot.country ?? UNKNOWN_COUNTRY_KEY
-    const label = spot.country
-      ? `${spot.countryEmoji ? `${spot.countryEmoji} ` : ''}${spot.country}`
-      : 'Other'
-
-    const existing = groups.get(key)
-    if (existing) {
-      existing.items.push(spot)
-    } else {
-      groups.set(key, { value: key, label, items: [spot] })
-    }
-  }
-
-  return Array.from(groups.values())
-}
-
 export function useSpotSearch(): {
   query: string
   onInputValueChange: (value: string) => void
-  groupedItems: SpotSearchGroup[]
-  showGroupLabels: boolean
+  rows: SpotSearchRow[]
   isLoading: boolean
   error: string | null
   spotCount: number | null
@@ -173,19 +149,23 @@ export function useSpotSearch(): {
     return spots
   }, [spotIndex, query, spots])
 
-  const groupedItems = useMemo(
-    () => groupByCountry(displayedSpots),
-    [displayedSpots]
-  )
-
-  const showGroupLabels =
-    groupedItems.length > 1 || groupedItems[0]?.value !== UNKNOWN_COUNTRY_KEY
+  const rows = useMemo<SpotSearchRow[]>(() => {
+    if (!query.trim()) return []
+    return groupSpotsByGeo(
+      displayedSpots.map((spot) => ({
+        country: spot.country,
+        countryEmoji: spot.countryEmoji,
+        municipality: spot.municipality ?? null,
+        item: spot,
+      })),
+      (spot) => `${spot.id}`
+    )
+  }, [displayedSpots, query])
 
   return {
     query,
     onInputValueChange,
-    groupedItems: query.trim() ? groupedItems : [],
-    showGroupLabels,
+    rows,
     isLoading: Boolean(query.trim()) && isLoading,
     error: query.trim() ? error : null,
     spotCount: spotIndex?.count ?? null,

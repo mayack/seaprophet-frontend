@@ -5,8 +5,6 @@ import {
   BreadcrumbList,
   BreadcrumbItem,
   BreadcrumbSeparator,
-  BreadcrumbLink,
-  BreadcrumbPage,
 } from '@/components/ui/breadcrumb'
 import { Heart, HeartCrack } from 'lucide-react'
 import {
@@ -91,12 +89,12 @@ export function SpotDetailHeader({
               {(locationPath.countryEmoji || locationPath.country) && (
                 <>
                   <BreadcrumbItem>
-                    <BreadcrumbLink
+                    <span
                       aria-label={locationPath.country || undefined}
                       className="text-base leading-none"
                     >
                       {locationPath.countryEmoji || locationPath.country}
-                    </BreadcrumbLink>
+                    </span>
                   </BreadcrumbItem>
                   <BreadcrumbSeparator />
                 </>
@@ -104,22 +102,22 @@ export function SpotDetailHeader({
               {locationPath.region && (
                 <>
                   <BreadcrumbItem className="hidden sm:block">
-                    <BreadcrumbLink>{locationPath.region}</BreadcrumbLink>
+                    <span>{locationPath.region}</span>
                   </BreadcrumbItem>
                   <BreadcrumbSeparator className="hidden sm:block" />
                 </>
               )}
               {locationPath.district && (
                 <>
-                  <BreadcrumbItem>
-                    <BreadcrumbLink>{locationPath.district}</BreadcrumbLink>
+                  <BreadcrumbItem className="hidden sm:block">
+                    <span>{locationPath.district}</span>
                   </BreadcrumbItem>
-                  <BreadcrumbSeparator />
+                  <BreadcrumbSeparator className="hidden sm:block" />
                 </>
               )}
               {locationPath.municipality && (
                 <BreadcrumbItem>
-                  <BreadcrumbPage>{locationPath.municipality}</BreadcrumbPage>
+                  <span>{locationPath.municipality}</span>
                 </BreadcrumbItem>
               )}
             </BreadcrumbList>

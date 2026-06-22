@@ -11,6 +11,7 @@ export interface SpotIndexEntry {
   slug: string
   location_lat: number
   location_long: number
+  municipality: string | null
   country: string | null
   country_emoji: string | null
   webcam: WebcamConfig | null
@@ -70,7 +71,10 @@ function normalizeTerm(term: string): string {
 function buildIndex(entries: SpotIndexEntry[], version: string): SpotIndex {
   const search = new MiniSearch<SpotIndexEntry>({
     idField: 'id',
-    fields: ['name', 'name_normalized'],
+    // Spot name is boosted below so it always outranks an area match; spots are
+    // also findable by municipality and country (e.g. "france" → French spots).
+    // Region/district are intentionally not indexed in the current model.
+    fields: ['name', 'name_normalized', 'municipality', 'country'],
     storeFields: ['id'],
     processTerm: (term: string): string | null => {
       const normalized = normalizeTerm(term)

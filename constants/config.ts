@@ -105,7 +105,7 @@ export const CONFIG = {
   },
   search: {
     index: {
-      storageKey: 'spot-search-index-v3',
+      storageKey: 'spot-search-index-v6',
       // Serve the cached index instantly, but revalidate against the backend
       // `version` once it's older than this (and on tab focus). Short, since
       // revalidation is cheap and only rebuilds when the catalog changed.

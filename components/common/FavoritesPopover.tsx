@@ -21,23 +21,66 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { getFavoriteSpots } from '@/api/sargo/actions/spot'
 import { SpotsByCountry } from '@/api/sargo/interfaces/spot'
+import {
+  groupSpotsByGeo,
+  type GeoGroupFields,
+  type GeoRow,
+} from '@/lib/groupSpotsByGeo'
+import { cn } from '@/lib/utils'
 import { useUser } from '@/contexts/UserContext'
 import { useIsDesktop } from '@/hooks/useIsDesktop'
 
-function flattenSpots(
-  regions: SpotsByCountry[string]
-): { id: number; name: string; hasWebcam: boolean }[] {
-  return Object.values(regions).flatMap((districts) =>
-    Object.values(districts).flatMap((spots) =>
-      spots
-        .filter((spot) => spot?.id)
-        .map((spot) => ({
-          id: spot.id,
-          name: spot.name,
-          hasWebcam: !!spot.webcam,
-        }))
-    )
-  )
+interface FavoriteSpot {
+  id: number
+  name: string
+  hasWebcam: boolean
+}
+
+/** `countryKey` is "<emoji> <name>" (or just "<name>"); the leading run of
+ *  non-letters is the flag emoji, the rest is the country name. */
+function splitCountryKey(countryKey: string): {
+  emoji: string | null
+  name: string
+} {
+  const match = countryKey.match(/^([^\p{L}]+)(.*)$/u)
+  if (match && match[1].trim()) {
+    return { emoji: match[1].trim(), name: match[2].trim() }
+  }
+  return { emoji: null, name: countryKey }
+}
+
+/**
+ * Flatten the country → region → district structure into country → municipality
+ * rows (municipality comes from each spot), matching the search dropdown so both
+ * read identically.
+ */
+function toFavoriteRows(byCountry: SpotsByCountry): GeoRow<FavoriteSpot>[] {
+  const entries: Array<GeoGroupFields & { item: FavoriteSpot }> = []
+
+  for (const countryKey of Object.keys(byCountry)) {
+    const { emoji, name } = splitCountryKey(countryKey)
+    const regions = byCountry[countryKey]
+    for (const region of Object.keys(regions)) {
+      const districts = regions[region]
+      for (const district of Object.keys(districts)) {
+        for (const spot of districts[district]) {
+          if (!spot?.id) continue
+          entries.push({
+            country: name,
+            countryEmoji: emoji,
+            municipality: spot.municipality ?? null,
+            item: {
+              id: spot.id,
+              name: spot.name,
+              hasWebcam: !!spot.webcam,
+            },
+          })
+        }
+      }
+    }
+  }
+
+  return groupSpotsByGeo(entries, (spot) => `${spot.id}`)
 }
 
 export function FavoritesPopover(): React.JSX.Element {
@@ -95,7 +138,7 @@ export function FavoritesPopover(): React.JSX.Element {
     }
   }, [open, favorites.length, favoritesKey, lastFetchedKey, loadFavoriteSpots])
 
-  const countries = Object.keys(favoriteSpots).sort()
+  const rows = toFavoriteRows(favoriteSpots)
 
   const handleSpotSelect = (spotId: number): void => {
     setOpen(false)
@@ -143,38 +186,50 @@ export function FavoritesPopover(): React.JSX.Element {
               No favorite spots yet. Click the heart icon on a spot to add it.
             </DropdownMenuItem>
           )}
-          {!loading &&
-            !error &&
-            favorites.length > 0 &&
-            countries.length === 0 && (
-              <DropdownMenuItem disabled>Loading...</DropdownMenuItem>
-            )}
+          {!loading && !error && favorites.length > 0 && rows.length === 0 && (
+            <DropdownMenuItem disabled>Loading...</DropdownMenuItem>
+          )}
         </DropdownMenuGroup>
         {!loading &&
           !error &&
-          countries.map((country, index) => (
-            <React.Fragment key={country}>
-              {index > 0 && <DropdownMenuSeparator />}
-              <DropdownMenuGroup>
-                <DropdownMenuLabel className="text-popover-foreground">
-                  {country}
-                </DropdownMenuLabel>
-                {flattenSpots(favoriteSpots[country]).map((spot) => (
-                  <DropdownMenuItem
-                    key={spot.id}
-                    onClick={() => handleSpotSelect(spot.id)}
-                  >
-                    {spot.name}
-                    {spot.hasWebcam && (
-                      <DropdownMenuShortcut>
-                        <Video strokeWidth={1.5} />
-                      </DropdownMenuShortcut>
+          rows.map((row, index) => {
+            if (row.kind === 'header') {
+              return (
+                <React.Fragment key={row.key}>
+                  {row.level === 'country' && index > 0 && (
+                    <DropdownMenuSeparator />
+                  )}
+                  {/* Plain div, not DropdownMenuLabel: a Base UI Menu.GroupLabel
+                      must live inside a Menu.Group, but these headers are flat
+                      siblings. Styled to match the label. */}
+                  <div
+                    role="presentation"
+                    className={cn(
+                      'flex items-center gap-1.5 px-2 py-1.5 text-xs font-medium text-muted-foreground',
+                      row.level === 'country' &&
+                        'font-semibold text-popover-foreground'
                     )}
-                  </DropdownMenuItem>
-                ))}
-              </DropdownMenuGroup>
-            </React.Fragment>
-          ))}
+                  >
+                    {row.emoji && <span aria-hidden>{row.emoji}</span>}
+                    {row.label}
+                  </div>
+                </React.Fragment>
+              )
+            }
+            return (
+              <DropdownMenuItem
+                key={row.key}
+                onClick={() => handleSpotSelect(row.item.id)}
+              >
+                {row.item.name}
+                {row.item.hasWebcam && (
+                  <DropdownMenuShortcut>
+                    <Video strokeWidth={1.5} />
+                  </DropdownMenuShortcut>
+                )}
+              </DropdownMenuItem>
+            )
+          })}
       </DropdownMenuContent>
     </DropdownMenu>
   )

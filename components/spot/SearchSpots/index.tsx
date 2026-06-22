@@ -26,7 +26,11 @@ import { getHotkeyModifier, isEditableTarget } from '@/lib/hotkeys'
 import { useIsDesktop } from '@/hooks/useIsDesktop'
 import { useSpotNavigation } from '@/hooks/useSpotNavigation'
 import { useVisualViewport } from '@/hooks/useVisualViewport'
-import { type SearchResultSpot, useSpotSearch } from './useSpotSearch'
+import {
+  type SearchResultSpot,
+  type SpotSearchRow,
+  useSpotSearch,
+} from './useSpotSearch'
 import { cn } from '@/lib/utils'
 
 /** Ignore sloppy touch outside-press that fires on the same tap as open. */
@@ -44,8 +48,7 @@ function SpotSearchCommand({
   placeholder,
   query,
   onInputValueChange,
-  groupedItems,
-  showGroupLabels,
+  rows,
   isLoading,
   error,
   spotCount,
@@ -56,8 +59,7 @@ function SpotSearchCommand({
   placeholder: string
   query: string
   onInputValueChange: (value: string) => void
-  groupedItems: ReturnType<typeof useSpotSearch>['groupedItems']
-  showGroupLabels: boolean
+  rows: SpotSearchRow[]
   isLoading: boolean
   error: string | null
   spotCount: number | null
@@ -98,28 +100,40 @@ function SpotSearchCommand({
               : (error ?? 'No spots found')
             : emptyPrompt}
         </CommandEmpty>
-        {groupedItems.map((group) => (
-          <CommandGroup
-            key={group.value}
-            heading={showGroupLabels && group.label ? group.label : undefined}
-            className="**:[[cmdk-group-heading]]:text-foreground"
-          >
-            {group.items.map((spot) => (
+        <CommandGroup>
+          {rows.map((row) => {
+            if (row.kind === 'header') {
+              return (
+                <div
+                  key={row.key}
+                  role="presentation"
+                  className={cn(
+                    'flex items-center gap-1.5 px-2 py-1.5 text-xs font-medium text-muted-foreground',
+                    // small breathing room above every country block
+                    row.level === 'country' && 'mt-2 font-semibold text-foreground'
+                  )}
+                >
+                  {row.emoji && <span aria-hidden>{row.emoji}</span>}
+                  {row.label}
+                </div>
+              )
+            }
+            return (
               <CommandItem
-                key={spot.id}
-                value={`${spot.id}-${spot.name}`}
-                onSelect={() => onSelect(spot)}
+                key={row.key}
+                value={`${row.item.id}-${row.item.name}`}
+                onSelect={() => onSelect(row.item)}
               >
-                {spot.name}
-                {spot.webcam && (
+                {row.item.name}
+                {row.item.webcam && (
                   <CommandShortcut>
                     <Video strokeWidth={1.5} />
                   </CommandShortcut>
                 )}
               </CommandItem>
-            ))}
-          </CommandGroup>
-        ))}
+            )
+          })}
+        </CommandGroup>
       </CommandList>
     </Command>
   )
@@ -139,8 +153,7 @@ export function SearchSpots({
   const {
     query,
     onInputValueChange,
-    groupedItems,
-    showGroupLabels,
+    rows,
     isLoading,
     error,
     spotCount,
@@ -306,8 +319,7 @@ export function SearchSpots({
           placeholder={placeholder}
           query={query}
           onInputValueChange={onInputValueChange}
-          groupedItems={groupedItems}
-          showGroupLabels={showGroupLabels}
+          rows={rows}
           isLoading={isLoading}
           error={error}
           spotCount={spotCount}
