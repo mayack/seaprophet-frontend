@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useCallback, useEffect, useMemo, useState } from 'react'
+import React, { useMemo, useState } from 'react'
 import { useSpotNavigation } from '@/hooks/useSpotNavigation'
 import { Heart, Video } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -19,13 +19,13 @@ import {
   DropdownMenuShortcut,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { getFavoriteSpots } from '@/api/sargo/actions/spot'
-import { SpotsByCountry } from '@/api/sargo/interfaces/spot'
 import {
   groupSpotsByGeo,
   type GeoGroupFields,
   type GeoRow,
 } from '@/lib/groupSpotsByGeo'
+import { useSpotIndex } from '@/components/spot/SearchSpots/useSpotIndex'
+import type { SpotIndex } from '@/lib/spotSearchIndex'
 import { cn } from '@/lib/utils'
 import { useUser } from '@/contexts/UserContext'
 import { useIsDesktop } from '@/hooks/useIsDesktop'
@@ -36,48 +36,28 @@ interface FavoriteSpot {
   hasWebcam: boolean
 }
 
-/** `countryKey` is "<emoji> <name>" (or just "<name>"); the leading run of
- *  non-letters is the flag emoji, the rest is the country name. */
-function splitCountryKey(countryKey: string): {
-  emoji: string | null
-  name: string
-} {
-  const match = countryKey.match(/^([^\p{L}]+)(.*)$/u)
-  if (match && match[1].trim()) {
-    return { emoji: match[1].trim(), name: match[2].trim() }
-  }
-  return { emoji: null, name: countryKey }
-}
-
 /**
- * Flatten the country → region → district structure into country → municipality
- * rows (municipality comes from each spot), matching the search dropdown so both
- * read identically.
+ * Resolve favorite spot IDs against the already-loaded in-memory spot index
+ * (no network) and group them by country → municipality, matching the search
+ * dropdown. Favorites are just an ID list in user settings — like units — so
+ * the display is a pure client-side lookup rather than a per-open fetch.
  */
-function toFavoriteRows(byCountry: SpotsByCountry): GeoRow<FavoriteSpot>[] {
-  const entries: Array<GeoGroupFields & { item: FavoriteSpot }> = []
+function toFavoriteRows(
+  index: SpotIndex | null,
+  favoriteIds: number[]
+): GeoRow<FavoriteSpot>[] {
+  if (!index) return []
 
-  for (const countryKey of Object.keys(byCountry)) {
-    const { emoji, name } = splitCountryKey(countryKey)
-    const regions = byCountry[countryKey]
-    for (const region of Object.keys(regions)) {
-      const districts = regions[region]
-      for (const district of Object.keys(districts)) {
-        for (const spot of districts[district]) {
-          if (!spot?.id) continue
-          entries.push({
-            country: name,
-            countryEmoji: emoji,
-            municipality: spot.municipality ?? null,
-            item: {
-              id: spot.id,
-              name: spot.name,
-              hasWebcam: !!spot.webcam,
-            },
-          })
-        }
-      }
-    }
+  const entries: Array<GeoGroupFields & { item: FavoriteSpot }> = []
+  for (const id of favoriteIds) {
+    const entry = index.byId.get(id)
+    if (!entry) continue
+    entries.push({
+      country: entry.country,
+      countryEmoji: entry.country_emoji,
+      municipality: entry.municipality,
+      item: { id: entry.id, name: entry.name, hasWebcam: !!entry.webcam },
+    })
   }
 
   return groupSpotsByGeo(entries, (spot) => `${spot.id}`)
@@ -87,58 +67,21 @@ export function FavoritesPopover(): React.JSX.Element {
   const { userData } = useUser()
   const isDesktop = useIsDesktop()
   const { openSpotById } = useSpotNavigation()
-  const [favoriteSpots, setFavoriteSpots] = useState<SpotsByCountry>({})
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
   const [open, setOpen] = useState(false)
-  const [lastFetchedKey, setLastFetchedKey] = useState<string | null>(null)
+  const spotIndex = useSpotIndex()
 
   const favorites = useMemo(
     () => userData.settings.favorites || [],
     [userData.settings.favorites]
   )
-  const favoritesKey = useMemo(
-    () => JSON.stringify(favorites.slice().sort()),
-    [favorites]
+  const rows = useMemo(
+    () => toFavoriteRows(spotIndex, favorites),
+    [spotIndex, favorites]
   )
 
-  const loadFavoriteSpots = useCallback(async (): Promise<void> => {
-    if (favorites.length === 0) return
-
-    setLoading(true)
-    setError(null)
-
-    try {
-      const response = await getFavoriteSpots(favorites)
-      if (response.data) {
-        setFavoriteSpots(response.data)
-        setLastFetchedKey(favoritesKey)
-      }
-    } catch {
-      setError('Failed to load favorites')
-    } finally {
-      setLoading(false)
-    }
-  }, [favorites, favoritesKey])
-
-  useEffect(() => {
-    if (!open) return
-
-    if (favorites.length === 0) {
-      const raf = requestAnimationFrame(() => {
-        setFavoriteSpots({})
-        setLastFetchedKey(null)
-      })
-      return (): void => cancelAnimationFrame(raf)
-    }
-
-    if (lastFetchedKey !== favoritesKey) {
-      const raf = requestAnimationFrame(() => loadFavoriteSpots())
-      return (): void => cancelAnimationFrame(raf)
-    }
-  }, [open, favorites.length, favoritesKey, lastFetchedKey, loadFavoriteSpots])
-
-  const rows = toFavoriteRows(favoriteSpots)
+  // The only "loading" case left: we have favorites but the spot index hasn't
+  // finished loading yet (it's preloaded app-wide, so this is brief/rare).
+  const isResolving = favorites.length > 0 && spotIndex === null
 
   const handleSpotSelect = (spotId: number): void => {
     setOpen(false)
@@ -175,61 +118,53 @@ export function FavoritesPopover(): React.JSX.Element {
       >
         <DropdownMenuGroup>
           <DropdownMenuLabel>Favorite spots</DropdownMenuLabel>
-          {loading && <DropdownMenuItem disabled>Loading...</DropdownMenuItem>}
-          {!loading && error && (
-            <DropdownMenuItem disabled variant="destructive">
-              {error}
-            </DropdownMenuItem>
-          )}
-          {!loading && !error && favorites.length === 0 && (
+          {favorites.length === 0 && (
             <DropdownMenuItem disabled>
               No favorite spots yet. Click the heart icon on a spot to add it.
             </DropdownMenuItem>
           )}
-          {!loading && !error && favorites.length > 0 && rows.length === 0 && (
+          {isResolving && (
             <DropdownMenuItem disabled>Loading...</DropdownMenuItem>
           )}
         </DropdownMenuGroup>
-        {!loading &&
-          !error &&
-          rows.map((row, index) => {
-            if (row.kind === 'header') {
-              return (
-                <React.Fragment key={row.key}>
-                  {row.level === 'country' && index > 0 && (
-                    <DropdownMenuSeparator />
-                  )}
-                  {/* Plain div, not DropdownMenuLabel: a Base UI Menu.GroupLabel
+        {rows.map((row, index) => {
+          if (row.kind === 'header') {
+            return (
+              <React.Fragment key={row.key}>
+                {row.level === 'country' && index > 0 && (
+                  <DropdownMenuSeparator />
+                )}
+                {/* Plain div, not DropdownMenuLabel: a Base UI Menu.GroupLabel
                       must live inside a Menu.Group, but these headers are flat
                       siblings. Styled to match the label. */}
-                  <div
-                    role="presentation"
-                    className={cn(
-                      'flex items-center gap-1.5 px-2 py-1.5 text-xs font-medium text-muted-foreground',
-                      row.level === 'country' &&
-                        'font-semibold text-popover-foreground'
-                    )}
-                  >
-                    {row.emoji && <span aria-hidden>{row.emoji}</span>}
-                    {row.label}
-                  </div>
-                </React.Fragment>
-              )
-            }
-            return (
-              <DropdownMenuItem
-                key={row.key}
-                onClick={() => handleSpotSelect(row.item.id)}
-              >
-                {row.item.name}
-                {row.item.hasWebcam && (
-                  <DropdownMenuShortcut>
-                    <Video strokeWidth={1.5} />
-                  </DropdownMenuShortcut>
-                )}
-              </DropdownMenuItem>
+                <div
+                  role="presentation"
+                  className={cn(
+                    'flex items-center gap-1.5 px-2 py-1.5 text-xs font-medium text-muted-foreground',
+                    row.level === 'country' &&
+                      'font-semibold text-popover-foreground'
+                  )}
+                >
+                  {row.emoji && <span aria-hidden>{row.emoji}</span>}
+                  {row.label}
+                </div>
+              </React.Fragment>
             )
-          })}
+          }
+          return (
+            <DropdownMenuItem
+              key={row.key}
+              onClick={() => handleSpotSelect(row.item.id)}
+            >
+              {row.item.name}
+              {row.item.hasWebcam && (
+                <DropdownMenuShortcut>
+                  <Video strokeWidth={1.5} />
+                </DropdownMenuShortcut>
+              )}
+            </DropdownMenuItem>
+          )
+        })}
       </DropdownMenuContent>
     </DropdownMenu>
   )
