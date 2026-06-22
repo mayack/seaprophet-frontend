@@ -35,7 +35,7 @@ export function SpotDetailView({
           spots={data.nearbySpots}
           maxDistance={NEARBY_RADIUS_KM}
           title="Spots nearby"
-          className="mt-2 sm:mt-4"
+          className="mt-4 sm:mt-6"
         />
       ) : null}
 
