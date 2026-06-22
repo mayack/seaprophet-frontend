@@ -372,8 +372,10 @@ export function useMapbox(options: UseMapboxOptions = {}): UseMapboxReturn {
 
   // Retries re-invoke through a ref so the callback never references itself
   // (forbidden by the hooks lint).
-  const requestUserLocationRef = useRef<(() => void) | null>(null)
-  const requestUserLocation = useCallback(async () => {
+  const requestUserLocationRef = useRef<((recenter?: boolean) => void) | null>(
+    null
+  )
+  const requestUserLocation = useCallback(async (recenter = true) => {
     if (!mapInstance.current) {
       return
     }
@@ -394,8 +396,14 @@ export function useMapbox(options: UseMapboxOptions = {}): UseMapboxReturn {
       setRetryCount(0)
       createUserLocationMarkerWrapper(result)
       setupMoveHandler(result)
-      flyTo([result.longitude, result.latitude])
-      setLocationState('centered')
+      if (recenter) {
+        flyTo([result.longitude, result.latitude])
+        setLocationState('centered')
+      } else {
+        // Deep-linked to a spot: show the dot + a live (off-center) locate
+        // button, but keep the camera on the spot rather than flying to the user.
+        syncLocationStateToMapCenter()
+      }
     } else {
       switch (result.error) {
         case 'permission':
@@ -420,7 +428,7 @@ export function useMapbox(options: UseMapboxOptions = {}): UseMapboxReturn {
             setLocationState('loading') // Keep loading state during retry
 
             retryTimeoutRef.current = setTimeout(() => {
-              requestUserLocationRef.current?.()
+              requestUserLocationRef.current?.(recenter)
             }, retryDelay)
           } else {
             retryCountRef.current = 0
@@ -440,6 +448,7 @@ export function useMapbox(options: UseMapboxOptions = {}): UseMapboxReturn {
     clearLocation,
     createUserLocationMarkerWrapper,
     setupMoveHandler,
+    syncLocationStateToMapCenter,
     flyTo,
     MAX_RETRIES,
     RETRY_DELAYS,
@@ -602,9 +611,17 @@ export function useMapbox(options: UseMapboxOptions = {}): UseMapboxReturn {
                 // center so it's clickable when we're away from the user.
                 syncLocationStateToMapCenter()
               }
-            } else if (!skipAutoUserLocation) {
-              // First-time user - request location and flyTo when found
-              requestUserLocation()
+            } else if (
+              locationPermissionRef.current === 'granted' ||
+              !skipAutoUserLocation
+            ) {
+              // No cached location. Re-determine it so the dot + locate button
+              // work — but only auto-request when it won't trigger an
+              // unsolicited prompt: either permission is already granted (a
+              // returning user whose 5-min cache expired, e.g. the tab was
+              // discarded and reloaded as a deep link) or it's a normal,
+              // non-deep-link load. Recenter only when it's not a deep link.
+              requestUserLocation(!skipAutoUserLocation)
             }
           }, 100)
         }
