@@ -61,7 +61,7 @@ export function SpotsNearby({
 
   return (
     <div className={className}>
-      <div className="mb-1.5 flex min-h-8 items-center justify-between px-4 sm:mb-2 sm:px-6">
+      <div className="flex min-h-8 items-center justify-between px-4 sm:px-6">
         <h2 className="grow font-semibold sm:text-lg">{title}</h2>
         {spots.length > 0 && showControls && (
           <div className="hidden shrink-0 rounded-md border border-border bg-background shadow-xs sm:flex dark:bg-transparent">
@@ -89,7 +89,7 @@ export function SpotsNearby({
         )}
       </div>
       {spots.length === 0 ? (
-        <div className="px-4 sm:px-6">
+        <div className="px-4 sm:px-6 mt-2 sm:mt-3">
           <EmptyState
             icon={SearchX}
             title="No spots found"
@@ -99,7 +99,7 @@ export function SpotsNearby({
       ) : (
         <div className="relative">
           <div className="embla overflow-hidden px-4 sm:px-6" ref={emblaRef}>
-            <div className="embla__container flex gap-2 pb-2">
+            <div className="embla__container flex gap-2 pb-2 pt-2 sm:pt-3">
               {spots.map((spot) => (
                 <div
                   key={spot.id}
