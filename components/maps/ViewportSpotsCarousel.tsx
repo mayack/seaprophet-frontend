@@ -76,7 +76,7 @@ export function ViewportSpotsCarousel({
           <div className="flex rounded-md shadow-sm ring-1 ring-foreground/10">
             <Button
               variant="elevated"
-              size="icon-sm"
+              size="icon-xs"
               onClick={scrollPrev}
               disabled={!canPrev}
               aria-label="Previous visible spots"
@@ -86,7 +86,7 @@ export function ViewportSpotsCarousel({
             </Button>
             <Button
               variant="elevated"
-              size="icon-sm"
+              size="icon-xs"
               onClick={scrollNext}
               disabled={!canNext}
               aria-label="Next visible spots"
