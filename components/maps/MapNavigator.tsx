@@ -167,6 +167,7 @@ export function MapNavigator({
     isSpotOpen,
     activeSpot,
     mobileBottomInset,
+    isDirectSpotLink,
   })
 
   useEffect(() => {
