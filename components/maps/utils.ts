@@ -164,7 +164,7 @@ export function createMap(options: CreateMapOptions): mapboxgl.Map {
 }
 
 // Location utilities for maps (thresholds use Haversine via calculateDistance).
-export function calculateDistanceInMeters(
+function calculateDistanceInMeters(
   lat1: number,
   lng1: number,
   lat2: number,
@@ -187,22 +187,6 @@ export function isUserCloseToLocation(
     targetLng
   )
   return distance < thresholdMeters
-}
-
-export function isUserPannedAway(
-  userLat: number,
-  userLng: number,
-  currentLat: number,
-  currentLng: number,
-  thresholdMeters: number = CONFIG.map.location.alreadyAtLocationThreshold / 2
-): boolean {
-  const distance = calculateDistanceInMeters(
-    userLat,
-    userLng,
-    currentLat,
-    currentLng
-  )
-  return distance > thresholdMeters
 }
 
 // User location — rendered as a GL symbol layer using a self-animating image

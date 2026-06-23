@@ -10,6 +10,7 @@ import {
   spotPinHoverTooltipOffsetPx,
   clusterHoverTooltipOffsetPx,
   spotPinIconSizeExpression,
+  clusterIconSizeExpression,
 } from './spotLayerIcons'
 import { getMapThemeColors } from './mapThemeColors'
 import { canUseHoverTooltips } from '@/lib/pointerCapabilities'
@@ -295,27 +296,6 @@ function unclusteredPinLayout(
   }
 }
 
-function clusterIconSizeExpression(): mapboxgl.ExpressionSpecification {
-  // 1.0 = base cluster image (sizeRatio × pin). Scales up with point_count.
-  return [
-    'interpolate',
-    ['linear'],
-    ['get', 'point_count'],
-    2,
-    1,
-    10,
-    1.12,
-    25,
-    1.24,
-    50,
-    1.36,
-    100,
-    1.48,
-    250,
-    1.58,
-  ]
-}
-
 function clusterTextSizeExpression(): mapboxgl.ExpressionSpecification {
   const base = CONFIG.map.clusters.textSize
   return [
@@ -373,7 +353,7 @@ function resetSpotLayerDataCache(): void {
   activeClusterHoverId = null
 }
 
-export function spotsToFeatureCollection(
+function spotsToFeatureCollection(
   spots: SpotSummary[]
 ): SpotPointFeatureCollection {
   return {

@@ -16,8 +16,8 @@ import {
   switchMapStyle,
   getMapStyle,
   isUserCloseToLocation,
-  isUserPannedAway,
   isWebKitBrowser,
+  USER_LOCATION_LAYER_ID,
   type UserLocationLayer,
 } from './utils'
 import {
@@ -27,9 +27,9 @@ import {
   resetSpotLayerState,
   updateSpotLayerData,
   updateSpotLayerTheme,
-  SPOTS_CLUSTERS_LAYER_ID,
   type SpotLayerState,
 } from './spotClusters'
+import { layerBeforeId } from './mapLayerStack'
 import type { UseMapboxOptions, UseMapboxReturn } from '@/types/map'
 import { CONFIG } from '@/constants/config'
 import { SpotSummary } from '@/api/sargo/interfaces/spot'
@@ -137,7 +137,7 @@ export function useMapbox(options: UseMapboxOptions = {}): UseMapboxReturn {
           mapInstance.current,
           location,
           userLocationMarker.current,
-          SPOTS_CLUSTERS_LAYER_ID
+          layerBeforeId(mapInstance.current, USER_LOCATION_LAYER_ID)
         )
         userMarkerRetryCountRef.current = 0
       } catch {
@@ -230,28 +230,32 @@ export function useMapbox(options: UseMapboxOptions = {}): UseMapboxReturn {
         mapInstance.current.off('moveend', moveHandlerRef.current)
       }
 
+      // Single source of truth for the locate button: whenever the camera
+      // settles, derive centered/off-center from where the map actually is
+      // relative to the user. Because this re-reads geometry on *every*
+      // moveend, it's immune to ordering — an intermediate settle (e.g. one
+      // camera animation interrupting another) may briefly read off-center,
+      // but the final settle always lands on the truth. No flags to get
+      // consumed by the wrong event.
       const handleMove = (): void => {
-        const currentCenter = mapInstance.current?.getCenter()
-        const currentLocationState = locationStateRef.current
-        const userLocation = userLocationRef.current
+        // No dot on the map means there's no centered/off-center concept yet
+        // (idle / locating / permission-denied) — don't clobber those states.
+        if (!userLocationMarker.current) return
 
-        if (
-          currentCenter &&
-          currentLocationState === 'centered' &&
-          userLocation
-        ) {
-          // Check if user panned away from location
-          if (
-            isUserPannedAway(
-              userLocation.latitude,
-              userLocation.longitude,
-              currentCenter.lat,
-              currentCenter.lng
-            )
-          ) {
-            setLocationState('off-center')
-          }
-        }
+        const currentCenter = mapInstance.current?.getCenter()
+        const userLocation = userLocationRef.current
+        if (!currentCenter || !userLocation) return
+
+        setLocationState(
+          isUserCloseToLocation(
+            userLocation.latitude,
+            userLocation.longitude,
+            currentCenter.lat,
+            currentCenter.lng
+          )
+            ? 'centered'
+            : 'off-center'
+        )
       }
 
       moveHandlerRef.current = handleMove
@@ -605,7 +609,8 @@ export function useMapbox(options: UseMapboxOptions = {}): UseMapboxReturn {
               if (!skipInitialFlyTo && !atUser) {
                 // Animate to the user; the view ends up centered. Set the
                 // state now (rather than syncing) because getCenter() still
-                // reports the pre-animation center mid-flight.
+                // reports the pre-animation center mid-flight — the trailing
+                // moveend re-confirms it from the final position.
                 flyTo([userData.longitude, userData.latitude])
                 setLocationState('centered')
               } else {
@@ -775,7 +780,7 @@ export function useMapbox(options: UseMapboxOptions = {}): UseMapboxReturn {
           map,
           { latitude: lat, longitude: lng },
           undefined,
-          SPOTS_CLUSTERS_LAYER_ID
+          layerBeforeId(map, USER_LOCATION_LAYER_ID)
         )
       })
     }

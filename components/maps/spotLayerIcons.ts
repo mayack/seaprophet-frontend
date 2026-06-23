@@ -6,7 +6,7 @@ function clusterPixelSize(): number {
   return Math.round(CONFIG.map.markers.size * CONFIG.map.clusters.sizeRatio)
 }
 
-function spotPinPixelSize(): number {
+export function spotPinPixelSize(): number {
   return Math.round(CONFIG.map.markers.size * 1.4)
 }
 
@@ -96,7 +96,8 @@ function spotPinSvg(selected: boolean, icon: SpotPinIcon): string {
   </svg>`
 }
 
-function loadSvgImage(
+/** Rasterise an SVG string to an `HTMLImageElement` for `map.addImage`. */
+export function loadSvgImage(
   svg: string,
   width: number,
   height: number
@@ -195,6 +196,20 @@ function clusterIconSizeAtPointCount(pointCount: number): number {
   }
 
   return 1
+}
+
+/**
+ * Cluster icon scales with `point_count`. Same single source of truth
+ * (`CLUSTER_ICON_SIZE_STOPS`) as `clusterDisplayRadiusPx`, so the rendered size
+ * and the hover-tooltip offset can't drift apart.
+ */
+export function clusterIconSizeExpression(): mapboxgl.ExpressionSpecification {
+  return [
+    'interpolate',
+    ['linear'],
+    ['get', 'point_count'],
+    ...CLUSTER_ICON_SIZE_STOPS.flatMap(([count, size]) => [count, size]),
+  ]
 }
 
 /** Screen-pixel radius of a cluster icon for a given point count. */
