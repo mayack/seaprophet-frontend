@@ -120,10 +120,8 @@ export interface MapLocationConfig {
   /** Location request timeouts */
   timeouts: {
     standard: number
-    highAccuracy: number
     maxAge: {
       standard: number
-      highAccuracy: number
       /** OS-fix max age for "fresh" requests (locate button, poll). */
       fresh: number
     }

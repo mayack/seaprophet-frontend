@@ -143,10 +143,8 @@ export const CONFIG = {
       pollDegradedRecoveryAttempts: 5,
       timeouts: {
         standard: 10000, // ms - standard location request timeout
-        highAccuracy: 15000, // ms - high accuracy location request timeout
         maxAge: {
           standard: 300000, // ms - 5 minutes
-          highAccuracy: 60000, // ms - 1 minute
           // "Fresh" requests (locate button, poll) bypass our own cache but may
           // still reuse a recent OS fix — far faster than a cold acquisition and
           // avoids timing out when GPS is warm. 0 here would force a full re-fix.

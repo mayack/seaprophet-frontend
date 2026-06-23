@@ -21,10 +21,7 @@ interface UserContextType {
   // wholesale replace so location/id/calibrationReporter survive a settings or
   // favorites update.
   updateUser: (patch: Partial<UserWithLocation>) => void
-  requestLocation: (
-    highAccuracy?: boolean,
-    forceFresh?: boolean
-  ) => Promise<
+  requestLocation: (forceFresh?: boolean) => Promise<
     | { latitude: number; longitude: number }
     // `busy` = another request already holds the geolocation lock (contention),
     // distinct from a real failure so callers can ignore it rather than count it.
@@ -143,10 +140,9 @@ export function UserProvider({
   }, [])
 
   const requestLocation = useCallback(
-    async (highAccuracy: boolean = false, forceFresh: boolean = false) => {
-      // `forceFresh` bypasses every cache (our sessionStorage entry AND the OS
-      // `maximumAge` below) so the caller gets a genuinely current fix — used by
-      // the location poll and the locate button.
+    async (forceFresh: boolean = false) => {
+      // `forceFresh` skips our sessionStorage cache (the OS `maximumAge` below
+      // still permits a recent fix) — used by the location poll and locate button.
       if (!forceFresh) {
         // Read the cache from sessionStorage (always fresh) rather than closed-over
         // state, which would go stale since this callback is memoized at mount.
@@ -177,9 +173,7 @@ export function UserProvider({
       try {
         const position = await new Promise<GeolocationPosition>(
           (resolve, reject) => {
-            const timeout = highAccuracy
-              ? timeouts.highAccuracy
-              : timeouts.standard
+            const timeout = timeouts.standard
             const timeoutId = setTimeout(() => {
               reject(new Error('Location request timed out'))
             }, timeout + 2000)
@@ -194,7 +188,7 @@ export function UserProvider({
                 reject(err)
               },
               {
-                enableHighAccuracy: highAccuracy,
+                enableHighAccuracy: false,
                 timeout,
                 // `forceFresh` bypasses our sessionStorage cache (above) but still
                 // lets the OS return a recent fix — much faster than a cold
@@ -202,9 +196,7 @@ export function UserProvider({
                 // when a usable position already exists.
                 maximumAge: forceFresh
                   ? timeouts.maxAge.fresh
-                  : highAccuracy
-                    ? timeouts.maxAge.highAccuracy
-                    : timeouts.maxAge.standard,
+                  : timeouts.maxAge.standard,
               }
             )
           }
@@ -341,7 +333,7 @@ export function UserProvider({
       )
         return
 
-      const result = await requestLocation(false, true)
+      const result = await requestLocation(true)
       if (!('error' in result)) {
         pollFailuresRef.current = 0
         if (locationDegraded) markLocationDegraded(false) // recovered

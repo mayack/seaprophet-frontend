@@ -415,7 +415,7 @@ export function useMapbox(options: UseMapboxOptions = {}): UseMapboxReturn {
       // the controller drops the fly when we resolve.
       if (recenter) cameraRef.current?.beginRecenter()
       // Force a fresh fix so tapping locate truly re-locates (not a cached point).
-      const result = await requestLocation(false, true)
+      const result = await requestLocation(true)
 
       if ('latitude' in result && 'longitude' in result) {
         // Reset retry count on success + clear any limp mode (we recovered).
