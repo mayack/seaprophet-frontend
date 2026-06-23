@@ -1,14 +1,10 @@
 'use client'
 
 import type mapboxgl from 'mapbox-gl'
+import { CONFIG } from '@/constants/config'
 import { isUserCloseToLocation } from './utils'
 
 type LngLat = [number, number]
-
-interface CameraView {
-  center: LngLat
-  zoom: number
-}
 
 interface SpotCameraInput {
   id: number
@@ -20,8 +16,6 @@ interface SpotCameraInput {
   paddingKey: string
   /** Direct /spot/[id] load may jump straight onto the first spot (no fly-in). */
   allowJump: boolean
-  /** Zoom the "return" view uses for a jumped-to direct link. */
-  defaultZoom: number
 }
 
 const SPOT_FLY_MS = 800
@@ -57,7 +51,13 @@ export class MapCamera {
 
   private focusSpotId: number | null = null
   private focusPaddingKey = ''
-  private preFocusView: CameraView | null = null
+  // What closing an untouched card restores: the visited spot stays centered,
+  // and we animate the zoom back to whatever the user had before they opened the
+  // first card of the session (null → fall back to the default load zoom). We
+  // deliberately do NOT restore the pre-focus *center* — flying back to wherever
+  // the user happened to be is disorienting after searching a distant spot.
+  private preFocusZoom: number | null = null
+  private focusedCenter: LngLat | null = null
   private epochAtFocus = 0
   private firstFocusDone = false
 
@@ -161,16 +161,15 @@ export class MapCamera {
     if (input.id !== this.focusSpotId) {
       const isFreshOpen = this.focusSpotId === null
       if (isFreshOpen) {
-        // Start of a browsing session: snapshot what closing returns to and
-        // reset the takeover baseline. A direct link has no prior view, so it
-        // "zooms back out" onto the spot itself.
+        // Start of a browsing session: remember the zoom to return to and reset
+        // the takeover baseline. A direct link has no prior zoom, so closing
+        // falls back to the default load zoom.
         const jump = !this.firstFocusDone && input.allowJump
-        this.preFocusView = jump
-          ? { center: input.center, zoom: input.defaultZoom }
-          : this.currentView()
+        this.preFocusZoom = jump ? null : this.map.getZoom()
         this.epochAtFocus = this.epoch
         this.firstFocusDone = true
         this.focusSpotId = input.id
+        this.focusedCenter = input.center
         this.focusPaddingKey = input.paddingKey
         this.map.stop()
         if (jump) {
@@ -185,9 +184,11 @@ export class MapCamera {
         return
       }
 
-      // Spot-hop A → B: keep the original return view + takeover baseline.
+      // Spot-hop A → B: keep the original zoom + takeover baseline, but track the
+      // latest spot so closing zooms out with *it* centered.
       this.firstFocusDone = true
       this.focusSpotId = input.id
+      this.focusedCenter = input.center
       this.focusPaddingKey = input.paddingKey
       this.map.stop()
       this.moveToSpot(input.center, targetZoom, input.padding, needsZoomIn)
@@ -211,24 +212,27 @@ export class MapCamera {
   }
 
   /**
-   * Card closed: zoom back out to the pre-focus view, unless the user took the
-   * camera over while it was open (or there's no view to return to, e.g. a deep
-   * link), in which case just shed the panel padding without a visible shift.
+   * Card closed: keep the visited spot centered and animate the zoom back to what
+   * the user had before opening the card (or the default load zoom if there's
+   * nothing to restore). If the user took the camera over while the card was
+   * open, just shed the panel padding without a visible shift instead.
    */
   endSpotFocus(): void {
-    const view = this.preFocusView
+    const center = this.focusedCenter
+    const zoom = this.preFocusZoom ?? CONFIG.map.defaults.zoom
     const tookOver = this.epoch !== this.epochAtFocus
     this.clearFocusTracking()
-    this.preFocusView = null
+    this.focusedCenter = null
+    this.preFocusZoom = null
 
-    if (tookOver || !view) {
+    if (tookOver || !center) {
       this.clearPaddingInPlace()
       return
     }
     this.map.stop()
     this.map.easeTo({
-      center: view.center,
-      zoom: view.zoom,
+      center,
+      zoom,
       padding: { top: 0, bottom: 0, left: 0, right: 0 },
       duration: SPOT_RESTORE_MS,
       essential: true,
@@ -236,7 +240,8 @@ export class MapCamera {
   }
 
   /** Reset focus tracking without moving (panel closed without a camera reset).
-   *  Deliberately leaves `preFocusView`/`epochAtFocus` for `endSpotFocus` to own. */
+   *  Deliberately leaves `preFocusZoom`/`focusedCenter`/`epochAtFocus` for
+   *  `endSpotFocus` to own. */
   clearFocusTracking(): void {
     this.focusSpotId = null
     this.focusPaddingKey = ''
@@ -290,11 +295,6 @@ export class MapCamera {
   private isAt(coords: LngLat): boolean {
     const center = this.map.getCenter()
     return isUserCloseToLocation(coords[1], coords[0], center.lat, center.lng)
-  }
-
-  private currentView(): CameraView {
-    const center = this.map.getCenter()
-    return { center: [center.lng, center.lat], zoom: this.map.getZoom() }
   }
 
   /**

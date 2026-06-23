@@ -6,7 +6,6 @@ import {
   getSpotFocusPadding,
 } from '@/lib/spotFocusPadding'
 import { useBreakpoint } from '@/hooks/useBreakpoint'
-import { CONFIG } from '@/constants/config'
 import type { MapCamera } from '@/components/maps/mapCamera'
 
 const SELECTED_SPOT_ZOOM = 13
@@ -72,7 +71,6 @@ export function useSpotCamera({
       padding,
       paddingKey,
       allowJump: isDirectSpotLink,
-      defaultZoom: CONFIG.map.defaults.zoom,
     })
   }, [
     camera,
