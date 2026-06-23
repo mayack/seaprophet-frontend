@@ -4,7 +4,7 @@ import type { HomeSpot, UserSettings } from '@/api/sargo/interfaces/user'
  * Fallback home spot for users who haven't set one yet — Peniche, PT. So the
  * marker and the settings row work for every existing user out of the box.
  */
-export const HOME_SPOT_FALLBACK: Required<HomeSpot> = {
+const HOME_SPOT_FALLBACK: Required<HomeSpot> = {
   latitude: 39.362799,
   longitude: -9.389969,
   name: 'Peniche',
@@ -45,6 +45,6 @@ export function getHomeSpot(
 }
 
 /** Human-readable coordinate label used when no place name is available. */
-export function formatCoords(latitude: number, longitude: number): string {
+function formatCoords(latitude: number, longitude: number): string {
   return `${latitude.toFixed(3)}, ${longitude.toFixed(3)}`
 }

@@ -31,7 +31,7 @@ export function hasDevModeAccess(user: {
 }
 
 /** Whether dev mode is toggled on in settings. */
-export function isDevModeEnabled(user: {
+function isDevModeEnabled(user: {
   settings?: Partial<UserSettings> | null
 }): boolean {
   return normalizeUserSettings(user.settings).camObserverEnabled

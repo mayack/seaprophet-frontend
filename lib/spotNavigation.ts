@@ -15,9 +15,9 @@
  * Route files: `app/(authenticated)/(map)/`
  */
 
-export const MAP_INDEX_PATH = '/' as const
+const MAP_INDEX_PATH = '/' as const
 
-export function isSpotRoute(pathname: string | null | undefined): boolean {
+function isSpotRoute(pathname: string | null | undefined): boolean {
   return pathname?.startsWith('/spot/') ?? false
 }
 
@@ -29,7 +29,7 @@ export function getSpotIdFromRoute(
   return Number.isFinite(id) && id > 0 ? id : null
 }
 
-export function spotPath(spotId: number): string {
+function spotPath(spotId: number): string {
   return `/spot/${spotId}`
 }
 

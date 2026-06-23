@@ -1,11 +1,6 @@
 // Simple error types for the most common cases
 export type ErrorType = 'auth' | 'network' | 'validation' | 'unknown'
 
-// Standard HTTP status codes (use native Response.status instead of custom constants)
-export const isClientError = (status: number): boolean =>
-  status >= 400 && status < 500
-export const isServerError = (status: number): boolean => status >= 500
-
 // Simple error creator for consistent error responses
 export function createError(
   message: string,

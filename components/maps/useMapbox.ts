@@ -163,60 +163,6 @@ export function useMapbox(options: UseMapboxOptions = {}): UseMapboxReturn {
     createUserLocationMarkerWrapperRef.current = createUserLocationMarkerWrapper
   }, [createUserLocationMarkerWrapper])
 
-  // Follow polled location updates (see UserContext): nudge the dot to the
-  // latest position, and keep the move handler's reference point current.
-  // While the user is centered (e.g. moving in a car) the camera follows too,
-  // but only past the GPS-jitter threshold so a stationary dot doesn't make the
-  // map twitch each poll. Panning away flips the state to off-center, which
-  // stops the following — same model as Google Maps.
-  useEffect(() => {
-    if (!isLoaded) return
-
-    // No coords (never located, or permission denied/cleared) → ensure no dot.
-    // This makes "do we have a location" the single source of truth for the
-    // dot, so a denied/cleared location can never leave a stale dot behind.
-    if (userData.latitude == null || userData.longitude == null) {
-      userLocationMarker.current?.remove()
-      userLocationMarker.current = null
-      return
-    }
-
-    if (!userLocationMarker.current) return
-
-    const location = {
-      latitude: userData.latitude,
-      longitude: userData.longitude,
-    }
-    createUserLocationMarkerWrapper(location)
-    userLocationRef.current = location
-
-    const map = mapInstance.current
-    if (!map || locationStateRef.current !== 'centered') return
-
-    const center = map.getCenter()
-    if (
-      isUserCloseToLocation(
-        location.latitude,
-        location.longitude,
-        center.lat,
-        center.lng
-      )
-    ) {
-      return
-    }
-
-    map.easeTo({
-      center: [location.longitude, location.latitude],
-      duration: 1000,
-      essential: true,
-    })
-  }, [
-    userData.latitude,
-    userData.longitude,
-    isLoaded,
-    createUserLocationMarkerWrapper,
-  ])
-
   // Setup move handler for location tracking
   const setupMoveHandler = useCallback(
     (location: { latitude: number; longitude: number }) => {
@@ -283,6 +229,75 @@ export function useMapbox(options: UseMapboxOptions = {}): UseMapboxReturn {
     )
     setLocationState(isClose ? 'centered' : 'off-center')
   }, [])
+
+  // Single reconcile for the user-location dot, driven by the latest
+  // geolocation fix (see UserContext). One effect owns the whole marker
+  // lifecycle so create / update / remove can't get split across effects or
+  // race each other:
+  //   • no coords (never located, or permission denied/cleared) → no dot, so
+  //     "do we have a location" is the single source of truth and a stale dot
+  //     can never linger;
+  //   • first fix → create the dot, wire up the move handler, and derive the
+  //     button state from the current map center (we may be far from the user,
+  //     e.g. a remembered view);
+  //   • later fixes (polls) → move the dot, and while centered (e.g. driving)
+  //     follow with the camera — but only past the GPS-jitter threshold so a
+  //     stationary dot doesn't make the map twitch each poll. Panning away
+  //     flips the state to off-center, which stops the following (Google Maps
+  //     model).
+  useEffect(() => {
+    if (!isLoaded || !mapInstance.current || !showUserLocation) return
+
+    if (userData.latitude == null || userData.longitude == null) {
+      userLocationMarker.current?.remove()
+      userLocationMarker.current = null
+      return
+    }
+
+    const location = {
+      latitude: userData.latitude,
+      longitude: userData.longitude,
+    }
+    const isFirstFix = !userLocationMarker.current
+
+    createUserLocationMarkerWrapper(location)
+    userLocationRef.current = location
+
+    if (isFirstFix) {
+      setupMoveHandler(location)
+      syncLocationStateToMapCenter()
+      return
+    }
+
+    const map = mapInstance.current
+    if (locationStateRef.current !== 'centered') return
+
+    const center = map.getCenter()
+    if (
+      isUserCloseToLocation(
+        location.latitude,
+        location.longitude,
+        center.lat,
+        center.lng
+      )
+    ) {
+      return
+    }
+
+    map.easeTo({
+      center: [location.longitude, location.latitude],
+      duration: 1000,
+      essential: true,
+    })
+  }, [
+    userData.latitude,
+    userData.longitude,
+    isLoaded,
+    showUserLocation,
+    createUserLocationMarkerWrapper,
+    setupMoveHandler,
+    syncLocationStateToMapCenter,
+  ])
 
   const syncSpotLayersToMap = useCallback(
     async (map: mapboxgl.Map, spots: SpotSummary[]): Promise<void> => {
@@ -731,36 +746,6 @@ export function useMapbox(options: UseMapboxOptions = {}): UseMapboxReturn {
       essential: true,
     })
   }, [center, isLoaded])
-
-  // Handle user location changes without reinitializing map
-  useEffect(() => {
-    if (!isLoaded || !mapInstance.current || !showUserLocation) return
-
-    // If user location is available and no marker exists, create one
-    if (
-      userData.latitude &&
-      userData.longitude &&
-      !userLocationMarker.current
-    ) {
-      createUserLocationMarkerWrapper({
-        latitude: userData.latitude,
-        longitude: userData.longitude,
-      })
-      setupMoveHandler({
-        latitude: userData.latitude,
-        longitude: userData.longitude,
-      })
-      syncLocationStateToMapCenter()
-    }
-  }, [
-    userData.latitude,
-    userData.longitude,
-    isLoaded,
-    showUserLocation,
-    createUserLocationMarkerWrapper,
-    setupMoveHandler,
-    syncLocationStateToMapCenter,
-  ])
 
   // Re-apply spot layers after style reloads (theme toggle).
   useLayoutEffect(() => {

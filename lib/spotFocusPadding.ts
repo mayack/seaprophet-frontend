@@ -19,14 +19,14 @@ export function getMobilePanelHeightPx(
 }
 
 /** Active Tailwind desktop tier from viewport width. */
-export function getDesktopPanelTier(
+function getDesktopPanelTier(
   viewportWidth = typeof window !== 'undefined' ? window.innerWidth : 0
 ): SpotPanelDesktopTier {
   return viewportWidth >= SPOT_PANEL.breakpoints.lg ? 'lg' : 'md'
 }
 
 /** Map right padding (px) — panel width + gap for the current desktop tier. */
-export function getDesktopRightPaddingPx(
+function getDesktopRightPaddingPx(
   viewportWidth = typeof window !== 'undefined' ? window.innerWidth : 0
 ): number {
   const tier = getDesktopPanelTier(viewportWidth)

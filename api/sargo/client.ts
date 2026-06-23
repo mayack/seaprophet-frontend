@@ -6,7 +6,7 @@ import { User, UserAuthResponse, UserSettings } from './interfaces/user'
 import { Spot } from './interfaces/spot'
 import type { SubmitCamObserverReportInput } from './interfaces/camObserver'
 import { GeographicBounds } from '@/types/map'
-import { KM_PER_LAT_DEGREE } from '@/utils/location'
+import { calculateBounds } from '@/utils/location'
 
 // Strapi populate chain for the full municipality → country location tree.
 // Shared so the spot-detail, by-country, and by-id queries can't drift.
@@ -161,21 +161,13 @@ export class SargoClient extends BaseApiClient {
     radiusKm: number = 30,
     isPublic = true
   ): Promise<{ data: Spot[] }> {
-    const deltaLat = radiusKm / KM_PER_LAT_DEGREE
-    const latRad = lat * (Math.PI / 180)
-    const kmPerLonDegree = KM_PER_LAT_DEGREE * Math.cos(latRad)
-    const deltaLon = radiusKm / kmPerLonDegree
-
-    const minLat = lat - deltaLat
-    const maxLat = lat + deltaLat
-    const minLon = lon - deltaLon
-    const maxLon = lon + deltaLon
+    const { north, south, east, west } = calculateBounds(lat, lon, radiusKm)
 
     const queryParams = new URLSearchParams({
-      'filters[location_lat][$gte]': minLat.toString(),
-      'filters[location_lat][$lte]': maxLat.toString(),
-      'filters[location_long][$gte]': minLon.toString(),
-      'filters[location_long][$lte]': maxLon.toString(),
+      'filters[location_lat][$gte]': south.toString(),
+      'filters[location_lat][$lte]': north.toString(),
+      'filters[location_long][$gte]': west.toString(),
+      'filters[location_long][$lte]': east.toString(),
       'filters[$not][location_lat]': lat.toString(),
       'filters[$not][location_long]': lon.toString(),
       'fields[0]': 'name',

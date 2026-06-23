@@ -11,7 +11,7 @@ interface JwtClaims {
   [key: string]: unknown
 }
 
-export function decodeJwt(token: string): JwtClaims | null {
+function decodeJwt(token: string): JwtClaims | null {
   try {
     return jwtDecode<JwtClaims>(token)
   } catch {
