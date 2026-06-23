@@ -679,21 +679,13 @@ export function useMapbox(options: UseMapboxOptions = {}): UseMapboxReturn {
               return
             }
             if (userData.latitude && userData.longitude) {
-              // Cached fix: create the dot + move handler, then let the camera
-              // controller decide whether to fly. We arm the recenter unless the
-              // map was initialized at a remembered/deep-linked position
-              // (skipInitialFlyTo) — and the controller additionally skips the
-              // fly when we're already at the user, or if the user managed to
-              // grab the camera during the ~100ms settle.
-              createUserLocationMarkerWrapper({
-                latitude: userData.latitude,
-                longitude: userData.longitude,
-              })
-              setupMoveHandler({
-                latitude: userData.latitude,
-                longitude: userData.longitude,
-              })
-
+              // Cached fix: the reactive effect above owns creating the dot +
+              // move handler (it runs the moment `isLoaded` flips, before this
+              // settle fires). Here we only arm the recenter — unless the map was
+              // initialized at a remembered/deep-linked position (skipInitialFlyTo)
+              // — and let the controller decide whether to fly (it skips when
+              // we're already at the user, or the user grabbed the camera during
+              // the ~100ms settle).
               if (!skipInitialFlyTo) cameraRef.current?.beginRecenter()
               const outcome =
                 cameraRef.current?.resolveRecenter([
