@@ -29,4 +29,17 @@ export interface UserSettings {
   favorites?: number[] // Array of spot IDs
   /** Dev mode on/off. Persisted key; will be renamed to `devMode`. Defaults to true. */
   camObserverEnabled?: boolean
+  /**
+   * User's personal "home break". Anchors the map when geolocation is off and
+   * renders as a persistent marker. Unset for existing users — they fall back
+   * to the Peniche default (see `lib/homeSpot.ts`).
+   */
+  homeSpot?: HomeSpot
+}
+
+export interface HomeSpot {
+  latitude: number
+  longitude: number
+  /** Reverse-geocoded place name, resolved on save. Absent if lookup failed. */
+  name?: string
 }

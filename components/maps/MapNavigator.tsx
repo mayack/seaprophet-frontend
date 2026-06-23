@@ -1,13 +1,34 @@
 'use client'
 
-import React, { useEffect, useCallback, useMemo } from 'react'
+import React, { useEffect, useCallback, useMemo, useState } from 'react'
 import 'mapbox-gl/dist/mapbox-gl.css'
 import { usePathname } from 'next/navigation'
+import { toast } from 'sonner'
 import { useUser } from '@/contexts/UserContext'
+import { useHomeSpot } from '@/contexts/HomeSpotContext'
 import { useMapbox } from './useMapbox'
-import { getLocationButtonLabel, getLocationButtonAction } from './utils'
-import { Loader2, Plus, Minus, Locate, LocateFixed, LocateOff } from './icons'
+import { useHomeSpotMarker } from './useHomeSpotMarker'
+import {
+  getLocationButtonLabel,
+  getLocationButtonAction,
+  USER_LOCATION_LAYER_ID,
+} from './utils'
+import {
+  Loader2,
+  Plus,
+  Minus,
+  Locate,
+  LocateFixed,
+  LocateOff,
+  Move,
+  HouseHeart,
+} from './icons'
 import { Button } from '@/components/ui/button'
+import { Spinner } from '@/components/ui/spinner'
+import { getHomeSpot } from '@/lib/homeSpot'
+import { reverseGeocode } from '@/lib/reverseGeocode'
+import { normalizeUserSettings } from '@/lib/userSettings'
+import { updateUserSettings } from '@/api/sargo/actions/user'
 import {
   Tooltip,
   TooltipContent,
@@ -33,7 +54,12 @@ import {
 import { useMapInitialCenter } from '@/hooks/useMapInitialCenter'
 import { spotsCache } from '@/components/maps/utils'
 import { getSpotIdFromRoute } from '@/lib/spotNavigation'
-import { syncActiveSpotPinState } from '@/components/maps/spotClusters'
+import {
+  syncActiveSpotPinState,
+  SPOTS_CLUSTERS_LAYER_ID,
+  SPOTS_UNCLUSTERED_LAYER_ID,
+  SPOTS_UNCLUSTERED_SELECTED_LAYER_ID,
+} from '@/components/maps/spotClusters'
 import { ViewportSpotsCarousel } from '@/components/maps/ViewportSpotsCarousel'
 
 export function MapNavigator({
@@ -45,7 +71,8 @@ export function MapNavigator({
 }: MapNavigatorProps): React.JSX.Element {
   const spotPanel = useSpotPanel()
   const { openSpot, isSpotOpen } = useSpotNavigation()
-  const { userData } = useUser()
+  const { userData, updateUser } = useUser()
+  const { isEditing, beginEdit, cancelEdit, finishEdit } = useHomeSpot()
   const { isSpotPanelDesktop: isDesktop } = useBreakpoint()
   const pathname = usePathname()
   const directSpotId = getSpotIdFromRoute(pathname)
@@ -59,6 +86,13 @@ export function MapNavigator({
     return [cachedDirectSpot.location.long, cachedDirectSpot.location.lat]
   }, [directSpotId])
 
+  // Resolved home spot (stored or Peniche fallback) — also anchors the map when
+  // there's no live location / remembered view.
+  const homeSpot = useMemo(
+    () => getHomeSpot(userData.settings),
+    [userData.settings]
+  )
+
   const { initialView, mapInitCenter, spotLoadCenter } = useMapInitialCenter(
     getRememberedMapView(),
     userData.latitude,
@@ -66,6 +100,7 @@ export function MapNavigator({
     {
       preferCenter: directSpotCenter,
       ignoreUserLocation: isDirectSpotLink,
+      fallbackCenter: [homeSpot.longitude, homeSpot.latitude],
     }
   )
 
@@ -111,13 +146,19 @@ export function MapNavigator({
   const mobileBottomInset = spotPanel.mobileBottomInset
   const mapTouchBlocked =
     !isDesktop && isSpotOpen && spotPanel.mobileSheetSnap === 'expanded'
-  const userLocation = useMemo(() => {
-    if (userData.latitude === undefined || userData.longitude === undefined) {
-      return undefined
+  // Reference point for spot-card distances: the live GPS fix when we have it,
+  // otherwise the home spot — so distances still show with location disabled.
+  const distanceOrigin = useMemo(() => {
+    if (userData.latitude !== undefined && userData.longitude !== undefined) {
+      return { latitude: userData.latitude, longitude: userData.longitude }
     }
-
-    return { latitude: userData.latitude, longitude: userData.longitude }
-  }, [userData.latitude, userData.longitude])
+    return { latitude: homeSpot.latitude, longitude: homeSpot.longitude }
+  }, [
+    userData.latitude,
+    userData.longitude,
+    homeSpot.latitude,
+    homeSpot.longitude,
+  ])
 
   const { resetFocus } = useSpotCamera({
     map,
@@ -143,7 +184,7 @@ export function MapNavigator({
     initialRadius,
     viewportPadding,
     activeSpotId: activeSpot?.id ?? null,
-    userLocation,
+    userLocation: distanceOrigin,
     updateSpotLayers,
   })
 
@@ -169,6 +210,103 @@ export function MapNavigator({
     }
   }, [locationState, recenterToUser, requestUserLocation])
 
+  // ── Home spot ─────────────────────────────────────────────────────────────
+  const [isSavingHome, setIsSavingHome] = useState(false)
+
+  const goToHomeSpot = useCallback((): void => {
+    if (!map) return
+    map.flyTo({
+      center: [homeSpot.longitude, homeSpot.latitude],
+      zoom: Math.max(map.getZoom(), 12),
+      duration: 1000,
+      essential: true,
+    })
+  }, [map, homeSpot.longitude, homeSpot.latitude])
+
+  const { editPositionRef, overlay: homeSpotOverlay } = useHomeSpotMarker({
+    map,
+    isLoaded,
+    longitude: homeSpot.longitude,
+    latitude: homeSpot.latitude,
+    name: homeSpot.name,
+    isEditing,
+    onRequestEdit: useCallback(() => beginEdit('map'), [beginEdit]),
+  })
+
+  // Frame the home spot when entering set-home mode so the draggable marker is
+  // centered and visible.
+  useEffect(() => {
+    if (!isEditing || !map || !isLoaded) return
+    map.flyTo({
+      center: [homeSpot.longitude, homeSpot.latitude],
+      zoom: Math.max(map.getZoom(), 12),
+      duration: 800,
+      essential: true,
+    })
+    // Fly once on entering edit mode; deliberately not reacting to coord changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isEditing, map, isLoaded])
+
+  // Clear the map to "just the home heart" while editing: hide spot pins and the
+  // user-location dot, restore them on exit.
+  useEffect(() => {
+    if (!map || !isLoaded) return
+    const layerIds = [
+      SPOTS_CLUSTERS_LAYER_ID,
+      SPOTS_UNCLUSTERED_LAYER_ID,
+      SPOTS_UNCLUSTERED_SELECTED_LAYER_ID,
+      USER_LOCATION_LAYER_ID,
+    ]
+    const visibility = isEditing ? 'none' : 'visible'
+    for (const id of layerIds) {
+      if (map.getLayer(id)) {
+        map.setLayoutProperty(id, 'visibility', visibility)
+      }
+    }
+  }, [isEditing, map, isLoaded, visibleSpots])
+
+  const handleSaveHomeSpot = useCallback(async (): Promise<void> => {
+    const pos = editPositionRef.current
+    if (!pos || isSavingHome) return
+
+    setIsSavingHome(true)
+    const resolvedName = await reverseGeocode(pos.lng, pos.lat)
+
+    const previous = normalizeUserSettings(userData.settings)
+    const newSettings = normalizeUserSettings({
+      ...previous,
+      homeSpot: {
+        longitude: pos.lng,
+        latitude: pos.lat,
+        name: resolvedName ?? undefined,
+      },
+    })
+
+    // Optimistic: move the marker + exit edit mode immediately, reconcile after.
+    updateUser({ settings: newSettings })
+    finishEdit()
+
+    try {
+      const result = await updateUserSettings(newSettings)
+      if (!result.success) {
+        updateUser({ settings: previous })
+        toast.error(result.error || 'Could not save your home spot')
+      } else {
+        updateUser({
+          settings: normalizeUserSettings(result.settings ?? newSettings),
+        })
+        toast.success('Home spot updated')
+      }
+    } catch (error) {
+      updateUser({ settings: previous })
+      toast.error(
+        error instanceof Error ? error.message : 'Could not save your home spot'
+      )
+    } finally {
+      setIsSavingHome(false)
+    }
+  }, [editPositionRef, isSavingHome, userData.settings, updateUser, finishEdit])
+
   return (
     <div style={{ height: height }} className="relative bg-muted">
       <div
@@ -180,109 +318,174 @@ export function MapNavigator({
         )}
       />
 
-      <TooltipProvider>
-        <div className="absolute top-4 left-4 flex flex-col items-start gap-3">
-          <SearchSpots />
-          <div className="flex w-full flex-col items-center gap-y-3">
-            <div className="flex flex-col rounded-md shadow-sm ring-1 ring-foreground/10">
-              <Tooltip>
-                <TooltipTrigger
-                  render={
-                    <Button
-                      variant="elevated"
-                      size="icon-sm"
-                      onClick={zoomIn}
-                      aria-label="Zoom in"
-                      className="rounded-t-md rounded-b-none shadow-none ring-0"
-                    />
-                  }
-                >
-                  <Plus />
-                </TooltipTrigger>
-                <TooltipContent side="right" sideOffset={12}>
-                  Zoom in
-                </TooltipContent>
-              </Tooltip>
-              <Tooltip>
-                <TooltipTrigger
-                  render={
-                    <Button
-                      variant="elevated"
-                      size="icon-sm"
-                      onClick={zoomOut}
-                      aria-label="Zoom out"
-                      className="rounded-t-none rounded-b-md shadow-none ring-0"
-                    />
-                  }
-                >
-                  <Minus />
-                </TooltipTrigger>
-                <TooltipContent side="right" sideOffset={12}>
-                  Zoom out
-                </TooltipContent>
-              </Tooltip>
-            </div>
-            <Tooltip>
-              <TooltipTrigger
-                render={
-                  <Button
-                    variant="elevated"
-                    size="icon-sm"
-                    onClick={handleLocationButtonClick}
-                    disabled={locationState === 'loading'}
-                    aria-label={getLocationButtonLabel({
+      {homeSpotOverlay}
+
+      {!isEditing && (
+        <TooltipProvider>
+          <div className="absolute top-4 left-4 flex flex-col items-start gap-3">
+            <SearchSpots />
+            <div className="flex w-full flex-col items-center gap-y-3">
+              <div className="flex flex-col rounded-md shadow-sm ring-1 ring-foreground/10">
+                <Tooltip>
+                  <TooltipTrigger
+                    render={
+                      <Button
+                        variant="elevated"
+                        size="icon-sm"
+                        onClick={zoomIn}
+                        aria-label="Zoom in"
+                        className="rounded-t-md rounded-b-none shadow-none ring-0"
+                      />
+                    }
+                  >
+                    <Plus />
+                  </TooltipTrigger>
+                  <TooltipContent side="right" sideOffset={12}>
+                    Zoom in
+                  </TooltipContent>
+                </Tooltip>
+                <Tooltip>
+                  <TooltipTrigger
+                    render={
+                      <Button
+                        variant="elevated"
+                        size="icon-sm"
+                        onClick={zoomOut}
+                        aria-label="Zoom out"
+                        className="rounded-t-none rounded-b-md shadow-none ring-0"
+                      />
+                    }
+                  >
+                    <Minus />
+                  </TooltipTrigger>
+                  <TooltipContent side="right" sideOffset={12}>
+                    Zoom out
+                  </TooltipContent>
+                </Tooltip>
+              </div>
+              <div className="flex flex-col rounded-md shadow-sm ring-1 ring-foreground/10">
+                <Tooltip>
+                  <TooltipTrigger
+                    render={
+                      <Button
+                        variant="elevated"
+                        size="icon-sm"
+                        onClick={handleLocationButtonClick}
+                        disabled={locationState === 'loading'}
+                        aria-label={getLocationButtonLabel({
+                          state: locationState,
+                          retryCount,
+                          maxRetries: CONFIG.map.location.maxRetries,
+                        })}
+                        className="rounded-t-md rounded-b-none shadow-none ring-0"
+                      />
+                    }
+                  >
+                    {locationState === 'loading' && (
+                      <Locate className="animate-spin" />
+                    )}
+                    {locationState === 'centered' && (
+                      <LocateFixed className="text-blue-500" />
+                    )}
+                    {locationState === 'off-center' && (
+                      <Locate className="text-blue-500" />
+                    )}
+                    {(locationState === 'error' ||
+                      locationState === 'permission-denied') && (
+                      <LocateOff className="text-red-500" />
+                    )}
+                    {locationState === 'idle' && <Locate />}
+                  </TooltipTrigger>
+                  <TooltipContent side="right" sideOffset={12}>
+                    {getLocationButtonLabel({
                       state: locationState,
                       retryCount,
                       maxRetries: CONFIG.map.location.maxRetries,
                     })}
-                  />
-                }
-              >
-                {locationState === 'loading' && (
-                  <Locate className="animate-spin" />
-                )}
-                {locationState === 'centered' && (
-                  <LocateFixed className="text-blue-500" />
-                )}
-                {locationState === 'off-center' && (
-                  <Locate className="text-blue-500" />
-                )}
-                {(locationState === 'error' ||
-                  locationState === 'permission-denied') && (
-                  <LocateOff className="text-red-500" />
-                )}
-                {locationState === 'idle' && <Locate />}
-              </TooltipTrigger>
-              <TooltipContent side="right" sideOffset={12}>
-                {getLocationButtonLabel({
-                  state: locationState,
-                  retryCount,
-                  maxRetries: CONFIG.map.location.maxRetries,
-                })}
-              </TooltipContent>
-            </Tooltip>
-            {isLoading && (
-              <div
-                className="flex size-8 items-center justify-center"
-                aria-label={CONFIG.map.ui.loadingText}
-              >
-                <Loader2 className="size-4 animate-spin text-muted-foreground" />
+                  </TooltipContent>
+                </Tooltip>
+                <Tooltip>
+                  <TooltipTrigger
+                    render={
+                      <Button
+                        variant="elevated"
+                        size="icon-sm"
+                        onClick={goToHomeSpot}
+                        aria-label="Go to your home spot"
+                        className="rounded-t-none rounded-b-md shadow-none ring-0"
+                      />
+                    }
+                  >
+                    <HouseHeart />
+                  </TooltipTrigger>
+                  <TooltipContent side="right" sideOffset={12}>
+                    Home spot
+                  </TooltipContent>
+                </Tooltip>
               </div>
-            )}
+              {isLoading && (
+                <div
+                  className="flex size-8 items-center justify-center"
+                  aria-label={CONFIG.map.ui.loadingText}
+                >
+                  <Loader2 className="size-4 animate-spin text-muted-foreground" />
+                </div>
+              )}
+            </div>
           </div>
-        </div>
 
-        <div className="absolute top-4 right-4 flex flex-row items-center gap-3">
-          <FavoritesPopover />
-          <UserMenu user={userData} />
-        </div>
-      </TooltipProvider>
+          <div className="absolute top-4 right-4 flex flex-row items-center gap-3">
+            <FavoritesPopover />
+            <UserMenu user={userData} />
+          </div>
+        </TooltipProvider>
+      )}
 
-      <ViewportSpotsCarousel
-        spots={visibleSpots}
-        visible={!isSpotOpen}
-        onSelectSpot={handleSpotClick}
-      />
+      {!isEditing && (
+        <ViewportSpotsCarousel
+          spots={visibleSpots}
+          visible={!isSpotOpen}
+          onSelectSpot={handleSpotClick}
+        />
+      )}
+
+      {isEditing && (
+        <>
+          {/* Instruction banner */}
+          <div className="pointer-events-none absolute inset-x-0 top-[calc(env(safe-area-inset-top,0px)+1.5rem)] flex justify-center px-4">
+            <div className="pointer-events-auto flex max-w-[min(28rem,calc(100%-2rem))] items-center justify-center gap-2 rounded-full bg-popover px-4 py-2 text-center text-sm font-medium text-popover-foreground shadow-md ring-1 ring-foreground/10">
+              <Move className="size-4 shrink-0 text-muted-foreground" />
+              Drag the marker to your home spot
+            </div>
+          </div>
+
+          {/* Cancel / Save */}
+          <div className="absolute inset-x-0 bottom-[calc(env(safe-area-inset-bottom,0px)+1.5rem)] flex justify-center gap-3 px-4">
+            <Button
+              variant="elevated"
+              size="lg"
+              onClick={cancelEdit}
+              disabled={isSavingHome}
+            >
+              Cancel
+            </Button>
+            <Button
+              size="lg"
+              onClick={handleSaveHomeSpot}
+              disabled={isSavingHome}
+            >
+              {isSavingHome ? (
+                <>
+                  <Spinner />
+                  Saving…
+                </>
+              ) : (
+                'Save home spot'
+              )}
+            </Button>
+          </div>
+        </>
+      )}
     </div>
   )
 }

@@ -375,84 +375,87 @@ export function useMapbox(options: UseMapboxOptions = {}): UseMapboxReturn {
   const requestUserLocationRef = useRef<((recenter?: boolean) => void) | null>(
     null
   )
-  const requestUserLocation = useCallback(async (recenter = true) => {
-    if (!mapInstance.current) {
-      return
-    }
-
-    // Clear any existing retry timeout
-    if (retryTimeoutRef.current) {
-      clearTimeout(retryTimeoutRef.current)
-      retryTimeoutRef.current = null
-    }
-
-    setLocationState('loading')
-    // Force a fresh fix so tapping locate truly re-locates (not a cached point).
-    const result = await requestLocation(false, true)
-
-    if ('latitude' in result && 'longitude' in result) {
-      // Reset retry count on success
-      retryCountRef.current = 0
-      setRetryCount(0)
-      createUserLocationMarkerWrapper(result)
-      setupMoveHandler(result)
-      if (recenter) {
-        flyTo([result.longitude, result.latitude])
-        setLocationState('centered')
-      } else {
-        // Deep-linked to a spot: show the dot + a live (off-center) locate
-        // button, but keep the camera on the spot rather than flying to the user.
-        syncLocationStateToMapCenter()
+  const requestUserLocation = useCallback(
+    async (recenter = true) => {
+      if (!mapInstance.current) {
+        return
       }
-    } else {
-      switch (result.error) {
-        case 'permission':
-          retryCountRef.current = 0
-          setRetryCount(0)
-          // Clear any stale coords so the existing dot is removed (a denied
-          // retry from the button must not leave the old dot on the map).
-          clearLocation()
-          setLocationState('permission-denied')
-          break
-        case 'unavailable':
-        case 'timeout':
-          const currentRetryCount = retryCountRef.current
-          if (currentRetryCount < MAX_RETRIES) {
-            const nextRetryCount = currentRetryCount + 1
-            const retryDelay =
-              RETRY_DELAYS[currentRetryCount] ||
-              RETRY_DELAYS[RETRY_DELAYS.length - 1]
 
-            retryCountRef.current = nextRetryCount
-            setRetryCount(nextRetryCount)
-            setLocationState('loading') // Keep loading state during retry
+      // Clear any existing retry timeout
+      if (retryTimeoutRef.current) {
+        clearTimeout(retryTimeoutRef.current)
+        retryTimeoutRef.current = null
+      }
 
-            retryTimeoutRef.current = setTimeout(() => {
-              requestUserLocationRef.current?.(recenter)
-            }, retryDelay)
-          } else {
+      setLocationState('loading')
+      // Force a fresh fix so tapping locate truly re-locates (not a cached point).
+      const result = await requestLocation(false, true)
+
+      if ('latitude' in result && 'longitude' in result) {
+        // Reset retry count on success
+        retryCountRef.current = 0
+        setRetryCount(0)
+        createUserLocationMarkerWrapper(result)
+        setupMoveHandler(result)
+        if (recenter) {
+          flyTo([result.longitude, result.latitude])
+          setLocationState('centered')
+        } else {
+          // Deep-linked to a spot: show the dot + a live (off-center) locate
+          // button, but keep the camera on the spot rather than flying to the user.
+          syncLocationStateToMapCenter()
+        }
+      } else {
+        switch (result.error) {
+          case 'permission':
+            retryCountRef.current = 0
+            setRetryCount(0)
+            // Clear any stale coords so the existing dot is removed (a denied
+            // retry from the button must not leave the old dot on the map).
+            clearLocation()
+            setLocationState('permission-denied')
+            break
+          case 'unavailable':
+          case 'timeout':
+            const currentRetryCount = retryCountRef.current
+            if (currentRetryCount < MAX_RETRIES) {
+              const nextRetryCount = currentRetryCount + 1
+              const retryDelay =
+                RETRY_DELAYS[currentRetryCount] ||
+                RETRY_DELAYS[RETRY_DELAYS.length - 1]
+
+              retryCountRef.current = nextRetryCount
+              setRetryCount(nextRetryCount)
+              setLocationState('loading') // Keep loading state during retry
+
+              retryTimeoutRef.current = setTimeout(() => {
+                requestUserLocationRef.current?.(recenter)
+              }, retryDelay)
+            } else {
+              retryCountRef.current = 0
+              setRetryCount(0)
+              setLocationState('error')
+            }
+            break
+          case 'unsupported':
             retryCountRef.current = 0
             setRetryCount(0)
             setLocationState('error')
-          }
-          break
-        case 'unsupported':
-          retryCountRef.current = 0
-          setRetryCount(0)
-          setLocationState('error')
-          break
+            break
+        }
       }
-    }
-  }, [
-    requestLocation,
-    clearLocation,
-    createUserLocationMarkerWrapper,
-    setupMoveHandler,
-    syncLocationStateToMapCenter,
-    flyTo,
-    MAX_RETRIES,
-    RETRY_DELAYS,
-  ])
+    },
+    [
+      requestLocation,
+      clearLocation,
+      createUserLocationMarkerWrapper,
+      setupMoveHandler,
+      syncLocationStateToMapCenter,
+      flyTo,
+      MAX_RETRIES,
+      RETRY_DELAYS,
+    ]
+  )
   useEffect(() => {
     requestUserLocationRef.current = requestUserLocation
   }, [requestUserLocation])

@@ -27,6 +27,7 @@ import { CONFIG } from '@/constants/config'
 import { SettingsDialog } from './SettingsDialog'
 import { useIsDesktop } from '@/hooks/useIsDesktop'
 import { Spinner } from '@/components/ui/spinner'
+import { useHomeSpot } from '@/contexts/HomeSpotContext'
 
 interface UserMenuProps {
   user: User
@@ -34,7 +35,7 @@ interface UserMenuProps {
 
 export function UserMenu({ user }: UserMenuProps): React.JSX.Element | null {
   const isDesktop = useIsDesktop()
-  const [settingsOpen, setSettingsOpen] = useState(false)
+  const { settingsOpen, setSettingsOpen } = useHomeSpot()
   const [isSigningOut, setIsSigningOut] = useState(false)
   const [hotkeyModifier, setHotkeyModifier] = useState('Ctrl')
 
@@ -57,7 +58,7 @@ export function UserMenu({ user }: UserMenuProps): React.JSX.Element | null {
 
     window.addEventListener('keydown', onKeyDown)
     return (): void => window.removeEventListener('keydown', onKeyDown)
-  }, [])
+  }, [setSettingsOpen])
 
   const handleSignOut = async (event: React.SyntheticEvent): Promise<void> => {
     event.preventDefault()

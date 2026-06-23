@@ -212,7 +212,7 @@ export function isUserPannedAway(
 // with the map's render loop via `triggerRepaint`, which keeps the pulse smooth
 // (no per-frame `setPaintProperty`, which stutters).
 const USER_LOCATION_SOURCE_ID = 'user-location'
-const USER_LOCATION_LAYER_ID = 'user-location'
+export const USER_LOCATION_LAYER_ID = 'user-location'
 const USER_LOCATION_IMAGE_ID = 'user-location-pulse'
 const USER_DOT_COLOR = '#3b82f6' // blue-500 — matches the previous marker
 // Canvas px at pixelRatio 2 → halve for screen px. 12 → 6px radius = 12px dot

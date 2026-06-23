@@ -5,4 +5,6 @@ export {
   Locate,
   LocateFixed,
   LocateOff,
+  Move,
+  HouseHeart,
 } from 'lucide-react'

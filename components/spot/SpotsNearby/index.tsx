@@ -61,10 +61,10 @@ export function SpotsNearby({
 
   return (
     <div className={className}>
-      <div className="flex min-h-6 items-center justify-between px-4 mb-0.5 sm:mb-2 sm:px-6">
-        <h2 className="grow font-semibold text-sm sm:text-base">{title}</h2>
+      <div className="mb-0.5 flex min-h-6 items-center justify-between px-4 sm:mb-2 sm:px-6">
+        <h2 className="grow text-sm font-semibold sm:text-base">{title}</h2>
         {spots.length > 0 && showControls && (
-          <div className="hidden shrink-0 rounded-md ring-1 ring-border bg-background shadow-xs sm:flex dark:bg-transparent">
+          <div className="hidden shrink-0 rounded-md bg-background shadow-xs ring-1 ring-border sm:flex dark:bg-transparent">
             <Button
               variant="outline"
               size="icon-xs"
