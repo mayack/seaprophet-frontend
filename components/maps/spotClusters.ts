@@ -555,7 +555,10 @@ export function updateSpotLayerData(
 export function attachSpotLayerInteractions(
   map: mapboxgl.Map,
   state: SpotLayerState,
-  onSpotClick: (spot: SpotSummary) => void
+  onSpotClick: (spot: SpotSummary) => void,
+  /** Called when the user navigates via the map itself (e.g. expanding a
+   *  cluster) so the camera controller can treat it as a takeover. */
+  onUserNavigate?: () => void
 ): void {
   if (state.listenersAttached) return
 
@@ -574,6 +577,7 @@ export function attachSpotLayerInteractions(
     handler: (event) => {
       const feature = clusterFeatureAt(map, event)
       if (!feature) return
+      onUserNavigate?.()
       expandCluster(map, feature)
     },
   })

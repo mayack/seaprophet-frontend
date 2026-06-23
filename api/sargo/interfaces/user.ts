@@ -30,6 +30,12 @@ export interface UserSettings {
   /** Dev mode on/off. Persisted key; will be renamed to `devMode`. Defaults to true. */
   camObserverEnabled?: boolean
   /**
+   * Location tracking on/off. When off, the app never requests geolocation,
+   * polls, or shows the user dot — even with browser permission granted.
+   * Defaults to true (opt-out).
+   */
+  locationTrackingEnabled?: boolean
+  /**
    * User's personal "home break". Anchors the map when geolocation is off and
    * renders as a persistent marker. Unset for existing users — they fall back
    * to the Peniche default (see `lib/homeSpot.ts`).

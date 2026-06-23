@@ -4,9 +4,10 @@ import { normalizeUserUnits } from '@/constants/units'
 
 export type NormalizedUserSettings = Omit<
   UserSettings,
-  'camObserverEnabled'
+  'camObserverEnabled' | 'locationTrackingEnabled'
 > & {
   camObserverEnabled: boolean
+  locationTrackingEnabled: boolean
 }
 
 /** Ensure settings always include a full units object and favorites array. */
@@ -20,6 +21,8 @@ export function normalizeUserSettings(
     units: normalizeUserUnits(base.units),
     // Dev mode toggle; persisted as camObserverEnabled (→ devMode rename planned).
     camObserverEnabled: base.camObserverEnabled !== false,
+    // Location tracking; opt-out, so defaults to on.
+    locationTrackingEnabled: base.locationTrackingEnabled !== false,
   }
 }
 

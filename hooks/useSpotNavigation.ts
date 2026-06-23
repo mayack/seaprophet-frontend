@@ -19,7 +19,7 @@ export function useSpotNavigation(): {
   spotId: number | null
   openSpot: (spot: SpotNavTarget) => void
   openSpotById: (spotId: number) => void
-  closeSpot: () => void
+  closeSpot: (options?: { resetCamera?: boolean }) => void
 } {
   const spotPanel = useSpotPanel()
   const activeSpot = spotPanel.activeSpot
@@ -36,11 +36,17 @@ export function useSpotNavigation(): {
     [spotPanel, activeSpot?.id]
   )
 
-  const closeSpot = useCallback((): void => {
-    spotPanel.clearMapFocus()
-    spotPanel.clearPanelState()
-    syncSpotUrl(null)
-  }, [spotPanel])
+  const closeSpot = useCallback(
+    ({ resetCamera = true }: { resetCamera?: boolean } = {}): void => {
+      // Skip the camera restore when the caller is handing the camera to
+      // something else (e.g. entering set-home mode, which flies to the home
+      // spot) — otherwise the restore animation fights that move.
+      if (resetCamera) spotPanel.clearMapFocus()
+      spotPanel.clearPanelState()
+      syncSpotUrl(null)
+    },
+    [spotPanel]
+  )
 
   // Tracks the most recent openSpotById target so a slow fetch can't clobber
   // a newer selection (click favorite A, then B before A's fetch resolves).

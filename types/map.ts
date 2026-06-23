@@ -1,3 +1,4 @@
+import type { MapCamera } from '@/components/maps/mapCamera'
 import { SpotSummary } from '@/api/sargo/interfaces/spot'
 
 // Geographic and spatial types
@@ -67,6 +68,8 @@ export interface UseMapboxReturn {
   mapRef: React.RefObject<HTMLDivElement | null>
   /** Mapbox map instance */
   map: mapboxgl.Map | null
+  /** Camera controller — single owner of all camera moves + takeover tracking. */
+  camera: MapCamera | null
   /** Whether map has loaded */
   isLoaded: boolean
   /** Update clustered + symbol pin layers from spots in view. */

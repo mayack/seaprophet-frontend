@@ -260,8 +260,30 @@ export function UserProvider({
       userData.latitude !== undefined && userData.longitude !== undefined
   }, [userData.latitude, userData.longitude])
 
+  // Opt-out switch (Settings → Location): when off, no requests, no polling, no
+  // dot — even with browser permission granted. Defaults to on.
+  const locationTrackingEnabled =
+    userData.settings?.locationTrackingEnabled !== false
+  const trackingWasEnabledRef = useRef(locationTrackingEnabled)
+
   useEffect(() => {
     if (typeof navigator === 'undefined' || !navigator.geolocation) return
+
+    const wasEnabled = trackingWasEnabledRef.current
+    trackingWasEnabledRef.current = locationTrackingEnabled
+
+    // Opted out: drop any fix (removes the dot reactively) and don't track.
+    // Deferred a frame so state isn't set synchronously in the effect body.
+    if (!locationTrackingEnabled) {
+      const raf = requestAnimationFrame(() => clearLocation())
+      return (): void => cancelAnimationFrame(raf)
+    }
+
+    // Just opted back in: fetch a fresh fix right away so the dot returns. The
+    // user explicitly re-enabled tracking, so a permission prompt is expected.
+    if (!wasEnabled) {
+      void requestLocation(false, true)
+    }
 
     let permissionDenied = false
     let intervalId: ReturnType<typeof setInterval> | null = null
@@ -318,7 +340,7 @@ export function UserProvider({
       document.removeEventListener('visibilitychange', handleVisibility)
       window.removeEventListener('pageshow', handlePageShow)
     }
-  }, [requestLocation])
+  }, [requestLocation, locationTrackingEnabled, clearLocation])
 
   // Memoize so consumers don't re-render on every parent render with a
   // brand-new object identity. `setUserData` is a setState fn (stable);

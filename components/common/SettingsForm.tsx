@@ -53,7 +53,11 @@ import {
   type UpdatePasswordState,
   type UpdateUsernameState,
 } from '@/api/sargo/actions/user'
-import { hasDevModeAccess, normalizeUserSettings } from '@/lib/userSettings'
+import {
+  hasDevModeAccess,
+  normalizeUserSettings,
+  type NormalizedUserSettings,
+} from '@/lib/userSettings'
 import { useDebouncedSettingsSave } from '@/hooks/useDebouncedSettingsSave'
 import { cn } from '@/lib/utils'
 
@@ -97,7 +101,10 @@ export function SettingsForm(): React.JSX.Element {
   const [tab, setTab] = useState<SettingsTab>('general')
   const [edit, setEdit] = useState<AccountEdit>(null)
   const [themeMounted, setThemeMounted] = useState(false)
-  const [isDevModeSaving, setIsDevModeSaving] = useState(false)
+  // Which toggle is mid-save (so only that switch is disabled), or null.
+  const [savingKey, setSavingKey] = useState<keyof NormalizedUserSettings | null>(
+    null
+  )
   const {
     handleUnitChange,
     commitSettings,
@@ -108,7 +115,7 @@ export function SettingsForm(): React.JSX.Element {
   const units = normalizedSettings.units
   const devModeEnabled = normalizedSettings.camObserverEnabled
   const devModeAccess = hasDevModeAccess(userData)
-  const initial = (username || userData.email).charAt(0).toUpperCase()
+  const locationTrackingEnabled = normalizedSettings.locationTrackingEnabled
 
   // Defer the first paint a frame so we don't set state synchronously in the
   // effect body (matches the rAF pattern used elsewhere in the app).
@@ -132,41 +139,53 @@ export function SettingsForm(): React.JSX.Element {
     setEdit(null)
   }, [])
 
-  const handleDevModeChange = (enabled: boolean): void => {
-    if (!hasDevModeAccess(userData)) return
+  // Optimistically persist a settings patch: commit locally, save, reconcile
+  // with the server response, roll back on failure. Shared by every toggle.
+  const persistSettingsPatch = useCallback(
+    async (
+      patch: Partial<NormalizedUserSettings>,
+      successMessage: string
+    ): Promise<void> => {
+      const previous = getWorkingSettings()
+      const newSettings = normalizeUserSettings({ ...previous, ...patch })
+      commitSettings(newSettings)
 
-    const previous = getWorkingSettings()
-    const newSettings = normalizeUserSettings({
-      ...previous,
-      camObserverEnabled: enabled,
-    })
-
-    commitSettings(newSettings)
-    setIsDevModeSaving(true)
-
-    updateUserSettings(newSettings)
-      .then((result) => {
+      try {
+        const result = await updateUserSettings(newSettings)
         if (!result.success) {
           commitSettings(previous)
           toast.error(result.error || 'Settings could not be saved')
           return
         }
-
         const persisted = normalizeUserSettings(result.settings ?? newSettings)
         syncPersistedSettings(persisted)
         commitSettings(persisted)
-        toast.success(enabled ? 'Dev mode enabled' : 'Dev mode disabled')
-      })
-      .catch((error) => {
+        toast.success(successMessage)
+      } catch (error) {
         commitSettings(previous)
         toast.error(
           error instanceof Error ? error.message : 'Settings could not be saved'
         )
-      })
-      .finally(() => {
-        setIsDevModeSaving(false)
-      })
-  }
+      }
+    },
+    [getWorkingSettings, commitSettings, syncPersistedSettings]
+  )
+
+  const handleToggle = useCallback(
+    async (
+      key: 'camObserverEnabled' | 'locationTrackingEnabled',
+      enabled: boolean,
+      messages: { on: string; off: string }
+    ): Promise<void> => {
+      setSavingKey(key)
+      await persistSettingsPatch(
+        { [key]: enabled } as Partial<NormalizedUserSettings>,
+        enabled ? messages.on : messages.off
+      )
+      setSavingKey(null)
+    },
+    [persistSettingsPatch]
+  )
 
   return (
     <>
@@ -259,12 +278,36 @@ export function SettingsForm(): React.JSX.Element {
 
               <FieldSeparator />
               <Field orientation="horizontal">
+                <FieldLabel htmlFor="location-tracking">
+                  Location tracking
+                </FieldLabel>
+                <Switch
+                  id="location-tracking"
+                  checked={locationTrackingEnabled}
+                  disabled={savingKey === 'locationTrackingEnabled'}
+                  onCheckedChange={(enabled) =>
+                    void handleToggle('locationTrackingEnabled', enabled, {
+                      on: 'Location tracking on',
+                      off: 'Location tracking off',
+                    })
+                  }
+                />
+              </Field>
+
+              <FieldSeparator />
+              <Field orientation="horizontal">
                 <FieldLabel htmlFor="dev-mode">Dev mode</FieldLabel>
                 <Switch
                   id="dev-mode"
                   checked={devModeEnabled}
-                  disabled={!devModeAccess || isDevModeSaving}
-                  onCheckedChange={handleDevModeChange}
+                  disabled={!devModeAccess || savingKey === 'camObserverEnabled'}
+                  onCheckedChange={(enabled) => {
+                    if (!hasDevModeAccess(userData)) return
+                    void handleToggle('camObserverEnabled', enabled, {
+                      on: 'Dev mode enabled',
+                      off: 'Dev mode disabled',
+                    })
+                  }}
                 />
               </Field>
             </FieldGroup>

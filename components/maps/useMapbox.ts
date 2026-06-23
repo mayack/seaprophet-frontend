@@ -30,12 +30,10 @@ import {
   type SpotLayerState,
 } from './spotClusters'
 import { layerBeforeId } from './mapLayerStack'
+import { MapCamera } from './mapCamera'
 import type { UseMapboxOptions, UseMapboxReturn } from '@/types/map'
 import { CONFIG } from '@/constants/config'
 import { SpotSummary } from '@/api/sargo/interfaces/spot'
-
-const ZOOM_BUTTON_DURATION_MS = 300
-const ZOOM_BUTTON_DELTA = 1
 
 export function useMapbox(options: UseMapboxOptions = {}): UseMapboxReturn {
   const {
@@ -59,6 +57,10 @@ export function useMapbox(options: UseMapboxOptions = {}): UseMapboxReturn {
   const mapRef = useRef<HTMLDivElement>(null)
   const mapInstance = useRef<mapboxgl.Map | null>(null)
   const [map, setMap] = useState<mapboxgl.Map | null>(null)
+  // Single owner of every camera move + the "user took over" signal. Created
+  // once the map exists; consumers (spot focus, etc.) drive the camera through it.
+  const cameraRef = useRef<MapCamera | null>(null)
+  const [camera, setCamera] = useState<MapCamera | null>(null)
   const userLocationMarker = useRef<UserLocationLayer | null>(null)
   const moveHandlerRef = useRef<(() => void) | null>(null)
   const isInitialized = useRef(false)
@@ -246,9 +248,16 @@ export function useMapbox(options: UseMapboxOptions = {}): UseMapboxReturn {
   //     flips the state to off-center, which stops the following (Google Maps
   //     model).
   useEffect(() => {
-    if (!isLoaded || !mapInstance.current || !showUserLocation) return
+    if (!isLoaded || !mapInstance.current) return
 
-    if (userData.latitude == null || userData.longitude == null) {
+    // Tracking disabled (showUserLocation off) or no fix yet → ensure no dot.
+    // Checking removal before the showUserLocation gate means toggling tracking
+    // off removes an existing dot, not just stops managing it.
+    if (
+      !showUserLocation ||
+      userData.latitude == null ||
+      userData.longitude == null
+    ) {
       userLocationMarker.current?.remove()
       userLocationMarker.current = null
       return
@@ -258,6 +267,7 @@ export function useMapbox(options: UseMapboxOptions = {}): UseMapboxReturn {
       latitude: userData.latitude,
       longitude: userData.longitude,
     }
+    const coords: [number, number] = [location.longitude, location.latitude]
     const isFirstFix = !userLocationMarker.current
 
     createUserLocationMarkerWrapper(location)
@@ -265,14 +275,23 @@ export function useMapbox(options: UseMapboxOptions = {}): UseMapboxReturn {
 
     if (isFirstFix) {
       setupMoveHandler(location)
-      syncLocationStateToMapCenter()
+      // First fix of this tracking session. If a recenter was armed (initial
+      // load, locate button, or just-enabled tracking) the controller flies —
+      // unless the user has taken over since it was armed. Otherwise we just
+      // derive the button state from where the map actually is.
+      const outcome = cameraRef.current?.resolveRecenter(coords) ?? 'skipped'
+      if (outcome === 'flew') setLocationState('centered')
+      else syncLocationStateToMapCenter()
       return
     }
 
-    const map = mapInstance.current
-    if (locationStateRef.current !== 'centered') return
+    // Later (polled) fix: follow the user with the camera only while centered
+    // and no card is focused — panning away flips the state to off-center and
+    // stops the follow (Google-Maps model).
+    const cam = cameraRef.current
+    if (!cam || cam.hasSpotFocus || locationStateRef.current !== 'centered') return
 
-    const center = map.getCenter()
+    const center = mapInstance.current.getCenter()
     if (
       isUserCloseToLocation(
         location.latitude,
@@ -284,11 +303,7 @@ export function useMapbox(options: UseMapboxOptions = {}): UseMapboxReturn {
       return
     }
 
-    map.easeTo({
-      center: [location.longitude, location.latitude],
-      duration: 1000,
-      essential: true,
-    })
+    cam.followUser(coords)
   }, [
     userData.latitude,
     userData.longitude,
@@ -303,8 +318,13 @@ export function useMapbox(options: UseMapboxOptions = {}): UseMapboxReturn {
     async (map: mapboxgl.Map, spots: SpotSummary[]): Promise<void> => {
       try {
         await ensureSpotLayers(map)
-        attachSpotLayerInteractions(map, spotLayerStateRef.current, (spot) =>
-          onSpotClickRef.current?.(spot)
+        attachSpotLayerInteractions(
+          map,
+          spotLayerStateRef.current,
+          (spot) => onSpotClickRef.current?.(spot),
+          // Expanding a cluster is the user navigating the map → takeover, so a
+          // pending auto-fly to their location won't yank them back afterwards.
+          () => cameraRef.current?.markTakeover()
         )
         updateSpotLayerData(map, spots)
       } catch (err) {
@@ -353,40 +373,14 @@ export function useMapbox(options: UseMapboxOptions = {}): UseMapboxReturn {
     void syncSpotLayersToMap(mapInstance.current, spots)
   }, [isLoaded, syncSpotLayersToMap])
 
-  const flyTo = useCallback((center: [number, number], zoomLevel?: number) => {
-    if (!mapInstance.current) return
-
-    mapInstance.current.flyTo({
-      center,
-      zoom: zoomLevel || mapInstance.current.getZoom(),
-      duration: 1000,
-      curve: 1,
-      essential: true,
-    })
-  }, [])
-
+  // Zoom buttons count as the user taking over the camera, so the controller
+  // owns them (it bumps the takeover epoch and cancels any pending auto-fly).
   const zoomIn = useCallback(() => {
-    const map = mapInstance.current
-    if (!map) return
-
-    map.stop()
-    map.easeTo({
-      zoom: map.getZoom() + ZOOM_BUTTON_DELTA,
-      duration: ZOOM_BUTTON_DURATION_MS,
-      essential: true,
-    })
+    cameraRef.current?.zoomBy(1)
   }, [])
 
   const zoomOut = useCallback(() => {
-    const map = mapInstance.current
-    if (!map) return
-
-    map.stop()
-    map.easeTo({
-      zoom: map.getZoom() - ZOOM_BUTTON_DELTA,
-      duration: ZOOM_BUTTON_DURATION_MS,
-      essential: true,
-    })
+    cameraRef.current?.zoomBy(-1)
   }, [])
 
   // Retries re-invoke through a ref so the callback never references itself
@@ -407,6 +401,10 @@ export function useMapbox(options: UseMapboxOptions = {}): UseMapboxReturn {
       }
 
       setLocationState('loading')
+      // Arm the recenter against the current camera epoch (idempotent across the
+      // retries below). If the user pans/zooms/opens a card before the fix lands,
+      // the controller drops the fly when we resolve.
+      if (recenter) cameraRef.current?.beginRecenter()
       // Force a fresh fix so tapping locate truly re-locates (not a cached point).
       const result = await requestLocation(false, true)
 
@@ -417,8 +415,14 @@ export function useMapbox(options: UseMapboxOptions = {}): UseMapboxReturn {
         createUserLocationMarkerWrapper(result)
         setupMoveHandler(result)
         if (recenter) {
-          flyTo([result.longitude, result.latitude])
-          setLocationState('centered')
+          // Fly only if the user hasn't taken the camera over while we located.
+          const outcome =
+            cameraRef.current?.resolveRecenter([
+              result.longitude,
+              result.latitude,
+            ]) ?? 'skipped'
+          if (outcome === 'flew') setLocationState('centered')
+          else syncLocationStateToMapCenter()
         } else {
           // Deep-linked to a spot: show the dot + a live (off-center) locate
           // button, but keep the camera on the spot rather than flying to the user.
@@ -429,6 +433,7 @@ export function useMapbox(options: UseMapboxOptions = {}): UseMapboxReturn {
           case 'permission':
             retryCountRef.current = 0
             setRetryCount(0)
+            cameraRef.current?.cancelRecenter()
             // Clear any stale coords so the existing dot is removed (a denied
             // retry from the button must not leave the old dot on the map).
             clearLocation()
@@ -453,12 +458,14 @@ export function useMapbox(options: UseMapboxOptions = {}): UseMapboxReturn {
             } else {
               retryCountRef.current = 0
               setRetryCount(0)
+              cameraRef.current?.cancelRecenter()
               setLocationState('error')
             }
             break
           case 'unsupported':
             retryCountRef.current = 0
             setRetryCount(0)
+            cameraRef.current?.cancelRecenter()
             setLocationState('error')
             break
         }
@@ -470,7 +477,6 @@ export function useMapbox(options: UseMapboxOptions = {}): UseMapboxReturn {
       createUserLocationMarkerWrapper,
       setupMoveHandler,
       syncLocationStateToMapCenter,
-      flyTo,
       MAX_RETRIES,
       RETRY_DELAYS,
     ]
@@ -485,6 +491,8 @@ export function useMapbox(options: UseMapboxOptions = {}): UseMapboxReturn {
   // Revoking mid-session drops the dot and flips the button to the blocked
   // state; re-granting (denied -> granted) re-locates the user.
   useEffect(() => {
+    // Tracking opted out → don't watch permission or auto-relocate on grant.
+    if (!showUserLocation) return
     // Skip WebKit/iOS — its Permissions API geolocation state is unreliable and
     // would flip the button to blocked even when location actually works. There
     // we rely on getCurrentPosition results (requestUserLocation) instead.
@@ -534,7 +542,7 @@ export function useMapbox(options: UseMapboxOptions = {}): UseMapboxReturn {
       cancelled = true
       status?.removeEventListener('change', handleChange)
     }
-  }, [clearLocation])
+  }, [clearLocation, showUserLocation])
 
   const recenterToUser = useCallback(() => {
     if (!userLocationMarker.current) return
@@ -544,9 +552,21 @@ export function useMapbox(options: UseMapboxOptions = {}): UseMapboxReturn {
       latitude: markerLngLat.lat,
       longitude: markerLngLat.lng,
     })
-    flyTo([markerLngLat.lng, markerLngLat.lat])
+    // Explicit user recenter — always flies, and resumes follow (centered).
+    cameraRef.current?.recenterNow([markerLngLat.lng, markerLngLat.lat])
     setLocationState('centered')
-  }, [setupMoveHandler, flyTo])
+  }, [setupMoveHandler])
+
+  // Tracking just turned on (Settings → Location, or the map's enable dialog):
+  // arm a recenter so the fix UserContext fetches flies us to the user — unless
+  // the user takes over the camera first. Only fires on a real off→on flip.
+  const wasShowingUserLocationRef = useRef(showUserLocation)
+  useEffect(() => {
+    const was = wasShowingUserLocationRef.current
+    wasShowingUserLocationRef.current = showUserLocation
+    if (!isLoaded) return
+    if (!was && showUserLocation) cameraRef.current?.beginRecenter()
+  }, [showUserLocation, isLoaded])
 
   // Initialize map. This effect runs exactly once per mount; later changes
   // to `center` are routed through the dedicated `flyTo` effect below so
@@ -579,6 +599,10 @@ export function useMapbox(options: UseMapboxOptions = {}): UseMapboxReturn {
       mapInstance.current = map
       setMap(map)
 
+      const cameraController = new MapCamera(map)
+      cameraRef.current = cameraController
+      setCamera(cameraController)
+
       const handleLoad = (): void => {
         setIsLoaded(true)
 
@@ -596,10 +620,12 @@ export function useMapbox(options: UseMapboxOptions = {}): UseMapboxReturn {
               return
             }
             if (userData.latitude && userData.longitude) {
-              // Create the user-location marker and set up the move
-              // handler. Only flyTo when the map isn't already at the
-              // user's position (e.g. first load starts at the Portugal
-              // default, so we animate to the user's area).
+              // Cached fix: create the dot + move handler, then let the camera
+              // controller decide whether to fly. We arm the recenter unless the
+              // map was initialized at a remembered/deep-linked position
+              // (skipInitialFlyTo) — and the controller additionally skips the
+              // fly when we're already at the user, or if the user managed to
+              // grab the camera during the ~100ms settle.
               createUserLocationMarkerWrapper({
                 latitude: userData.latitude,
                 longitude: userData.longitude,
@@ -609,31 +635,14 @@ export function useMapbox(options: UseMapboxOptions = {}): UseMapboxReturn {
                 longitude: userData.longitude,
               })
 
-              // Decide whether to animate to the user. We skip the flyTo
-              // when the map was initialized at a remembered position
-              // (returning from another page) so we don't yank the view
-              // away from where the user left it.
-              const mapCenter = mapInstance.current.getCenter()
-              const atUser = isUserCloseToLocation(
-                userData.latitude,
-                userData.longitude,
-                mapCenter.lat,
-                mapCenter.lng
-              )
-
-              if (!skipInitialFlyTo && !atUser) {
-                // Animate to the user; the view ends up centered. Set the
-                // state now (rather than syncing) because getCenter() still
-                // reports the pre-animation center mid-flight — the trailing
-                // moveend re-confirms it from the final position.
-                flyTo([userData.longitude, userData.latitude])
-                setLocationState('centered')
-              } else {
-                // Already at the user, or restored a remembered pan
-                // position — derive the button state from the real map
-                // center so it's clickable when we're away from the user.
-                syncLocationStateToMapCenter()
-              }
+              if (!skipInitialFlyTo) cameraRef.current?.beginRecenter()
+              const outcome =
+                cameraRef.current?.resolveRecenter([
+                  userData.longitude,
+                  userData.latitude,
+                ]) ?? 'skipped'
+              if (outcome === 'flew') setLocationState('centered')
+              else syncLocationStateToMapCenter()
             } else if (
               locationPermissionRef.current === 'granted' ||
               !skipAutoUserLocation
@@ -671,6 +680,9 @@ export function useMapbox(options: UseMapboxOptions = {}): UseMapboxReturn {
       const map = mapInstance.current
 
       if (map) {
+        cameraRef.current?.destroy()
+        cameraRef.current = null
+        setCamera(null)
         removeSpotLayers(map)
         resetSpotLayerState(spotLayerState)
         if (userLocationMarker.current) {
@@ -722,31 +734,6 @@ export function useMapbox(options: UseMapboxOptions = {}): UseMapboxReturn {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isThemeReady])
 
-  // Fly to the consumer-provided center whenever it changes after init.
-  // Keeps the (now-stable) map instance intact while still letting callers
-  // recenter declaratively via the `center` option.
-  useEffect(() => {
-    if (!mapInstance.current || !isLoaded) return
-    const currentCenter = mapInstance.current.getCenter()
-    const [newLng, newLat] = center
-
-    // Skip micro-movements (< ~10m) so re-renders with effectively the
-    // same center don't trigger spurious flyTo animations.
-    const distance = Math.sqrt(
-      Math.pow(currentCenter.lng - newLng, 2) +
-        Math.pow(currentCenter.lat - newLat, 2)
-    )
-    if (distance < 0.0001) return
-
-    mapInstance.current.flyTo({
-      center,
-      zoom: mapInstance.current.getZoom(),
-      duration: 1000,
-      curve: 1,
-      essential: true,
-    })
-  }, [center, isLoaded])
-
   // Re-apply spot layers after style reloads (theme toggle).
   useLayoutEffect(() => {
     if (!mapInstance.current || !isLoaded) return
@@ -794,6 +781,7 @@ export function useMapbox(options: UseMapboxOptions = {}): UseMapboxReturn {
   return {
     mapRef,
     map,
+    camera,
     isLoaded,
     updateSpotLayers,
     zoomIn,

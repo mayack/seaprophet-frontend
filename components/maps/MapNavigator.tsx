@@ -24,6 +24,15 @@ import {
   HouseHeart,
 } from './icons'
 import { Button } from '@/components/ui/button'
+import {
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
 import { Spinner } from '@/components/ui/spinner'
 import { getHomeSpot } from '@/lib/homeSpot'
 import { reverseGeocode } from '@/lib/reverseGeocode'
@@ -70,7 +79,7 @@ export function MapNavigator({
   initialZoom = CONFIG.map.defaults.zoom,
 }: MapNavigatorProps): React.JSX.Element {
   const spotPanel = useSpotPanel()
-  const { openSpot, isSpotOpen } = useSpotNavigation()
+  const { openSpot, isSpotOpen, closeSpot } = useSpotNavigation()
   const { userData, updateUser } = useUser()
   const { isEditing, beginEdit, cancelEdit, finishEdit } = useHomeSpot()
   const { isSpotPanelDesktop: isDesktop } = useBreakpoint()
@@ -90,6 +99,13 @@ export function MapNavigator({
   // there's no live location / remembered view.
   const homeSpot = useMemo(
     () => getHomeSpot(userData.settings),
+    [userData.settings]
+  )
+
+  // Location tracking opt-out (Settings → Location). Drives whether the map
+  // requests/shows the user's location at all.
+  const locationTrackingEnabled = useMemo(
+    () => normalizeUserSettings(userData.settings).locationTrackingEnabled,
     [userData.settings]
   )
 
@@ -119,6 +135,7 @@ export function MapNavigator({
   const {
     mapRef,
     map,
+    camera,
     isLoaded,
     updateSpotLayers,
     zoomIn,
@@ -130,7 +147,7 @@ export function MapNavigator({
   } = useMapbox({
     center: mapInitCenter,
     zoom: initialView?.zoom ?? initialZoom,
-    showUserLocation: true,
+    showUserLocation: locationTrackingEnabled,
     skipInitialFlyTo: initialView !== null || isSpotOpen || isDirectSpotLink,
     skipAutoUserLocation: isDirectSpotLink,
     onSpotClick: handleSpotClick,
@@ -161,7 +178,7 @@ export function MapNavigator({
   ])
 
   const { resetFocus } = useSpotCamera({
-    map,
+    camera,
     isLoaded,
     isDesktop,
     isSpotOpen,
@@ -211,18 +228,60 @@ export function MapNavigator({
     }
   }, [locationState, recenterToUser, requestUserLocation])
 
+  // ── Location tracking opt-in ────────────────────────────────────────────────
+  // When tracking is off the locate button stays visible but muted; clicking it
+  // asks for consent rather than silently doing nothing. Approving flips the
+  // Settings → Location toggle on and locates the user.
+  const [showLocationPrompt, setShowLocationPrompt] = useState(false)
+  const [isEnablingLocation, setIsEnablingLocation] = useState(false)
+
+  const handleEnableLocationTracking = useCallback(async (): Promise<void> => {
+    if (isEnablingLocation) return
+    setIsEnablingLocation(true)
+    setShowLocationPrompt(false)
+
+    // Just flip the toggle. The map reacts on its own: useMapbox arms a recenter
+    // when tracking turns on and UserContext fetches a fresh fix, so the camera
+    // flies to the user once located — unless they take the map over first.
+    const previous = normalizeUserSettings(userData.settings)
+    const newSettings = normalizeUserSettings({
+      ...previous,
+      locationTrackingEnabled: true,
+    })
+
+    // Optimistic: flip the toggle locally now, reconcile with the server after.
+    updateUser({ settings: newSettings })
+
+    try {
+      const result = await updateUserSettings(newSettings)
+      if (!result.success) {
+        updateUser({ settings: previous })
+        toast.error(result.error || 'Could not enable location tracking')
+      } else {
+        updateUser({
+          settings: normalizeUserSettings(result.settings ?? newSettings),
+        })
+        toast.success('Location tracking on')
+      }
+    } catch (error) {
+      updateUser({ settings: previous })
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : 'Could not enable location tracking'
+      )
+    } finally {
+      setIsEnablingLocation(false)
+    }
+  }, [isEnablingLocation, userData.settings, updateUser])
+
   // ── Home spot ─────────────────────────────────────────────────────────────
   const [isSavingHome, setIsSavingHome] = useState(false)
 
   const goToHomeSpot = useCallback((): void => {
-    if (!map) return
-    map.flyTo({
-      center: [homeSpot.longitude, homeSpot.latitude],
-      zoom: Math.max(map.getZoom(), 12),
-      duration: 1000,
-      essential: true,
-    })
-  }, [map, homeSpot.longitude, homeSpot.latitude])
+    // Home is a deliberate user move → takeover (cancels any pending auto-fly).
+    camera?.flyToHome([homeSpot.longitude, homeSpot.latitude])
+  }, [camera, homeSpot.longitude, homeSpot.latitude])
 
   const { editPositionRef, overlay: homeSpotOverlay } = useHomeSpotMarker({
     map,
@@ -234,13 +293,22 @@ export function MapNavigator({
     onRequestEdit: useCallback(() => beginEdit('map'), [beginEdit]),
   })
 
+  // Entering set-home mode takes over the whole screen, so close any open spot
+  // card. Skip the camera restore — the edit-framing flyTo below owns the
+  // camera, and restoring would fight it.
+  useEffect(() => {
+    if (isEditing && isSpotOpen) closeSpot({ resetCamera: false })
+  }, [isEditing, isSpotOpen, closeSpot])
+
   // Frame the home spot when entering set-home mode so the draggable marker is
-  // centered and visible.
+  // centered and visible. Reset padding too, in case a just-closed spot card
+  // left the camera offset.
   useEffect(() => {
     if (!isEditing || !map || !isLoaded) return
     map.flyTo({
       center: [homeSpot.longitude, homeSpot.latitude],
       zoom: Math.max(map.getZoom(), 12),
+      padding: { top: 0, bottom: 0, left: 0, right: 0 },
       duration: 800,
       essential: true,
     })
@@ -365,44 +433,67 @@ export function MapNavigator({
                 </Tooltip>
               </div>
               <div className="flex flex-col rounded-md shadow-sm ring-1 ring-foreground/10">
+                {/*
+                  Locate button is always shown. With tracking off (Settings →
+                  Location) it's muted and clicking it asks for consent rather
+                  than locating silently.
+                */}
                 <Tooltip>
                   <TooltipTrigger
                     render={
                       <Button
                         variant="elevated"
                         size="icon-sm"
-                        onClick={handleLocationButtonClick}
-                        disabled={locationState === 'loading'}
-                        aria-label={getLocationButtonLabel({
-                          state: locationState,
-                          retryCount,
-                          maxRetries: CONFIG.map.location.maxRetries,
-                        })}
+                        onClick={
+                          locationTrackingEnabled
+                            ? handleLocationButtonClick
+                            : () => setShowLocationPrompt(true)
+                        }
+                        disabled={
+                          locationTrackingEnabled && locationState === 'loading'
+                        }
+                        aria-label={
+                          locationTrackingEnabled
+                            ? getLocationButtonLabel({
+                                state: locationState,
+                                retryCount,
+                                maxRetries: CONFIG.map.location.maxRetries,
+                              })
+                            : 'Enable location tracking'
+                        }
                         className="rounded-t-md rounded-b-none shadow-none ring-0"
                       />
                     }
                   >
-                    {locationState === 'loading' && (
-                      <Locate className="animate-spin" />
+                    {!locationTrackingEnabled ? (
+                      <Locate className="text-muted-foreground" />
+                    ) : (
+                      <>
+                        {locationState === 'loading' && (
+                          <Locate className="animate-spin" />
+                        )}
+                        {locationState === 'centered' && (
+                          <LocateFixed className="text-blue-500" />
+                        )}
+                        {locationState === 'off-center' && (
+                          <Locate className="text-blue-500" />
+                        )}
+                        {(locationState === 'error' ||
+                          locationState === 'permission-denied') && (
+                          <LocateOff className="text-red-500" />
+                        )}
+                        {locationState === 'idle' && <Locate />}
+                      </>
                     )}
-                    {locationState === 'centered' && (
-                      <LocateFixed className="text-blue-500" />
-                    )}
-                    {locationState === 'off-center' && (
-                      <Locate className="text-blue-500" />
-                    )}
-                    {(locationState === 'error' ||
-                      locationState === 'permission-denied') && (
-                      <LocateOff className="text-red-500" />
-                    )}
-                    {locationState === 'idle' && <Locate />}
                   </TooltipTrigger>
                   <TooltipContent side="right" sideOffset={12}>
-                    {getLocationButtonLabel({
-                      state: locationState,
-                      retryCount,
-                      maxRetries: CONFIG.map.location.maxRetries,
-                    })}
+                    {locationTrackingEnabled
+                      ? getLocationButtonLabel({
+                          state: locationState,
+                          retryCount,
+                          maxRetries: CONFIG.map.location.maxRetries,
+                        })
+                      : 'Enable location tracking'}
                   </TooltipContent>
                 </Tooltip>
                 <Tooltip>
@@ -413,6 +504,7 @@ export function MapNavigator({
                         size="icon-sm"
                         onClick={goToHomeSpot}
                         aria-label="Go to your home spot"
+                        // Always sits beneath the locate button now.
                         className="rounded-t-none rounded-b-md shadow-none ring-0"
                       />
                     }
@@ -487,6 +579,40 @@ export function MapNavigator({
           </div>
         </>
       )}
+
+      <Dialog open={showLocationPrompt} onOpenChange={setShowLocationPrompt}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Locate className="size-4 shrink-0" />
+              Enable location tracking?
+            </DialogTitle>
+            <DialogDescription>
+              Allow SeaProphet to use your location to show where you are on the
+              map and surface spots near you. You can turn this off anytime in
+              Settings.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <DialogClose render={<Button variant="outline" />}>
+              Not now
+            </DialogClose>
+            <Button
+              onClick={() => void handleEnableLocationTracking()}
+              disabled={isEnablingLocation}
+            >
+              {isEnablingLocation ? (
+                <>
+                  <Spinner />
+                  Enabling…
+                </>
+              ) : (
+                'Enable'
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
