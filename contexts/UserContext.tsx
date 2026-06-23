@@ -26,12 +26,20 @@ interface UserContextType {
     forceFresh?: boolean
   ) => Promise<
     | { latitude: number; longitude: number }
-    | { error: 'permission' | 'unavailable' | 'timeout' | 'unsupported' }
+    // `busy` = another request already holds the geolocation lock (contention),
+    // distinct from a real failure so callers can ignore it rather than count it.
+    | { error: 'permission' | 'unavailable' | 'timeout' | 'unsupported' | 'busy' }
   >
   // Drop the user's location everywhere — clears the in-memory coords and the
   // sessionStorage cache. Called when geolocation permission is denied/revoked
   // so nothing (map dot, distances) keeps showing a stale position.
   clearLocation: () => void
+  // "Limp mode": location acquisition is failing (retries exhausted, or repeated
+  // poll failures). The locate button goes red and polling slows but keeps
+  // trying. Set from the map's retry flow and from the poll below; cleared by any
+  // success.
+  locationDegraded: boolean
+  markLocationDegraded: (degraded: boolean) => void
 }
 
 interface StoredLocation {
@@ -157,8 +165,10 @@ export function UserProvider({
         return { error: 'unsupported' as const }
       }
 
-      // Synchronous guard against concurrent calls.
-      if (isLocatingRef.current) return { error: 'unavailable' as const }
+      // Synchronous guard against concurrent calls. Reported as `busy` (not a
+      // failure) so a background poll colliding with a manual retry — or vice
+      // versa — never counts against either one's failure budget.
+      if (isLocatingRef.current) return { error: 'busy' as const }
       isLocatingRef.current = true
 
       const { timeouts } = CONFIG.map.location
@@ -184,8 +194,12 @@ export function UserProvider({
               {
                 enableHighAccuracy: highAccuracy,
                 timeout,
+                // `forceFresh` bypasses our sessionStorage cache (above) but still
+                // lets the OS return a recent fix — much faster than a cold
+                // acquisition, and it stops the locate button from timing out
+                // when a usable position already exists.
                 maximumAge: forceFresh
-                  ? 0
+                  ? timeouts.maxAge.fresh
                   : highAccuracy
                     ? timeouts.maxAge.highAccuracy
                     : timeouts.maxAge.standard,
@@ -251,9 +265,10 @@ export function UserProvider({
   // Keep the location reasonably fresh without continuous `watchPosition`
   // tracking: poll a fresh fix on an interval while the tab is visible. Gated
   // on already having a fix (`hasLocationRef`) so it never triggers an
-  // unsolicited permission prompt, pauses while the tab is hidden, fetches
-  // immediately on resume (so reopening a backgrounded tab updates the dot),
-  // and stops permanently if permission is revoked.
+  // unsolicited permission prompt — except in limp mode, where it keeps trying
+  // to recover. Pauses while the tab is hidden, fetches immediately on resume
+  // (so reopening a backgrounded tab updates the dot), slows down while
+  // degraded, and stops permanently if permission is revoked.
   const hasLocationRef = useRef(false)
   useEffect(() => {
     hasLocationRef.current =
@@ -264,13 +279,19 @@ export function UserProvider({
   // dot — even with browser permission granted. Defaults to on.
   const locationTrackingEnabled =
     userData.settings?.locationTrackingEnabled !== false
-  const trackingWasEnabledRef = useRef(locationTrackingEnabled)
+
+  // Limp mode: location acquisition is failing. Flipped here by repeated poll
+  // failures, and by the map's retry flow via markLocationDegraded. Any success
+  // (poll or manual) clears it.
+  const [locationDegraded, setLocationDegraded] = useState(false)
+  const pollFailuresRef = useRef(0)
+  const markLocationDegraded = useCallback((degraded: boolean): void => {
+    if (!degraded) pollFailuresRef.current = 0
+    setLocationDegraded(degraded)
+  }, [])
 
   useEffect(() => {
     if (typeof navigator === 'undefined' || !navigator.geolocation) return
-
-    const wasEnabled = trackingWasEnabledRef.current
-    trackingWasEnabledRef.current = locationTrackingEnabled
 
     // Opted out: drop any fix (removes the dot reactively) and don't track.
     // Deferred a frame so state isn't set synchronously in the effect body.
@@ -279,12 +300,10 @@ export function UserProvider({
       return (): void => cancelAnimationFrame(raf)
     }
 
-    // Just opted back in: fetch a fresh fix right away so the dot returns. The
-    // user explicitly re-enabled tracking, so a permission prompt is expected.
-    if (!wasEnabled) {
-      void requestLocation(false, true)
-    }
-
+    // The first fix on enable is driven by the map (useMapbox), which also owns
+    // the locate-button loading/error states — so we don't request here.
+    const { pollFailureLimpThreshold, pollIntervalMs, pollIntervalDegradedMs } =
+      CONFIG.map.location
     let permissionDenied = false
     let intervalId: ReturnType<typeof setInterval> | null = null
 
@@ -296,11 +315,29 @@ export function UserProvider({
     }
 
     const tick = async (): Promise<void> => {
-      if (permissionDenied || document.hidden || !hasLocationRef.current) return
+      if (permissionDenied || document.hidden) return
+      // Normally polling waits until we already have a fix (so it can't trigger
+      // an unsolicited prompt). In limp mode we keep trying to re-acquire even
+      // without one — by then we've already been granted, so it's safe.
+      if (!hasLocationRef.current && !locationDegraded) return
+
       const result = await requestLocation(false, true)
-      if ('error' in result && result.error === 'permission') {
+      if (!('error' in result)) {
+        pollFailuresRef.current = 0
+        if (locationDegraded) markLocationDegraded(false) // recovered
+        return
+      }
+      // Contention with a manual request — not a failure; just skip this tick.
+      if (result.error === 'busy') return
+      if (result.error === 'permission') {
         permissionDenied = true
         stop()
+        return
+      }
+      // Real failure (timeout / unavailable / unsupported): count toward limp.
+      pollFailuresRef.current += 1
+      if (pollFailuresRef.current >= pollFailureLimpThreshold && !locationDegraded) {
+        markLocationDegraded(true)
       }
     }
 
@@ -308,7 +345,7 @@ export function UserProvider({
       if (intervalId === null) {
         intervalId = setInterval(
           () => void tick(),
-          CONFIG.map.location.pollIntervalMs
+          locationDegraded ? pollIntervalDegradedMs : pollIntervalMs
         )
       }
     }
@@ -340,7 +377,15 @@ export function UserProvider({
       document.removeEventListener('visibilitychange', handleVisibility)
       window.removeEventListener('pageshow', handlePageShow)
     }
-  }, [requestLocation, locationTrackingEnabled, clearLocation])
+    // Re-runs when degraded flips so the interval switches rate (and the gate
+    // opens) — markLocationDegraded is stable.
+  }, [
+    requestLocation,
+    locationTrackingEnabled,
+    clearLocation,
+    locationDegraded,
+    markLocationDegraded,
+  ])
 
   // Memoize so consumers don't re-render on every parent render with a
   // brand-new object identity. `setUserData` is a setState fn (stable);
@@ -351,8 +396,17 @@ export function UserProvider({
       updateUser,
       requestLocation,
       clearLocation,
+      locationDegraded,
+      markLocationDegraded,
     }),
-    [userData, updateUser, requestLocation, clearLocation]
+    [
+      userData,
+      updateUser,
+      requestLocation,
+      clearLocation,
+      locationDegraded,
+      markLocationDegraded,
+    ]
   )
 
   return (

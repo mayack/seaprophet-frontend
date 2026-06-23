@@ -111,6 +111,10 @@ export interface MapLocationConfig {
   alreadyAtLocationThreshold: number
   /** How often to poll a fresh fix while the tab is visible (ms) */
   pollIntervalMs: number
+  /** Consecutive poll failures before entering degraded/limp mode. */
+  pollFailureLimpThreshold: number
+  /** Slower poll interval while degraded, still trying to recover (ms). */
+  pollIntervalDegradedMs: number
   /** Location request timeouts */
   timeouts: {
     standard: number
@@ -118,6 +122,8 @@ export interface MapLocationConfig {
     maxAge: {
       standard: number
       highAccuracy: number
+      /** OS-fix max age for "fresh" requests (locate button, poll). */
+      fresh: number
     }
   }
 }

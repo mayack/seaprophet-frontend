@@ -106,7 +106,13 @@ export function useMapbox(options: UseMapboxOptions = {}): UseMapboxReturn {
   const [retryCount, setRetryCount] = useState(0)
 
   const { isDark, mapStyle, isThemeReady } = useMapTheme()
-  const { userData, requestLocation, clearLocation } = useUser()
+  const {
+    userData,
+    requestLocation,
+    clearLocation,
+    locationDegraded,
+    markLocationDegraded,
+  } = useUser()
 
   const MAX_RETRIES = CONFIG.map.location.maxRetries
   const RETRY_DELAYS = CONFIG.map.location.retryDelays
@@ -219,17 +225,19 @@ export function useMapbox(options: UseMapboxOptions = {}): UseMapboxReturn {
   // user panned and moveend flipped the state.
   const syncLocationStateToMapCenter = useCallback(() => {
     const map = mapInstance.current
-    const userLocation = userLocationRef.current
-    if (!map || !userLocation) return
+    const marker = userLocationMarker.current
+    // Derive centered/off-center from the dot itself — the same source
+    // recenterToUser uses — so the button is never blue while recenter is a
+    // no-op (no marker means we're still idle/loading, not located).
+    if (!map || !marker) return
 
+    const { lat, lng } = marker.getLngLat()
     const center = map.getCenter()
-    const isClose = isUserCloseToLocation(
-      userLocation.latitude,
-      userLocation.longitude,
-      center.lat,
-      center.lng
+    setLocationState(
+      isUserCloseToLocation(lat, lng, center.lat, center.lng)
+        ? 'centered'
+        : 'off-center'
     )
-    setLocationState(isClose ? 'centered' : 'off-center')
   }, [])
 
   // Single reconcile for the user-location dot, driven by the latest
@@ -409,9 +417,10 @@ export function useMapbox(options: UseMapboxOptions = {}): UseMapboxReturn {
       const result = await requestLocation(false, true)
 
       if ('latitude' in result && 'longitude' in result) {
-        // Reset retry count on success
+        // Reset retry count on success + clear any limp mode (we recovered).
         retryCountRef.current = 0
         setRetryCount(0)
+        markLocationDegraded(false)
         createUserLocationMarkerWrapper(result)
         setupMoveHandler(result)
         if (recenter) {
@@ -430,6 +439,14 @@ export function useMapbox(options: UseMapboxOptions = {}): UseMapboxReturn {
         }
       } else {
         switch (result.error) {
+          case 'busy':
+            // A background poll holds the geolocation lock. Not a failure —
+            // don't touch the retry budget; just try again shortly (stay in
+            // loading) once it releases.
+            retryTimeoutRef.current = setTimeout(() => {
+              requestUserLocationRef.current?.(recenter)
+            }, 1000)
+            break
           case 'permission':
             retryCountRef.current = 0
             setRetryCount(0)
@@ -456,10 +473,13 @@ export function useMapbox(options: UseMapboxOptions = {}): UseMapboxReturn {
                 requestUserLocationRef.current?.(recenter)
               }, retryDelay)
             } else {
+              // Retries exhausted → limp mode. Button goes red (error), and
+              // polling slows but keeps trying to recover.
               retryCountRef.current = 0
               setRetryCount(0)
               cameraRef.current?.cancelRecenter()
               setLocationState('error')
+              markLocationDegraded(true)
             }
             break
           case 'unsupported':
@@ -467,6 +487,7 @@ export function useMapbox(options: UseMapboxOptions = {}): UseMapboxReturn {
             setRetryCount(0)
             cameraRef.current?.cancelRecenter()
             setLocationState('error')
+            markLocationDegraded(true)
             break
         }
       }
@@ -474,6 +495,7 @@ export function useMapbox(options: UseMapboxOptions = {}): UseMapboxReturn {
     [
       requestLocation,
       clearLocation,
+      markLocationDegraded,
       createUserLocationMarkerWrapper,
       setupMoveHandler,
       syncLocationStateToMapCenter,
@@ -557,16 +579,44 @@ export function useMapbox(options: UseMapboxOptions = {}): UseMapboxReturn {
     setLocationState('centered')
   }, [setupMoveHandler])
 
-  // Tracking just turned on (Settings → Location, or the map's enable dialog):
-  // arm a recenter so the fix UserContext fetches flies us to the user — unless
-  // the user takes over the camera first. Only fires on a real off→on flip.
+  // React to the Settings → Location toggle (or the map's enable dialog). Only
+  // fires on a real flip, not the initial mount (handleLoad owns first load).
   const wasShowingUserLocationRef = useRef(showUserLocation)
   useEffect(() => {
     const was = wasShowingUserLocationRef.current
     wasShowingUserLocationRef.current = showUserLocation
     if (!isLoaded) return
-    if (!was && showUserLocation) cameraRef.current?.beginRecenter()
-  }, [showUserLocation, isLoaded])
+
+    if (was && !showUserLocation) {
+      // Turned off: clear any located state + limp so a later re-enable shows a
+      // fresh "locating…" spinner instead of a stale blue/red button.
+      setLocationState('idle')
+      markLocationDegraded(false)
+    } else if (!was && showUserLocation) {
+      // Turned on: locate + recenter. requestUserLocation drives the full
+      // loading → centered/error states and arms the recenter (which respects a
+      // takeover if the user grabs the map while the fix is in flight).
+      void requestUserLocation()
+    }
+    // requestUserLocation/markLocationDegraded are stable; listing them keeps the
+    // lint happy without re-running on unrelated renders.
+  }, [showUserLocation, isLoaded, requestUserLocation, markLocationDegraded])
+
+  // Reflect limp mode in the locate button by folding it into locationState =
+  // 'error' (so the button rendering needs no extra cases — red + retry). We
+  // never override an in-flight request (loading) or a hard permission denial.
+  useEffect(() => {
+    const state = locationStateRef.current
+    if (locationDegraded) {
+      if (state !== 'loading' && state !== 'permission-denied') {
+        setLocationState('error')
+      }
+    } else if (state === 'error') {
+      // Recovered elsewhere (e.g. a background poll succeeded) → re-derive the
+      // button state from the dot's position.
+      syncLocationStateToMapCenter()
+    }
+  }, [locationDegraded, syncLocationStateToMapCenter])
 
   // Initialize map. This effect runs exactly once per mount; later changes
   // to `center` are routed through the dedicated `flyTo` effect below so
