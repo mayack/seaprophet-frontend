@@ -37,6 +37,8 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip'
 import { useUser } from '@/contexts/UserContext'
+import { useHomeSpot } from '@/contexts/HomeSpotContext'
+import { getHomeSpot } from '@/lib/homeSpot'
 import type { UserSettings } from '@/api/sargo/interfaces/user'
 import {
   WIND_SPEED_OPTIONS,
@@ -87,8 +89,10 @@ const UNIT_SETTINGS = [
 
 export function SettingsForm(): React.JSX.Element {
   const { userData, updateUser } = useUser()
+  const { beginEdit } = useHomeSpot()
   const { theme, setTheme } = useTheme()
   const normalizedSettings = normalizeUserSettings(userData.settings)
+  const homeSpot = getHomeSpot(userData.settings)
   const [username, setUsername] = useState(userData.username)
   const [tab, setTab] = useState<SettingsTab>('general')
   const [edit, setEdit] = useState<AccountEdit>(null)
@@ -234,6 +238,23 @@ export function SettingsForm(): React.JSX.Element {
                     </TabsList>
                   </Tabs>
                 ) : null}
+              </Field>
+
+              <FieldSeparator />
+              <Field orientation="horizontal">
+                <FieldLabel>Home spot</FieldLabel>
+                <div className="flex min-w-0 items-center gap-3">
+                  <span className="truncate text-sm text-muted-foreground">
+                    {homeSpot.name}
+                  </span>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => beginEdit('settings')}
+                  >
+                    Change
+                  </Button>
+                </div>
               </Field>
 
               <FieldSeparator />
