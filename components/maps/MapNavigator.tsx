@@ -21,6 +21,7 @@ import {
   LocateFixed,
   LocateOff,
   Move,
+  HouseHeart,
 } from './icons'
 import { Button } from '@/components/ui/button'
 import { Spinner } from '@/components/ui/spinner'
@@ -145,13 +146,19 @@ export function MapNavigator({
   const mobileBottomInset = spotPanel.mobileBottomInset
   const mapTouchBlocked =
     !isDesktop && isSpotOpen && spotPanel.mobileSheetSnap === 'expanded'
-  const userLocation = useMemo(() => {
-    if (userData.latitude === undefined || userData.longitude === undefined) {
-      return undefined
+  // Reference point for spot-card distances: the live GPS fix when we have it,
+  // otherwise the home spot — so distances still show with location disabled.
+  const distanceOrigin = useMemo(() => {
+    if (userData.latitude !== undefined && userData.longitude !== undefined) {
+      return { latitude: userData.latitude, longitude: userData.longitude }
     }
-
-    return { latitude: userData.latitude, longitude: userData.longitude }
-  }, [userData.latitude, userData.longitude])
+    return { latitude: homeSpot.latitude, longitude: homeSpot.longitude }
+  }, [
+    userData.latitude,
+    userData.longitude,
+    homeSpot.latitude,
+    homeSpot.longitude,
+  ])
 
   const { resetFocus } = useSpotCamera({
     map,
@@ -177,7 +184,7 @@ export function MapNavigator({
     initialRadius,
     viewportPadding,
     activeSpotId: activeSpot?.id ?? null,
-    userLocation,
+    userLocation: distanceOrigin,
     updateSpotLayers,
   })
 
@@ -205,6 +212,16 @@ export function MapNavigator({
 
   // ── Home spot ─────────────────────────────────────────────────────────────
   const [isSavingHome, setIsSavingHome] = useState(false)
+
+  const goToHomeSpot = useCallback((): void => {
+    if (!map) return
+    map.flyTo({
+      center: [homeSpot.longitude, homeSpot.latitude],
+      zoom: Math.max(map.getZoom(), 12),
+      duration: 1000,
+      essential: true,
+    })
+  }, [map, homeSpot.longitude, homeSpot.latitude])
 
   const { editPositionRef, overlay: homeSpotOverlay } = useHomeSpotMarker({
     map,
@@ -346,45 +363,66 @@ export function MapNavigator({
                   </TooltipContent>
                 </Tooltip>
               </div>
-              <Tooltip>
-                <TooltipTrigger
-                  render={
-                    <Button
-                      variant="elevated"
-                      size="icon-sm"
-                      onClick={handleLocationButtonClick}
-                      disabled={locationState === 'loading'}
-                      aria-label={getLocationButtonLabel({
-                        state: locationState,
-                        retryCount,
-                        maxRetries: CONFIG.map.location.maxRetries,
-                      })}
-                    />
-                  }
-                >
-                  {locationState === 'loading' && (
-                    <Locate className="animate-spin" />
-                  )}
-                  {locationState === 'centered' && (
-                    <LocateFixed className="text-blue-500" />
-                  )}
-                  {locationState === 'off-center' && (
-                    <Locate className="text-blue-500" />
-                  )}
-                  {(locationState === 'error' ||
-                    locationState === 'permission-denied') && (
-                    <LocateOff className="text-red-500" />
-                  )}
-                  {locationState === 'idle' && <Locate />}
-                </TooltipTrigger>
-                <TooltipContent side="right" sideOffset={12}>
-                  {getLocationButtonLabel({
-                    state: locationState,
-                    retryCount,
-                    maxRetries: CONFIG.map.location.maxRetries,
-                  })}
-                </TooltipContent>
-              </Tooltip>
+              <div className="flex flex-col rounded-md shadow-sm ring-1 ring-foreground/10">
+                <Tooltip>
+                  <TooltipTrigger
+                    render={
+                      <Button
+                        variant="elevated"
+                        size="icon-sm"
+                        onClick={handleLocationButtonClick}
+                        disabled={locationState === 'loading'}
+                        aria-label={getLocationButtonLabel({
+                          state: locationState,
+                          retryCount,
+                          maxRetries: CONFIG.map.location.maxRetries,
+                        })}
+                        className="rounded-t-md rounded-b-none shadow-none ring-0"
+                      />
+                    }
+                  >
+                    {locationState === 'loading' && (
+                      <Locate className="animate-spin" />
+                    )}
+                    {locationState === 'centered' && (
+                      <LocateFixed className="text-blue-500" />
+                    )}
+                    {locationState === 'off-center' && (
+                      <Locate className="text-blue-500" />
+                    )}
+                    {(locationState === 'error' ||
+                      locationState === 'permission-denied') && (
+                      <LocateOff className="text-red-500" />
+                    )}
+                    {locationState === 'idle' && <Locate />}
+                  </TooltipTrigger>
+                  <TooltipContent side="right" sideOffset={12}>
+                    {getLocationButtonLabel({
+                      state: locationState,
+                      retryCount,
+                      maxRetries: CONFIG.map.location.maxRetries,
+                    })}
+                  </TooltipContent>
+                </Tooltip>
+                <Tooltip>
+                  <TooltipTrigger
+                    render={
+                      <Button
+                        variant="elevated"
+                        size="icon-sm"
+                        onClick={goToHomeSpot}
+                        aria-label="Go to your home spot"
+                        className="rounded-t-none rounded-b-md shadow-none ring-0"
+                      />
+                    }
+                  >
+                    <HouseHeart />
+                  </TooltipTrigger>
+                  <TooltipContent side="right" sideOffset={12}>
+                    Home spot
+                  </TooltipContent>
+                </Tooltip>
+              </div>
               {isLoading && (
                 <div
                   className="flex size-8 items-center justify-center"
