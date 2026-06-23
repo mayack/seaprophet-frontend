@@ -105,6 +105,10 @@ export class MapCamera {
     if (this.epoch !== armedEpoch) return 'skipped' // user took over mid-request
     if (this.isAt(coords)) return 'skipped' // already centered on the user
     this.flyToLocation(coords)
+    // A recenter that flies while a card is focused can only be user-initiated —
+    // an auto-fly's pending is cancelled the moment a card opens — so it's a
+    // takeover: closing the card then stays put instead of zooming back out.
+    if (this.hasSpotFocus) this.markTakeover()
     return 'flew'
   }
 
@@ -112,6 +116,9 @@ export class MapCamera {
   recenterNow(coords: LngLat): void {
     this.pendingRecenterEpoch = null
     this.flyToLocation(coords)
+    // A deliberate user camera move, like the zoom and home buttons — counts as
+    // a takeover so a card closed afterwards leaves the map here.
+    this.markTakeover()
   }
 
   /** Passive follow on a poll fix while centered — caller gates on state/card. */
