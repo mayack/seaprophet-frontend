@@ -297,7 +297,8 @@ export function useMapbox(options: UseMapboxOptions = {}): UseMapboxReturn {
     // and no card is focused — panning away flips the state to off-center and
     // stops the follow (Google-Maps model).
     const cam = cameraRef.current
-    if (!cam || cam.hasSpotFocus || locationStateRef.current !== 'centered') return
+    if (!cam || cam.hasSpotFocus || locationStateRef.current !== 'centered')
+      return
 
     const center = mapInstance.current.getCenter()
     if (
@@ -542,8 +543,16 @@ export function useMapbox(options: UseMapboxOptions = {}): UseMapboxReturn {
       const next = status.state
       locationPermissionRef.current = next
       if (next === 'denied') handleDenied()
-      else if (next === 'granted' && previous === 'denied') {
-        requestUserLocationRef.current?.()
+      else if (next === 'granted' && previous !== 'granted') {
+        // Recover on prompt→granted as well as denied→granted. If the user takes
+        // long enough to allow that our initial request already timed out and the
+        // button went red, nothing else would re-locate. Skip when a request is
+        // already in flight (loading) or we're already located, so the normal
+        // quick-grant path doesn't fire a duplicate request.
+        const s = locationStateRef.current
+        if (s === 'idle' || s === 'error' || s === 'permission-denied') {
+          requestUserLocationRef.current?.()
+        }
       }
       previous = next
     }

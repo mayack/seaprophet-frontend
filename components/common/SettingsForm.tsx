@@ -102,9 +102,9 @@ export function SettingsForm(): React.JSX.Element {
   const [edit, setEdit] = useState<AccountEdit>(null)
   const [themeMounted, setThemeMounted] = useState(false)
   // Which toggle is mid-save (so only that switch is disabled), or null.
-  const [savingKey, setSavingKey] = useState<keyof NormalizedUserSettings | null>(
-    null
-  )
+  const [savingKey, setSavingKey] = useState<
+    keyof NormalizedUserSettings | null
+  >(null)
   const {
     handleUnitChange,
     commitSettings,
@@ -300,7 +300,9 @@ export function SettingsForm(): React.JSX.Element {
                 <Switch
                   id="dev-mode"
                   checked={devModeEnabled}
-                  disabled={!devModeAccess || savingKey === 'camObserverEnabled'}
+                  disabled={
+                    !devModeAccess || savingKey === 'camObserverEnabled'
+                  }
                   onCheckedChange={(enabled) => {
                     if (!hasDevModeAccess(userData)) return
                     void handleToggle('camObserverEnabled', enabled, {

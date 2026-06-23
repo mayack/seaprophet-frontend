@@ -115,6 +115,8 @@ export interface MapLocationConfig {
   pollFailureLimpThreshold: number
   /** Slower poll interval while degraded, still trying to recover (ms). */
   pollIntervalDegradedMs: number
+  /** Failed recovery attempts before degraded polling stops (re-arms on refocus). */
+  pollDegradedRecoveryAttempts: number
   /** Location request timeouts */
   timeouts: {
     standard: number

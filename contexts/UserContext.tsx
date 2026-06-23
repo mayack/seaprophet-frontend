@@ -28,7 +28,9 @@ interface UserContextType {
     | { latitude: number; longitude: number }
     // `busy` = another request already holds the geolocation lock (contention),
     // distinct from a real failure so callers can ignore it rather than count it.
-    | { error: 'permission' | 'unavailable' | 'timeout' | 'unsupported' | 'busy' }
+    | {
+        error: 'permission' | 'unavailable' | 'timeout' | 'unsupported' | 'busy'
+      }
   >
   // Drop the user's location everywhere — clears the in-memory coords and the
   // sessionStorage cache. Called when geolocation permission is denied/revoked
@@ -216,10 +218,10 @@ export function UserProvider({
 
         return { latitude, longitude }
       } catch (error) {
+        // No logging here: transient geolocation failures are expected (the OS
+        // logs its own `kCLErrorLocationUnknown` anyway) and limp mode is the
+        // real signal. Callers decide what a failure means.
         const kind = parseGeolocationError(error)
-        if (kind !== 'permission') {
-          console.warn('Location request failed:', kind)
-        }
         isLocatingRef.current = false
         return { error: kind }
       }
@@ -270,9 +272,15 @@ export function UserProvider({
   // (so reopening a backgrounded tab updates the dot), slows down while
   // degraded, and stops permanently if permission is revoked.
   const hasLocationRef = useRef(false)
+  // Sticky: have we held a fix at any point this session? Limp-mode recovery
+  // only makes sense for a fix we *lost* — a device that never located (desktop,
+  // location off, VM) can't recover by retrying, so it must stay out of the poll.
+  const everHadFixRef = useRef(false)
   useEffect(() => {
-    hasLocationRef.current =
+    const has =
       userData.latitude !== undefined && userData.longitude !== undefined
+    hasLocationRef.current = has
+    if (has) everHadFixRef.current = true
   }, [userData.latitude, userData.longitude])
 
   // Opt-out switch (Settings → Location): when off, no requests, no polling, no
@@ -285,8 +293,11 @@ export function UserProvider({
   // (poll or manual) clears it.
   const [locationDegraded, setLocationDegraded] = useState(false)
   const pollFailuresRef = useRef(0)
+  // Bounds recovery polling once degraded (reset on each entry into limp mode).
+  const degradedAttemptsRef = useRef(0)
   const markLocationDegraded = useCallback((degraded: boolean): void => {
-    if (!degraded) pollFailuresRef.current = 0
+    if (degraded) degradedAttemptsRef.current = 0
+    else pollFailuresRef.current = 0
     setLocationDegraded(degraded)
   }, [])
 
@@ -302,8 +313,12 @@ export function UserProvider({
 
     // The first fix on enable is driven by the map (useMapbox), which also owns
     // the locate-button loading/error states — so we don't request here.
-    const { pollFailureLimpThreshold, pollIntervalMs, pollIntervalDegradedMs } =
-      CONFIG.map.location
+    const {
+      pollFailureLimpThreshold,
+      pollIntervalMs,
+      pollIntervalDegradedMs,
+      pollDegradedRecoveryAttempts,
+    } = CONFIG.map.location
     let permissionDenied = false
     let intervalId: ReturnType<typeof setInterval> | null = null
 
@@ -318,8 +333,13 @@ export function UserProvider({
       if (permissionDenied || document.hidden) return
       // Normally polling waits until we already have a fix (so it can't trigger
       // an unsolicited prompt). In limp mode we keep trying to re-acquire even
-      // without one — by then we've already been granted, so it's safe.
-      if (!hasLocationRef.current && !locationDegraded) return
+      // without one — but only to recover a fix we actually had. A device that
+      // never located can't recover by retrying, so it stays gated out.
+      if (
+        !hasLocationRef.current &&
+        (!locationDegraded || !everHadFixRef.current)
+      )
+        return
 
       const result = await requestLocation(false, true)
       if (!('error' in result)) {
@@ -334,9 +354,17 @@ export function UserProvider({
         stop()
         return
       }
+      // Already limping: bounded recovery. After a handful of failed attempts,
+      // stop the interval — stay visually degraded (button red); a manual locate
+      // or a tab refocus re-arms a fresh batch.
+      if (locationDegraded) {
+        degradedAttemptsRef.current += 1
+        if (degradedAttemptsRef.current >= pollDegradedRecoveryAttempts) stop()
+        return
+      }
       // Real failure (timeout / unavailable / unsupported): count toward limp.
       pollFailuresRef.current += 1
-      if (pollFailuresRef.current >= pollFailureLimpThreshold && !locationDegraded) {
+      if (pollFailuresRef.current >= pollFailureLimpThreshold) {
         markLocationDegraded(true)
       }
     }
@@ -354,6 +382,8 @@ export function UserProvider({
       if (document.hidden) {
         stop()
       } else {
+        // Re-engaging the tab grants degraded recovery a fresh batch of attempts.
+        degradedAttemptsRef.current = 0
         void tick()
         start()
       }
@@ -363,7 +393,11 @@ export function UserProvider({
     // module; `pageshow` with `persisted` is the only reliable "we're back"
     // signal there, so refresh on it too.
     const handlePageShow = (event: PageTransitionEvent): void => {
-      if (event.persisted && !document.hidden) void tick()
+      if (event.persisted && !document.hidden) {
+        degradedAttemptsRef.current = 0
+        void tick()
+        start()
+      }
     }
 
     // Refresh immediately on (re)mount so a returning user sees their current

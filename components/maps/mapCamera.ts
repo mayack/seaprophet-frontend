@@ -86,7 +86,8 @@ export class MapCamera {
   /** Arm an in-flight location request to recenter. Idempotent while pending so
    *  it survives the request's internal retries without resetting the baseline. */
   beginRecenter(): void {
-    if (this.pendingRecenterEpoch === null) this.pendingRecenterEpoch = this.epoch
+    if (this.pendingRecenterEpoch === null)
+      this.pendingRecenterEpoch = this.epoch
   }
 
   cancelRecenter(): void {
@@ -305,7 +306,8 @@ export class MapCamera {
   private clearPaddingInPlace(): void {
     const padding = this.map.getPadding()
     if (!padding) return
-    if (!padding.top && !padding.bottom && !padding.left && !padding.right) return
+    if (!padding.top && !padding.bottom && !padding.left && !padding.right)
+      return
 
     const container = this.map.getContainer()
     const visualCenter = this.map.unproject([

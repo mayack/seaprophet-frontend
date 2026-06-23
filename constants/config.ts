@@ -137,6 +137,10 @@ export const CONFIG = {
       // it keeps trying to recover.
       pollFailureLimpThreshold: 5,
       pollIntervalDegradedMs: 60 * 1000,
+      // While degraded, stop polling after this many failed recovery attempts so
+      // a device that can't re-acquire doesn't retry forever. The button stays
+      // red; a manual locate or a tab refocus re-arms a fresh batch of attempts.
+      pollDegradedRecoveryAttempts: 5,
       timeouts: {
         standard: 10000, // ms - standard location request timeout
         highAccuracy: 15000, // ms - high accuracy location request timeout
