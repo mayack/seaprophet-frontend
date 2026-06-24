@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef } from 'react'
 import { toast } from 'sonner'
 import type { UserSettings } from '@/api/sargo/interfaces/user'
 import { updateUserSettings } from '@/api/sargo/actions/user'
+import { recoverFromDeploySkew } from '@/lib/recoverFromDeploySkew'
 import {
   normalizeUserSettings,
   type NormalizedUserSettings,
@@ -97,6 +98,7 @@ export function useDebouncedSettingsSave(
       })
       .catch((error) => {
         if (myRequestId !== unitRequestIdRef.current) return
+        if (recoverFromDeploySkew(error)) return
         revertUnits(
           error instanceof Error ? error.message : 'Settings could not be saved'
         )

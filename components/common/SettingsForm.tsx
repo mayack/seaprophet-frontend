@@ -53,6 +53,7 @@ import {
   type UpdatePasswordState,
   type UpdateUsernameState,
 } from '@/api/sargo/actions/user'
+import { recoverFromDeploySkew } from '@/lib/recoverFromDeploySkew'
 import {
   hasDevModeAccess,
   normalizeUserSettings,
@@ -162,6 +163,7 @@ export function SettingsForm(): React.JSX.Element {
         commitSettings(persisted)
         toast.success(successMessage)
       } catch (error) {
+        if (recoverFromDeploySkew(error)) return
         commitSettings(previous)
         toast.error(
           error instanceof Error ? error.message : 'Settings could not be saved'

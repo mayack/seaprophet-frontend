@@ -17,6 +17,7 @@ import React, { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { useUser } from '@/contexts/UserContext'
 import { toggleFavorite } from '@/api/sargo/actions/user'
+import { recoverFromDeploySkew } from '@/lib/recoverFromDeploySkew'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
@@ -68,7 +69,8 @@ export function SpotDetailHeader({
       } else {
         toast.error(result.error || 'Failed to update favorites')
       }
-    } catch {
+    } catch (error) {
+      if (recoverFromDeploySkew(error)) return
       toast.error('Failed to update favorites')
     } finally {
       setIsToggling(false)

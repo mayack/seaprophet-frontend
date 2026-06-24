@@ -38,6 +38,7 @@ import { getHomeSpot } from '@/lib/homeSpot'
 import { reverseGeocode } from '@/lib/reverseGeocode'
 import { normalizeUserSettings } from '@/lib/userSettings'
 import { updateUserSettings } from '@/api/sargo/actions/user'
+import { recoverFromDeploySkew } from '@/lib/recoverFromDeploySkew'
 import {
   Tooltip,
   TooltipContent,
@@ -264,6 +265,7 @@ export function MapNavigator({
         toast.success('Location tracking on')
       }
     } catch (error) {
+      if (recoverFromDeploySkew(error)) return
       updateUser({ settings: previous })
       toast.error(
         error instanceof Error
@@ -367,6 +369,7 @@ export function MapNavigator({
         toast.success('Home spot updated')
       }
     } catch (error) {
+      if (recoverFromDeploySkew(error)) return
       updateUser({ settings: previous })
       toast.error(
         error instanceof Error ? error.message : 'Could not save your home spot'
