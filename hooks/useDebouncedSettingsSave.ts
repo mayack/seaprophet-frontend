@@ -122,10 +122,18 @@ export function useDebouncedSettingsSave(
     runUnitsSaveRef.current = runUnitsSave
   })
 
-  useEffect(() => {
-    workingSettingsRef.current = initialSettings
-    lastSavedSettingsRef.current = initialSettings
-  }, [initialSettings])
+  // Intentionally NO effect resyncing the refs from `initialSettings`.
+  //
+  // `initialSettings` is `normalizeUserSettings(userData.settings)`, recomputed
+  // with a fresh object identity on every render — and `userData.settings` is
+  // what THIS hook mutates optimistically via commitSettings. So an effect
+  // keyed on `initialSettings` fires after every optimistic change and would
+  // reset `lastSavedSettingsRef` ("what the server confirmed") to the value the
+  // user just picked. runUnitsSave's dirty check (unitsEqual working vs saved)
+  // would then see them equal and skip the save entirely — units silently never
+  // persist. The lazy useRef init above already seeds both refs, and the form
+  // remounts on each dialog open (SettingsDialog gates with `open ? ... : null`),
+  // so a resync effect is unnecessary as well as harmful. Don't reintroduce it.
 
   useEffect(() => {
     return (): void => {

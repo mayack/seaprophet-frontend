@@ -222,6 +222,7 @@ export function CamObserverToolbar({
       {!expanded ? (
         <Button
           type="button"
+          variant="elevated"
           size="icon-circle"
           aria-label="Open Cam Observer"
           onClick={() => setExpanded(true)}
