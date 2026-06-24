@@ -176,7 +176,14 @@ export class SargoClient extends BaseApiClient {
       'populate[municipality]': 'true',
       'populate[webcam]': 'true',
       'pagination[page]': '1',
-      'pagination[pageSize]': '12',
+      // Strapi can't sort by haversine distance, so it returns spots in its own
+      // default order. Distance sorting happens client-side (prepareNearbySpots),
+      // so we must fetch EVERY spot in the bounding box — otherwise the truncated
+      // page can omit the actual nearest spot (e.g. a closer spot with a higher
+      // id) and the "nearest" list ends up sorting the wrong subset. A 30km-radius
+      // area can't physically hold 100 surf spots, so this ceiling returns all
+      // candidates without ever truncating (no pagination loop required).
+      'pagination[pageSize]': '100',
     }).toString()
 
     const headers = await this.getHeaders(

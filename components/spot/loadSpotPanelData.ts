@@ -16,6 +16,11 @@ import { isDevModeActive, normalizeUserSettings } from '@/lib/userSettings'
 
 const NEARBY_RADIUS_KM = 30
 
+// We fetch every spot in the bounding box (see SargoClient.getNearbySpots) so
+// the distance sort below operates on the full candidate set, then cap the
+// carousel to the closest few.
+const MAX_NEARBY_SPOTS = 12
+
 export interface SpotPanelData {
   spotId: number
   spotName: string
@@ -39,6 +44,7 @@ function prepareNearbySpots(
   return spots
     .filter((s) => s.id !== spotId)
     .sort((a, b) => (a.distance ?? 0) - (b.distance ?? 0))
+    .slice(0, MAX_NEARBY_SPOTS)
 }
 
 export async function loadSpotPanelData(
