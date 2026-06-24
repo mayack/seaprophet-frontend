@@ -4,6 +4,7 @@ import { HomeSpotProvider } from '@/contexts/HomeSpotContext'
 import { MapNavigator } from '@/components/maps/MapNavigator'
 import { SpotBox } from '@/components/spot/SpotBox'
 import { SpotDirectLinkHydrator } from '@/components/spot/SpotDirectLinkHydrator'
+import { SpotDocumentTitle } from '@/components/spot/SpotDocumentTitle'
 
 export function MapLayoutShell({
   children,
@@ -14,6 +15,7 @@ export function MapLayoutShell({
     <HomeSpotProvider>
       <SpotPanelProvider>
         <SpotDirectLinkHydrator />
+        <SpotDocumentTitle />
         <div className="relative h-dvh">
           <MapNavigator height="100%" />
           {children}
