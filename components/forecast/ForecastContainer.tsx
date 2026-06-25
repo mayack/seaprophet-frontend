@@ -11,6 +11,7 @@ import {
   applyUnitsToForecastParams,
   forecastUnitsKey,
 } from '@/lib/forecastParams'
+import { recoverFromDeploySkew } from '@/lib/recoverFromDeploySkew'
 import { Forecast } from './Forecast'
 import { Spinner } from '@/components/ui/spinner'
 import React from 'react'
@@ -71,15 +72,25 @@ export function ForecastContainer({
     let cancelled = false
     setIsFetching(true)
 
-    void getForecast(clientParams).then((res) => {
-      if (cancelled) return
-      if (res.data?.days) {
-        setDays(res.data.days)
-        loadedUnitsKeyRef.current = clientUnitsKey
-        setHasSyncedUnits(true)
-      }
-      setIsFetching(false)
-    })
+    void getForecast(clientParams)
+      .then((res) => {
+        if (cancelled) return
+        if (res.data?.days) {
+          setDays(res.data.days)
+          loadedUnitsKeyRef.current = clientUnitsKey
+          setHasSyncedUnits(true)
+        }
+        setIsFetching(false)
+      })
+      .catch((error) => {
+        if (cancelled) return
+        // Stale tab across a deploy: the action RPC throws. Reload into the
+        // current build if so; otherwise just stop the loader (gated on
+        // isFetching) so we fall back to the last good `days` rather than
+        // spinning forever.
+        if (recoverFromDeploySkew(error)) return
+        setIsFetching(false)
+      })
 
     return (): void => {
       cancelled = true

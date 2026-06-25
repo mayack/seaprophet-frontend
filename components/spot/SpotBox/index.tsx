@@ -59,6 +59,10 @@ export function SpotBox(): React.JSX.Element | null {
       <SpotDetailView key={panel.data.spotId} data={panel.data} />
     ) : panel.status === 'not-found' ? (
       <div className="p-6 text-center">Spot not found.</div>
+    ) : panel.status === 'error' ? (
+      <div className="p-6 text-center">
+        Couldn’t load this spot. Please try again.
+      </div>
     ) : isLoading && !isMobileLoading ? (
       <SpotModalLoading />
     ) : null
