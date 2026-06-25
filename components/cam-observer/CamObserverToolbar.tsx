@@ -46,6 +46,73 @@ function bandRangeLabel(
   return unit === 'feet' ? band.feet : band.meters
 }
 
+/**
+ * One body-part band slider. Used twice: the required "average" wave and
+ * the optional "sets". `index === null` means untouched (nothing picked).
+ */
+function BandSlider({
+  title,
+  index,
+  onChange,
+  unit,
+  placeholder,
+}: {
+  title: string
+  index: number | null
+  onChange: (index: number) => void
+  unit: HeightUnit
+  placeholder: string
+}): React.JSX.Element {
+  const selectedBand = index !== null ? HEIGHT_BANDS[index] : null
+  const thumbLeft =
+    index !== null
+      ? `calc(${(index / HEIGHT_BAND_MAX) * 100}% + ${THUMB_SIZE_PX / 2}px - ${(index / HEIGHT_BAND_MAX) * THUMB_SIZE_PX}px)`
+      : null
+
+  return (
+    <div>
+      <p className="mb-3 text-xs font-medium tracking-wide uppercase">{title}</p>
+      <div className="px-0.5">
+        <div className="relative">
+          <Slider
+            min={0}
+            max={HEIGHT_BAND_MAX}
+            step={1}
+            value={[index ?? 0]}
+            onValueChange={(value) => {
+              const next = typeof value === 'number' ? value : value[0]
+              if (next !== undefined) onChange(next)
+            }}
+            onPointerDown={() => {
+              if (index === null) onChange(0)
+            }}
+            aria-label={title}
+          />
+        </div>
+        <div className="relative mt-3 h-6">
+          {selectedBand && thumbLeft ? (
+            <div
+              className="absolute top-0 -translate-x-1/2 text-center whitespace-nowrap"
+              style={{ left: thumbLeft }}
+            >
+              <p className="text-xs leading-none font-medium">
+                {selectedBand.label}
+              </p>
+              <p className="mt-0.5 text-[10px] text-muted-foreground tabular-nums">
+                {bandRangeLabel(selectedBand, unit)}
+              </p>
+            </div>
+          ) : (
+            <p className="text-center text-xs text-muted-foreground">
+              {placeholder}
+            </p>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
 const WIND_FEELS: { id: WindFeel; label: string }[] = [
   { id: 'clean', label: 'Clean' },
   { id: 'textured', label: 'Textured' },
@@ -137,6 +204,7 @@ export function CamObserverToolbar({
   ).surf_height
   const [expanded, setExpanded] = useState(false)
   const [heightIndex, setHeightIndex] = useState<number | null>(null)
+  const [setsIndex, setSetsIndex] = useState<number | null>(null)
   const [windFeel, setWindFeel] = useState<WindFeel | null>(null)
   const [windTabsKey, setWindTabsKey] = useState(0)
   const [notes, setNotes] = useState('')
@@ -171,17 +239,8 @@ export function CamObserverToolbar({
 
   const heightBand =
     heightIndex !== null ? (HEIGHT_BANDS[heightIndex]?.id ?? null) : null
-  const selectedBand = heightIndex !== null ? HEIGHT_BANDS[heightIndex] : null
-  const thumbLeft =
-    heightIndex !== null
-      ? `calc(${(heightIndex / HEIGHT_BAND_MAX) * 100}% + ${THUMB_SIZE_PX / 2}px - ${(heightIndex / HEIGHT_BAND_MAX) * THUMB_SIZE_PX}px)`
-      : null
-
-  const handleHeightChange = (value: number[]): void => {
-    const index = value[0]
-    if (index === undefined) return
-    setHeightIndex(index)
-  }
+  const heightBandSets =
+    setsIndex !== null ? (HEIGHT_BANDS[setsIndex]?.id ?? null) : null
 
   const handleReport = (): void => {
     if (!heightBand) {
@@ -197,6 +256,7 @@ export function CamObserverToolbar({
         spotId,
         spotName,
         heightBand,
+        heightBandSets: heightBandSets ?? undefined,
         windFeel: windFeel ?? undefined,
         notes: notes.trim() || undefined,
         observedAt: observedAt.toISOString(),
@@ -210,6 +270,7 @@ export function CamObserverToolbar({
 
       setStatus(`Saved ${result.id.slice(0, 8)}`)
       setHeightIndex(null)
+      setSetsIndex(null)
       setWindFeel(null)
       setWindTabsKey((key) => key + 1)
       setNotes('')
@@ -249,48 +310,21 @@ export function CamObserverToolbar({
           </div>
 
           <div className="max-h-[min(70vh,32rem)] space-y-6 overflow-y-auto p-4">
-            <div>
-              <p className="mb-3 text-xs font-medium tracking-wide uppercase">
-                Wave Height
-              </p>
-              <div className="px-0.5">
-                <div className="relative">
-                  <Slider
-                    min={0}
-                    max={HEIGHT_BAND_MAX}
-                    step={1}
-                    value={[heightIndex ?? 0]}
-                    onValueChange={(value) =>
-                      handleHeightChange(
-                        typeof value === 'number' ? [value] : [...value]
-                      )
-                    }
-                    onPointerDown={() => {
-                      setHeightIndex((current) => current ?? 0)
-                    }}
-                    aria-label="Wave height"
-                  />
-                </div>
-                <div className="relative mt-3 h-6">
-                  {selectedBand && thumbLeft ? (
-                    <div
-                      className="absolute top-0 -translate-x-1/2 text-center whitespace-nowrap"
-                      style={{ left: thumbLeft }}
-                    >
-                      <p className="text-xs leading-none font-medium">
-                        {selectedBand.label}
-                      </p>
-                      <p className="mt-0.5 text-[10px] text-muted-foreground tabular-nums">
-                        {bandRangeLabel(selectedBand, surfHeightUnit)}
-                      </p>
-                    </div>
-                  ) : (
-                    <p className="text-center text-xs text-muted-foreground">
-                      Drag to select wave height
-                    </p>
-                  )}
-                </div>
-              </div>
+            <div className="space-y-5">
+              <BandSlider
+                title="Average wave"
+                index={heightIndex}
+                onChange={setHeightIndex}
+                unit={surfHeightUnit}
+                placeholder="Drag to select the typical wave"
+              />
+              <BandSlider
+                title="Sets (optional)"
+                index={setsIndex}
+                onChange={setSetsIndex}
+                unit={surfHeightUnit}
+                placeholder="Drag if the bigger sets stand out"
+              />
             </div>
 
             <div>

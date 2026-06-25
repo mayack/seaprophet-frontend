@@ -32,7 +32,14 @@ export interface CamObserverUiSnapshot {
 export interface SubmitCamObserverReportInput {
   spotId: number
   spotName: string
+  /** The typical / average wave (required, backward-compatible). */
   heightBand: HeightBand
+  /**
+   * The bigger set waves (optional). Significant wave height (what the
+   * model reports) maps closer to the sets than the average, so this is
+   * the more physically-correct scoring target when present.
+   */
+  heightBandSets?: HeightBand
   windFeel?: WindFeel
   notes?: string
   observedAt?: string
