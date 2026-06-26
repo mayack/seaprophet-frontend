@@ -52,7 +52,7 @@ export function formatDistance(distance: number): string {
   if (distance < 1) {
     return `${Math.round(distance * 1000)}m away`
   }
-  return `${distance}km away`
+  return `${Math.round(distance)}km away`
 }
 
 /**
