@@ -39,7 +39,7 @@ export function DayGeneralInfo({
     <div className={cn('flex items-center gap-x-1.5', className)}>
       <DayGeneralInfoItem icon={<Droplet />} label="Water">
         {formatValueWithUnitSeparated(
-          Math.round(general.averageWaterTemperature),
+          general.averageWaterTemperature,
           units.temperature
         )}
       </DayGeneralInfoItem>

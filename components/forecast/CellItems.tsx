@@ -43,7 +43,7 @@ export function EnergyItem({
 }): React.JSX.Element {
   return (
     <div className={className}>
-      {formatValueWithUnitSeparated(Math.round(energy), 'kilojoules')}
+      {formatValueWithUnitSeparated(energy, 'kilojoules')}
     </div>
   )
 }
@@ -67,7 +67,7 @@ export function WaveItem({
       )}
     >
       {formatValueWithUnitSeparated(height, unit, 'flex-1 font-medium')}
-      {formatValueWithUnitSeparated(Math.round(energy), 'kilojoules')}
+      {formatValueWithUnitSeparated(energy, 'kilojoules')}
     </div>
   )
 }
