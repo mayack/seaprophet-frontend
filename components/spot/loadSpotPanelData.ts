@@ -57,16 +57,14 @@ export async function loadSpotPanelData(
   const spot = spotResponse?.data?.attributes
   if (!spot) return null
 
+  // Beach orientation, wave_factor and adjustment_factor are obsolete: polvo
+  // derives orientation from terrain/bathy (config.beachFacing) and ignores the
+  // factors. The fields have been removed from the sargo spot type.
   const forecastParams = applyUnitsToForecastParams(
     {
       lat: spot.location_lat,
       lon: spot.location_long,
       spotId,
-      orientationFrom: spot.beach_orientation_from,
-      orientationMid: spot.beach_orientation_mid,
-      orientationTo: spot.beach_orientation_to,
-      waveFactor: spot.wave_factor,
-      adjustmentFactor: spot.adjustment_factor,
     },
     normalizeUserSettings(user.settings).units
   )
