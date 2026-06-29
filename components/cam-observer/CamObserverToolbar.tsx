@@ -47,8 +47,8 @@ function bandRangeLabel(
 }
 
 /**
- * One body-part band slider. Used twice: the required "average" wave and
- * the optional "sets". `index === null` means untouched (nothing picked).
+ * One body-part band slider for the average wave. `index === null` means
+ * untouched (nothing picked).
  */
 function BandSlider({
   title,
@@ -204,7 +204,6 @@ export function CamObserverToolbar({
   ).surf_height
   const [expanded, setExpanded] = useState(false)
   const [heightIndex, setHeightIndex] = useState<number | null>(null)
-  const [setsIndex, setSetsIndex] = useState<number | null>(null)
   const [windFeel, setWindFeel] = useState<WindFeel | null>(null)
   const [windTabsKey, setWindTabsKey] = useState(0)
   const [notes, setNotes] = useState('')
@@ -239,8 +238,6 @@ export function CamObserverToolbar({
 
   const heightBand =
     heightIndex !== null ? (HEIGHT_BANDS[heightIndex]?.id ?? null) : null
-  const heightBandSets =
-    setsIndex !== null ? (HEIGHT_BANDS[setsIndex]?.id ?? null) : null
 
   const handleReport = (): void => {
     if (!heightBand) {
@@ -256,7 +253,6 @@ export function CamObserverToolbar({
         spotId,
         spotName,
         heightBand,
-        heightBandSets: heightBandSets ?? undefined,
         windFeel: windFeel ?? undefined,
         notes: notes.trim() || undefined,
         observedAt: observedAt.toISOString(),
@@ -270,7 +266,6 @@ export function CamObserverToolbar({
 
       setStatus(`Saved ${result.id.slice(0, 8)}`)
       setHeightIndex(null)
-      setSetsIndex(null)
       setWindFeel(null)
       setWindTabsKey((key) => key + 1)
       setNotes('')
@@ -317,13 +312,6 @@ export function CamObserverToolbar({
                 onChange={setHeightIndex}
                 unit={surfHeightUnit}
                 placeholder="Drag to select the typical wave"
-              />
-              <BandSlider
-                title="Sets (optional)"
-                index={setsIndex}
-                onChange={setSetsIndex}
-                unit={surfHeightUnit}
-                placeholder="Drag if the bigger sets stand out"
               />
             </div>
 
