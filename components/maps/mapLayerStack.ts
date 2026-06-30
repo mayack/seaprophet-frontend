@@ -4,7 +4,6 @@ import { HOME_SPOT_LAYER_ID } from './homeMarkerLayer'
 import {
   SPOTS_CLUSTERS_LAYER_ID,
   SPOTS_UNCLUSTERED_LAYER_ID,
-  SPOTS_UNCLUSTERED_SELECTED_LAYER_ID,
 } from './spotClusters'
 
 /**
@@ -24,7 +23,6 @@ function mapLayerStack(): readonly string[] {
     HOME_SPOT_LAYER_ID,
     SPOTS_CLUSTERS_LAYER_ID,
     SPOTS_UNCLUSTERED_LAYER_ID,
-    SPOTS_UNCLUSTERED_SELECTED_LAYER_ID,
   ]
 }
 

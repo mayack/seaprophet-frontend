@@ -18,7 +18,6 @@ import { canUseHoverTooltips } from '@/lib/pointerCapabilities'
 export const SPOTS_SOURCE_ID = 'spots'
 export const SPOTS_CLUSTERS_LAYER_ID = 'spots-clusters'
 export const SPOTS_UNCLUSTERED_LAYER_ID = 'spots-unclustered'
-export const SPOTS_UNCLUSTERED_SELECTED_LAYER_ID = 'spots-unclustered-selected'
 
 const CLUSTER_TOOLTIP_NAMES_PER_ROW = 5
 /** Only the first row of names is shown; overflow goes on the line below. */
@@ -98,12 +97,6 @@ function showClusterHoverTooltip(
 const SPOT_CLICK_INTERACTION_IDS = [
   'spots-clusters-click',
   'spots-unclustered-click',
-  'spots-unclustered-selected-click',
-] as const
-
-const SPOT_UNCLUSTERED_LAYER_IDS = [
-  SPOTS_UNCLUSTERED_LAYER_ID,
-  SPOTS_UNCLUSTERED_SELECTED_LAYER_ID,
 ] as const
 
 type LayerHoverHandlers = {
@@ -144,16 +137,6 @@ function detachLayerHoverHandlers(map: mapboxgl.Map): void {
   map.off(
     'mouseleave',
     SPOTS_UNCLUSTERED_LAYER_ID,
-    layerHoverHandlers.onUnclusteredLeave
-  )
-  map.off(
-    'mouseenter',
-    SPOTS_UNCLUSTERED_SELECTED_LAYER_ID,
-    layerHoverHandlers.onUnclusteredEnter
-  )
-  map.off(
-    'mouseleave',
-    SPOTS_UNCLUSTERED_SELECTED_LAYER_ID,
     layerHoverHandlers.onUnclusteredLeave
   )
   layerHoverHandlers = null
@@ -247,47 +230,15 @@ function clusterTextColor(): string {
   return getMapThemeColors().background
 }
 
-function unclusteredBaseFilter(): mapboxgl.FilterSpecification {
+function unclusteredFilter(): mapboxgl.FilterSpecification {
   return ['!', ['has', 'point_count']]
 }
 
-function unclusteredDefaultFilter(
-  activeSpotId: number | null
-): mapboxgl.FilterSpecification {
-  const base = unclusteredBaseFilter()
-  if (activeSpotId === null) return base
-  return ['all', base, ['!=', ['get', 'id'], activeSpotId]]
-}
-
-function unclusteredSelectedFilter(
-  activeSpotId: number | null
-): mapboxgl.FilterSpecification {
-  if (activeSpotId === null) {
-    return ['==', ['get', 'id'], -1]
-  }
-  return ['all', unclusteredBaseFilter(), ['==', ['get', 'id'], activeSpotId]]
-}
-
-function applyUnclusteredPinFilters(map: mapboxgl.Map): void {
-  if (map.getLayer(SPOTS_UNCLUSTERED_LAYER_ID)) {
-    map.setFilter(
-      SPOTS_UNCLUSTERED_LAYER_ID,
-      unclusteredDefaultFilter(selectedSpotId)
-    )
-  }
-  if (map.getLayer(SPOTS_UNCLUSTERED_SELECTED_LAYER_ID)) {
-    map.setFilter(
-      SPOTS_UNCLUSTERED_SELECTED_LAYER_ID,
-      unclusteredSelectedFilter(selectedSpotId)
-    )
-  }
-}
-
-function unclusteredPinLayout(
-  selected: boolean
-): mapboxgl.SymbolLayerSpecification['layout'] {
+function unclusteredPinLayout(): mapboxgl.SymbolLayerSpecification['layout'] {
   return {
-    'icon-image': spotPinImageExpression(selected),
+    // Selected vs default is baked into the icon-image expression (keyed on the
+    // active spot id) — a single layer, no filter swapping / second layer.
+    'icon-image': spotPinImageExpression(selectedSpotId),
     'icon-size': spotPinIconSizeExpression(),
     'icon-anchor': 'center',
     'icon-allow-overlap': true,
@@ -418,18 +369,8 @@ export async function ensureSpotLayers(map: mapboxgl.Map): Promise<void> {
       id: SPOTS_UNCLUSTERED_LAYER_ID,
       type: 'symbol',
       source: SPOTS_SOURCE_ID,
-      filter: unclusteredDefaultFilter(selectedSpotId),
-      layout: unclusteredPinLayout(false),
-    })
-  }
-
-  if (!map.getLayer(SPOTS_UNCLUSTERED_SELECTED_LAYER_ID)) {
-    map.addLayer({
-      id: SPOTS_UNCLUSTERED_SELECTED_LAYER_ID,
-      type: 'symbol',
-      source: SPOTS_SOURCE_ID,
-      filter: unclusteredSelectedFilter(selectedSpotId),
-      layout: unclusteredPinLayout(true),
+      filter: unclusteredFilter(),
+      layout: unclusteredPinLayout(),
     })
   }
 
@@ -438,35 +379,20 @@ export async function ensureSpotLayers(map: mapboxgl.Map): Promise<void> {
   // symbols actually render — removing it left clusters invisible until a
   // style change forced this to run.
   await updateSpotLayerTheme(map)
-
-  applyUnclusteredPinFilters(map)
 }
 
 function applyUnclusteredPinTheme(map: mapboxgl.Map): void {
-  if (map.getLayer(SPOTS_UNCLUSTERED_LAYER_ID)) {
-    map.setLayoutProperty(
-      SPOTS_UNCLUSTERED_LAYER_ID,
-      'icon-image',
-      spotPinImageExpression(false)
-    )
-    map.setLayoutProperty(
-      SPOTS_UNCLUSTERED_LAYER_ID,
-      'icon-size',
-      spotPinIconSizeExpression()
-    )
-  }
-  if (map.getLayer(SPOTS_UNCLUSTERED_SELECTED_LAYER_ID)) {
-    map.setLayoutProperty(
-      SPOTS_UNCLUSTERED_SELECTED_LAYER_ID,
-      'icon-image',
-      spotPinImageExpression(true)
-    )
-    map.setLayoutProperty(
-      SPOTS_UNCLUSTERED_SELECTED_LAYER_ID,
-      'icon-size',
-      spotPinIconSizeExpression()
-    )
-  }
+  if (!map.getLayer(SPOTS_UNCLUSTERED_LAYER_ID)) return
+  map.setLayoutProperty(
+    SPOTS_UNCLUSTERED_LAYER_ID,
+    'icon-image',
+    spotPinImageExpression(selectedSpotId)
+  )
+  map.setLayoutProperty(
+    SPOTS_UNCLUSTERED_LAYER_ID,
+    'icon-size',
+    spotPinIconSizeExpression()
+  )
 }
 
 function applyClusterSizeLayout(map: mapboxgl.Map): void {
@@ -527,17 +453,23 @@ function pushSpotLayerData(map: mapboxgl.Map): void {
   source.setData(spotsToFeatureCollection(lastSpotsForLayers))
   // The persistent repaint listener (attached in ensureSpotLayers) fires when
   // the worker finishes clustering this data — no per-push one-shot needed.
-
-  applyUnclusteredPinFilters(map)
 }
 
-/** Swap default/selected pin layers via setFilter (no setData / re-cluster). */
+/** Update which pin renders as selected — re-applies the icon-image expression
+ *  (keyed on the active spot id) on the single pins layer. No setData / no
+ *  re-cluster; just a layout-property swap. */
 export function syncActiveSpotPinState(
   map: mapboxgl.Map,
   activeSpotId: number | null
 ): void {
   selectedSpotId = activeSpotId
-  applyUnclusteredPinFilters(map)
+  if (map.getLayer(SPOTS_UNCLUSTERED_LAYER_ID)) {
+    map.setLayoutProperty(
+      SPOTS_UNCLUSTERED_LAYER_ID,
+      'icon-image',
+      spotPinImageExpression(activeSpotId)
+    )
+  }
 }
 
 export async function updateSpotLayerTheme(map: mapboxgl.Map): Promise<void> {
@@ -559,8 +491,6 @@ export async function updateSpotLayerTheme(map: mapboxgl.Map): Promise<void> {
   if (map.getLayer(SPOTS_UNCLUSTERED_LAYER_ID)) {
     applyUnclusteredPinTheme(map)
   }
-
-  applyUnclusteredPinFilters(map)
 }
 
 export function updateSpotLayerData(
@@ -604,24 +534,6 @@ export function attachSpotLayerInteractions(
   map.addInteraction('spots-unclustered-click', {
     type: 'click',
     target: { layerId: SPOTS_UNCLUSTERED_LAYER_ID },
-    handler: (event) => {
-      const feature = event.feature
-      if (!feature) return
-
-      const spotId = Number(feature.properties?.id)
-      if (!Number.isFinite(spotId)) return
-
-      const spot = spotsCache.getSpot(spotId)
-      if (!spot) return
-
-      state.hoverPopup?.remove()
-      onSpotClick(spot)
-    },
-  })
-
-  map.addInteraction('spots-unclustered-selected-click', {
-    type: 'click',
-    target: { layerId: SPOTS_UNCLUSTERED_SELECTED_LAYER_ID },
     handler: (event) => {
       const feature = event.feature
       if (!feature) return
@@ -723,10 +635,8 @@ export function attachSpotLayerInteractions(
 
   map.on('mouseenter', SPOTS_CLUSTERS_LAYER_ID, onClusterEnter)
   map.on('mouseleave', SPOTS_CLUSTERS_LAYER_ID, onClusterLeave)
-  for (const layerId of SPOT_UNCLUSTERED_LAYER_IDS) {
-    map.on('mouseenter', layerId, onUnclusteredEnter)
-    map.on('mouseleave', layerId, onUnclusteredLeave)
-  }
+  map.on('mouseenter', SPOTS_UNCLUSTERED_LAYER_ID, onUnclusteredEnter)
+  map.on('mouseleave', SPOTS_UNCLUSTERED_LAYER_ID, onUnclusteredLeave)
 
   layerHoverHandlers = {
     onClusterEnter,
@@ -750,7 +660,6 @@ export function removeSpotLayers(map: mapboxgl.Map): void {
   resetSpotLayerDataCache()
   selectedSpotId = null
   for (const layerId of [
-    SPOTS_UNCLUSTERED_SELECTED_LAYER_ID,
     SPOTS_UNCLUSTERED_LAYER_ID,
     SPOTS_CLUSTERS_LAYER_ID,
   ]) {

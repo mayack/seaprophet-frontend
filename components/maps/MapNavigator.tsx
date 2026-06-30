@@ -68,7 +68,6 @@ import {
   syncActiveSpotPinState,
   SPOTS_CLUSTERS_LAYER_ID,
   SPOTS_UNCLUSTERED_LAYER_ID,
-  SPOTS_UNCLUSTERED_SELECTED_LAYER_ID,
 } from '@/components/maps/spotClusters'
 import { ViewportSpotsCarousel } from '@/components/maps/ViewportSpotsCarousel'
 
@@ -325,7 +324,6 @@ export function MapNavigator({
     const layerIds = [
       SPOTS_CLUSTERS_LAYER_ID,
       SPOTS_UNCLUSTERED_LAYER_ID,
-      SPOTS_UNCLUSTERED_SELECTED_LAYER_ID,
       USER_LOCATION_LAYER_ID,
     ]
     const visibility = isEditing ? 'none' : 'visible'

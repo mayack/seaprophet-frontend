@@ -12,22 +12,12 @@ export function spotPinPixelSize(): number {
 
 const SPOT_PIN_VIEWBOX = 48
 const SPOT_PIN_CIRCLE_RADIUS = 20
-const SPOT_PIN_WAVE_ICON_SCALE = 0.78
-const SPOT_PIN_CAMERA_ICON_SCALE = 0.9
 const SPOT_PIN_CIRCLE_STROKE = 1
 const SPOT_PIN_ICON_STROKE = 2
-
-function spotPinIconScale(icon: SpotPinIcon): number {
-  return icon === 'camera'
-    ? SPOT_PIN_CAMERA_ICON_SCALE
-    : SPOT_PIN_WAVE_ICON_SCALE
-}
-
-/** Keep on-screen stroke thickness equal when icons use different scales. */
-function spotPinInnerStrokeWidth(icon: SpotPinIcon): number {
-  const scale = spotPinIconScale(icon)
-  return (SPOT_PIN_ICON_STROKE * SPOT_PIN_WAVE_ICON_SCALE) / scale
-}
+// One inner-icon scale for both glyphs. (Previously separate wave/camera
+// scales plus per-icon stroke-width normalisation — unnecessary machinery; a
+// single scale + fixed stroke reads the same on screen.)
+const SPOT_PIN_ICON_SCALE = 0.82
 
 const SPOT_CLUSTER_IMAGE = 'spot-cluster'
 const SPOT_PIN_WAVE_DEFAULT = 'spot-pin-wave-default'
@@ -67,7 +57,7 @@ function spotPinInnerIconSvg(
   icon: SpotPinIcon,
   selected: boolean
 ): string {
-  const strokeWidth = spotPinInnerStrokeWidth(icon)
+  const strokeWidth = SPOT_PIN_ICON_STROKE
   const iconFill = icon === 'camera' && selected ? iconColor : 'none'
   const strokeAttrs = `stroke="${iconColor}" stroke-width="${strokeWidth}" stroke-linecap="round" stroke-linejoin="round" fill="${iconFill}"`
 
@@ -87,8 +77,7 @@ function spotPinSvg(selected: boolean, icon: SpotPinIcon): string {
   const iconColor = selected ? foreground : background
   const innerIcon = spotPinInnerIconSvg(iconColor, icon, selected)
 
-  const iconScale = spotPinIconScale(icon)
-  const iconTransform = `translate(${center} ${center}) scale(${iconScale}) translate(-12 -12)`
+  const iconTransform = `translate(${center} ${center}) scale(${SPOT_PIN_ICON_SCALE}) translate(-12 -12)`
 
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 ${SPOT_PIN_VIEWBOX} ${SPOT_PIN_VIEWBOX}">
     <circle cx="${center}" cy="${center}" r="${SPOT_PIN_CIRCLE_RADIUS}" fill="${fill}" stroke="${foreground}" stroke-width="${SPOT_PIN_CIRCLE_STROKE}"/>
@@ -121,14 +110,30 @@ export function spotPinImageId(selected: boolean, icon: SpotPinIcon): string {
   return selected ? SPOT_PIN_WAVE_SELECTED : SPOT_PIN_WAVE_DEFAULT
 }
 
+/**
+ * icon-image for the single unclustered-pins layer: selected vs default is
+ * chosen by the spot id (no second layer / filter swapping), and within each,
+ * camera vs wave by `hasWebcam`. Re-applied via setLayoutProperty when the
+ * active spot changes. (`selectedSpotId` null/-1 → nothing matches → all default.)
+ */
 export function spotPinImageExpression(
-  selected: boolean
+  selectedSpotId: number | null
 ): mapboxgl.ExpressionSpecification {
   return [
     'case',
-    ['==', ['get', 'hasWebcam'], 1],
-    spotPinImageId(selected, 'camera'),
-    spotPinImageId(selected, 'waves'),
+    ['==', ['get', 'id'], selectedSpotId ?? -1],
+    [
+      'case',
+      ['==', ['get', 'hasWebcam'], 1],
+      spotPinImageId(true, 'camera'),
+      spotPinImageId(true, 'waves'),
+    ],
+    [
+      'case',
+      ['==', ['get', 'hasWebcam'], 1],
+      spotPinImageId(false, 'camera'),
+      spotPinImageId(false, 'waves'),
+    ],
   ]
 }
 
@@ -142,25 +147,32 @@ const SPOT_PIN_ZOOM_SIZE_MULTIPLIERS = [
   [18, 1.22],
 ] as const
 
-function spotPinIconSizeAtZoom(zoom: number): number {
-  const base = SPOT_PIN_DEFAULT_ICON_SIZE
-  const stops = SPOT_PIN_ZOOM_SIZE_MULTIPLIERS.map(
-    ([z, multiplier]) => [z, base * multiplier] as const
-  )
-
-  if (zoom <= stops[0][0]) return stops[0][1]
-  if (zoom >= stops[stops.length - 1][0]) return stops[stops.length - 1][1]
-
+/** Piecewise-linear interpolation over [input, output] stops (clamped at the
+ *  ends). One JS implementation shared by the pin- and cluster-size readbacks
+ *  used for tooltip positioning (the GL render uses the matching `interpolate`
+ *  expressions built from the same stop arrays). */
+function lerpStops(
+  stops: ReadonlyArray<readonly [number, number]>,
+  x: number
+): number {
+  if (x <= stops[0][0]) return stops[0][1]
+  const last = stops[stops.length - 1]
+  if (x >= last[0]) return last[1]
   for (let i = 0; i < stops.length - 1; i++) {
-    const [z0, size0] = stops[i]
-    const [z1, size1] = stops[i + 1]
-    if (zoom >= z0 && zoom <= z1) {
-      const t = (zoom - z0) / (z1 - z0)
-      return size0 + t * (size1 - size0)
-    }
+    const [x0, y0] = stops[i]
+    const [x1, y1] = stops[i + 1]
+    if (x >= x0 && x <= x1) return y0 + ((x - x0) / (x1 - x0)) * (y1 - y0)
   }
+  return last[1]
+}
 
-  return base
+function spotPinIconSizeAtZoom(zoom: number): number {
+  return lerpStops(
+    SPOT_PIN_ZOOM_SIZE_MULTIPLIERS.map(
+      ([z, multiplier]) => [z, SPOT_PIN_DEFAULT_ICON_SIZE * multiplier] as const
+    ),
+    zoom
+  )
 }
 
 /** Screen-pixel radius of an unclustered spot pin at a given zoom. */
@@ -181,21 +193,7 @@ const CLUSTER_ICON_SIZE_STOPS = [
 ] as const
 
 function clusterIconSizeAtPointCount(pointCount: number): number {
-  const stops = CLUSTER_ICON_SIZE_STOPS
-  if (pointCount <= stops[0][0]) return stops[0][1]
-  if (pointCount >= stops[stops.length - 1][0])
-    return stops[stops.length - 1][1]
-
-  for (let i = 0; i < stops.length - 1; i++) {
-    const [c0, size0] = stops[i]
-    const [c1, size1] = stops[i + 1]
-    if (pointCount >= c0 && pointCount <= c1) {
-      const t = (pointCount - c0) / (c1 - c0)
-      return size0 + t * (size1 - size0)
-    }
-  }
-
-  return 1
+  return lerpStops(CLUSTER_ICON_SIZE_STOPS, pointCount)
 }
 
 /**
