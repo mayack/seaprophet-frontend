@@ -291,7 +291,10 @@ function unclusteredPinLayout(
     'icon-size': spotPinIconSizeExpression(),
     'icon-anchor': 'center',
     'icon-allow-overlap': true,
-    'icon-ignore-placement': false,
+    // ignore-placement TRUE so pins never get collision-dropped as the
+    // viewport changes — dropping/re-adding on pan was the "pins pop on
+    // pan-back" flicker. Density is already handled by clustering.
+    'icon-ignore-placement': true,
     'icon-padding': 2,
   }
 }
@@ -378,6 +381,10 @@ function spotsToFeatureCollection(
 
 export async function ensureSpotLayers(map: mapboxgl.Map): Promise<void> {
   await whenStyleReady(map)
+
+  // Guarantee a repaint whenever the spots source finishes clustering, so
+  // symbols never stay blank until the user pans (idempotent per map).
+  ensureSpotsRepaintListener(map)
 
   const { minPoints } = CONFIG.map.clusters
 
@@ -477,21 +484,32 @@ function applyClusterSizeLayout(map: mapboxgl.Map): void {
 }
 
 /**
- * Force a render once the spots source has finished (re-)loading. Clustering
+ * Force a render WHENEVER the spots source finishes (re-)loading. Clustering
  * runs in a worker, so cluster features aren't ready synchronously after
- * setData; when the map is idle it may not auto-repaint once they land, leaving
- * symbols invisible until interaction. Repainting on `isSourceLoaded` is
- * deterministic (unlike a one-shot `idle`, which can race the worker).
+ * setData; an idle map may not auto-repaint once they land, leaving symbols
+ * invisible until the user interacts (the "blank until you pan, then they pop
+ * in" bug).
+ *
+ * This is a PERSISTENT listener attached once per map. The previous one-shot
+ * version raced: if the source had already loaded by the time it attached, the
+ * repaint never fired and the layer stayed blank. Guarded by a WeakMap keyed on
+ * the map (NOT a module global) so a remounted/new map re-attaches cleanly and
+ * the handler is GC'd with the map — no stale-singleton desync across remounts.
  */
-function repaintWhenSpotsSourceLoaded(map: mapboxgl.Map): void {
-  const onSourceData = (
-    event: mapboxgl.MapSourceDataEvent & { isSourceLoaded?: boolean }
-  ): void => {
-    if (event.sourceId !== SPOTS_SOURCE_ID || !event.isSourceLoaded) return
-    map.off('sourcedata', onSourceData)
-    map.triggerRepaint()
-  }
-  map.on('sourcedata', onSourceData)
+const spotsRepaintAttached = new WeakMap<mapboxgl.Map, true>()
+
+function ensureSpotsRepaintListener(map: mapboxgl.Map): void {
+  if (spotsRepaintAttached.has(map)) return
+  spotsRepaintAttached.set(map, true)
+  map.on(
+    'sourcedata',
+    (
+      event: mapboxgl.MapSourceDataEvent & { isSourceLoaded?: boolean }
+    ): void => {
+      if (event.sourceId !== SPOTS_SOURCE_ID || !event.isSourceLoaded) return
+      map.triggerRepaint()
+    }
+  )
 }
 
 function pushSpotLayerData(map: mapboxgl.Map): void {
@@ -507,7 +525,8 @@ function pushSpotLayerData(map: mapboxgl.Map): void {
   lastSpotDataSignature = signature
   lastSpotDataSource = source
   source.setData(spotsToFeatureCollection(lastSpotsForLayers))
-  repaintWhenSpotsSourceLoaded(map)
+  // The persistent repaint listener (attached in ensureSpotLayers) fires when
+  // the worker finishes clustering this data — no per-push one-shot needed.
 
   applyUnclusteredPinFilters(map)
 }
