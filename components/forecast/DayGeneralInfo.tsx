@@ -38,10 +38,12 @@ export function DayGeneralInfo({
   return (
     <div className={cn('flex items-center gap-x-1.5', className)}>
       <DayGeneralInfoItem icon={<Droplet />} label="Water">
-        {formatValueWithUnitSeparated(
-          general.averageWaterTemperature,
-          units.temperature
-        )}
+        {general.averageWaterTemperature > 0
+          ? formatValueWithUnitSeparated(
+              general.averageWaterTemperature,
+              units.temperature
+            )
+          : '—'}
       </DayGeneralInfoItem>
       <DayGeneralInfoItem icon={<Sun />} label="UV">
         {general.maxUvIndex !== undefined ? general.maxUvIndex : '—'}
