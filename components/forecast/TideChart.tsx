@@ -70,12 +70,25 @@ export default function TideChart({
   astronomical,
   unit,
   className,
-}: TideChartProps): React.JSX.Element {
+}: TideChartProps): React.JSX.Element | null {
   const height = 88
   const svgRef = useRef<SVGSVGElement>(null)
   const [width, setWidth] = useState(240)
   const [isClient, setIsClient] = useState(false)
   const [mousePosition, setMousePosition] = useState<number | null>(null)
+
+  // Micro-tidal seas (Baltic, Med): the extremes are just model sea-level
+  // noise inside a tiny band — a tide chart is meaningless there (polvo also
+  // flags this as `forecast.microTidal`). Hide the chart entirely when the
+  // whole day's range is below ~0.3 m / 1 ft.
+  const microTidal = useMemo(() => {
+    const heights = data
+      .map((t) => t.height)
+      .filter((h): h is number => Number.isFinite(h))
+    if (heights.length === 0) return true
+    const range = Math.max(...heights) - Math.min(...heights)
+    return range < (unit === 'feet' ? 1 : 0.3)
+  }, [data, unit])
 
   // Memoize the tide-data preprocessing that is independent of width.
   // Splitting this out from the curve-point calculation lets a width
@@ -193,6 +206,11 @@ export default function TideChart({
 
     return (): void => observer.disconnect()
   }, [isClient])
+
+  // After all hooks (rules of hooks): nothing to show for micro-tidal seas.
+  if (microTidal) {
+    return null
+  }
 
   if (!isClient) {
     return <Skeleton className={cn('h-24 w-full', className)} />
