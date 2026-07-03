@@ -87,7 +87,9 @@ export default function TideChart({
       .filter((h): h is number => Number.isFinite(h))
     if (heights.length === 0) return true
     const range = Math.max(...heights) - Math.min(...heights)
-    return range < (unit === 'feet' ? 1 : 0.3)
+    // 0.6m/2ft, not 0.3/1: Baltic sea-level noise spans ±0.2–0.3m (day ranges
+    // up to ~0.5m); the smallest genuine tidal range at our coasts is ~1.2m.
+    return range < (unit === 'feet' ? 2 : 0.6)
   }, [data, unit])
 
   // Memoize the tide-data preprocessing that is independent of width.
