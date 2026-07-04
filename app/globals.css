@@ -294,3 +294,11 @@
   --sidebar-border: oklch(1 0 0 / 10%);
   --sidebar-ring: oklch(0.556 0 0);
 }
+
+/* iOS paints its own translucent play glyph on a <video> whose autoplay was
+   blocked (e.g. Low Power Mode). The webcam viewer renders its own
+   tap-to-play overlay, so hide the native one — otherwise both show. */
+video::-webkit-media-controls-start-playback-button {
+  display: none !important;
+  -webkit-appearance: none;
+}

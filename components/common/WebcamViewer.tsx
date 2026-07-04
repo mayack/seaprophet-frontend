@@ -23,10 +23,95 @@ interface WebcamViewerProps {
   className?: string
 }
 
-function getStreamUrl(url: string, referer?: string): string {
+// ---------------------------------------------------------------------------
+// Pure helpers (no component state)
+// ---------------------------------------------------------------------------
+
+/** Route through /api/proxy when the cam needs a Referer header. */
+function proxiedUrl(url: string, referer?: string): string {
   if (!referer) return url
   return `/api/proxy?url=${encodeURIComponent(url)}&referer=${encodeURIComponent(referer)}`
 }
+
+/**
+ * Resolve the playable m3u8 for a config: either it's configured directly,
+ * or we scrape it from the cam provider's page via the polvo action.
+ */
+async function resolveStreamUrl(
+  config: WebcamConfig
+): Promise<{ url: string } | { error: string }> {
+  if (config.url) return { url: config.url }
+
+  if (!config.website_url) return { error: 'No stream URL configured' }
+
+  try {
+    const result = await extractWebcamUrl({
+      websiteUrl: config.website_url,
+      containerId: config.container_id,
+      autoPlay: config.autoplay ?? true,
+      cacheExpiration: config.cache ?? 300,
+    })
+    if (result.error || !result.data?.m3u8Url) {
+      return {
+        error: result.error?.includes('404')
+          ? 'Camera is offline'
+          : 'Failed to load stream',
+      }
+    }
+    return { url: result.data.m3u8Url }
+  } catch {
+    return { error: 'Failed to load stream' }
+  }
+}
+
+/**
+ * Draw the video's current frame onto the canvas (the frozen preview behind
+ * the tap-to-play overlay). Needs a DECODED frame (readyState >=
+ * HAVE_CURRENT_DATA); returns false when none exists yet.
+ */
+function captureFrame(
+  video: HTMLVideoElement,
+  canvas: HTMLCanvasElement | null
+): boolean {
+  if (!canvas || video.videoWidth === 0 || video.readyState < 2) return false
+  try {
+    canvas.width = video.videoWidth
+    canvas.height = video.videoHeight
+    canvas.getContext('2d')?.drawImage(video, 0, 0, canvas.width, canvas.height)
+    return true
+  } catch {
+    // Cross-origin taint only blocks readback, not drawing — but be safe:
+    // a blank canvas just means a dark backdrop.
+    return false
+  }
+}
+
+/**
+ * When autoplay was blocked before a frame was decoded, ask the element to
+ * decode one without playing and capture it as soon as it lands.
+ */
+function scheduleFrameCapture(
+  video: HTMLVideoElement,
+  canvas: HTMLCanvasElement | null,
+  isStale: () => boolean
+): void {
+  video.preload = 'auto'
+  const onFrame = (): void => {
+    if (!isStale()) captureFrame(video, canvas)
+  }
+  video.addEventListener('loadeddata', onFrame, { once: true })
+  if ('requestVideoFrameCallback' in video) {
+    ;(
+      video as HTMLVideoElement & {
+        requestVideoFrameCallback: (cb: () => void) => void
+      }
+    ).requestVideoFrameCallback(onFrame)
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Component
+// ---------------------------------------------------------------------------
 
 export function WebcamViewer({
   configs,
@@ -34,6 +119,11 @@ export function WebcamViewer({
 }: WebcamViewerProps): React.JSX.Element {
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  // Autoplay was blocked (iOS Low Power Mode / Android Data Saver reject even
+  // muted autoplay). The stream is loaded and ready — it just needs a user
+  // gesture. Rendered as a tap-to-play overlay, NOT an error: retrying the
+  // whole init is wasteful and only "works" because the tap is the gesture.
+  const [needsTap, setNeedsTap] = useState(false)
   const [isAfk, setIsAfk] = useState(false)
   const [isFullscreen, setIsFullscreen] = useState(false)
   const [activeIndex, setActiveIndex] = useState(0)
@@ -41,7 +131,12 @@ export function WebcamViewer({
   const config = configs[activeIndex] ?? configs[0]
 
   const videoRef = useRef<HTMLVideoElement>(null)
-  const hlsRef = useRef<Hls | null>(null)
+  // Frozen frame shown while the tap-to-play overlay is up. iOS paints its own
+  // play glyph INSIDE the video's UA shadow DOM when autoplay is blocked and
+  // modern WebKit ignores the ::-webkit-media-controls-* pseudo-elements — the
+  // only reliable way to hide it is to hide the <video> itself, so we snapshot
+  // the current frame to a canvas to keep the visual.
+  const canvasRef = useRef<HTMLCanvasElement>(null)
   const afkTimerRef = useRef<ReturnType<typeof setTimeout>>(null)
   const streamIdRef = useRef(0)
   // iOS native fullscreen (webkitEnterFullscreen) doesn't update
@@ -55,18 +150,10 @@ export function WebcamViewer({
     isAfkRef.current = isAfk
   }, [isAfk])
 
-  // Track HLS event handlers and video listeners so cleanup can fully
-  // detach them — `hls.destroy()` alone leaves listeners and the <video>
-  // element with a lingering `src`/onerror.
-  const hlsHandlersRef = useRef<{
-    manifestParsed?: (event: Events.MANIFEST_PARSED) => void
-    error?: (event: Events.ERROR, data: ErrorData) => void
-  }>({})
-  const videoHandlersRef = useRef<{
-    playing?: () => void
-    loadedmetadata?: () => void
-    error?: () => void
-  }>({})
+  // Everything the CURRENT stream attached (hls instance, video listeners),
+  // detached with one call. Each init path registers exactly one closure —
+  // replaces the previous per-listener ref bookkeeping.
+  const teardownRef = useRef<(() => void) | null>(null)
 
   const clearAfkTimer = useCallback(() => {
     if (afkTimerRef.current) {
@@ -78,32 +165,13 @@ export function WebcamViewer({
   const cleanupStream = useCallback(() => {
     clearAfkTimer()
 
-    const hls = hlsRef.current
-    if (hls) {
-      const handlers = hlsHandlersRef.current
-      if (handlers.manifestParsed) {
-        hls.off(Hls.Events.MANIFEST_PARSED, handlers.manifestParsed)
-      }
-      if (handlers.error) {
-        hls.off(Hls.Events.ERROR, handlers.error)
-      }
-      hls.destroy()
-      hlsRef.current = null
-    }
-    hlsHandlersRef.current = {}
+    teardownRef.current?.()
+    teardownRef.current = null
 
+    // Reset the <video> element so a previous src/MediaSource doesn't keep
+    // buffering or fire late events on retry/unmount.
     const video = videoRef.current
     if (video) {
-      const vh = videoHandlersRef.current
-      if (vh.playing) video.removeEventListener('playing', vh.playing)
-      if (vh.loadedmetadata) {
-        video.onloadedmetadata = null
-      }
-      if (vh.error) {
-        video.onerror = null
-      }
-      // Reset the <video> element so a previous src/MediaSource doesn't
-      // keep buffering or fire late events on retry/unmount.
       video.removeAttribute('src')
       try {
         video.load()
@@ -111,7 +179,6 @@ export function WebcamViewer({
         // Some browsers throw if load() is called during teardown — safe to ignore.
       }
     }
-    videoHandlersRef.current = {}
   }, [clearAfkTimer])
 
   const startAfkTimer = useCallback(() => {
@@ -131,61 +198,48 @@ export function WebcamViewer({
 
     setIsLoading(true)
     setError(null)
+    setNeedsTap(false)
     cleanupStream()
 
     const video = videoRef.current
     if (!video) return
 
-    // Step 1: Resolve stream URL
-    let streamUrl = config.url
+    // Mobile autoplay policy requires muted + playsInline to be TRUE ON THE
+    // ELEMENT at play() time. React's `muted` attribute is not reliably
+    // reflected during SSR/hydration (facebook/react#10389), which makes the
+    // first play() throw NotAllowedError on mobile — set the properties
+    // imperatively so autoplay is always eligible.
+    video.muted = true
+    video.defaultMuted = true
+    video.playsInline = true
 
-    if (!streamUrl && config.website_url) {
-      try {
-        const result = await extractWebcamUrl({
-          websiteUrl: config.website_url,
-          containerId: config.container_id,
-          autoPlay: config.autoplay ?? true,
-          cacheExpiration: config.cache ?? 300,
-        })
-
-        if (isStale()) return
-
-        if (result.error || !result.data?.m3u8Url) {
-          setError(
-            result.error?.includes('404')
-              ? 'Camera is offline'
-              : 'Failed to load stream'
-          )
-          setIsLoading(false)
-          return
-        }
-
-        streamUrl = result.data.m3u8Url
-      } catch {
-        if (isStale()) return
-        setError('Failed to load stream')
-        setIsLoading(false)
-        return
-      }
-    }
-
-    if (!streamUrl) {
-      setError('No stream URL configured')
+    const resolved = await resolveStreamUrl(config)
+    if (isStale()) return
+    if ('error' in resolved) {
+      setError(resolved.error)
       setIsLoading(false)
       return
     }
 
-    // Step 2: Initialize HLS
-    const finalUrl = getStreamUrl(streamUrl, config.referer)
+    const finalUrl = proxiedUrl(resolved.url, config.referer)
 
     const onPlaybackStarted = (): void => {
       if (isStale()) return
       setIsLoading(false)
+      setNeedsTap(false)
       startAfkTimer()
     }
-
     video.addEventListener('playing', onPlaybackStarted, { once: true })
-    videoHandlersRef.current.playing = onPlaybackStarted
+    const detachPlaying = (): void =>
+      video.removeEventListener('playing', onPlaybackStarted)
+
+    /** Terminal failure for this stream: detach + surface the message. */
+    const fail = (msg: string): void => {
+      if (isStale()) return
+      detachPlaying()
+      setError(msg)
+      setIsLoading(false)
+    }
 
     const handleReady = async (): Promise<void> => {
       if (isStale()) return
@@ -193,29 +247,29 @@ export function WebcamViewer({
         await video.play()
       } catch (e) {
         if (isStale()) return
-        // play() is rejected transiently when a new load interrupts it or the
-        // browser aborts it (common while iOS settles after exiting native
-        // fullscreen). These aren't real failures — the `playing` listener
-        // still fires once playback starts, so don't surface an error.
-        if (
-          e instanceof Error &&
-          (e.name === 'AbortError' || e.message.includes('interrupted'))
-        ) {
+        if (!(e instanceof Error)) {
+          fail('Playback failed')
           return
         }
-        video.removeEventListener('playing', onPlaybackStarted)
-        videoHandlersRef.current.playing = undefined
-        setError('Playback failed')
-        setIsLoading(false)
+        // Transient: a new load interrupted play(), or the browser aborted it
+        // (common while iOS settles after exiting native fullscreen). The
+        // `playing` listener still fires once playback starts.
+        if (e.name === 'AbortError' || e.message.includes('interrupted')) {
+          return
+        }
+        // Autoplay blocked (no user gesture — e.g. iOS Low Power Mode): the
+        // stream is fine, it just needs a tap. Freeze a preview frame and show
+        // the tap-to-play overlay; the 'playing' listener stays attached.
+        if (e.name === 'NotAllowedError') {
+          if (!captureFrame(video, canvasRef.current)) {
+            scheduleFrameCapture(video, canvasRef.current, isStale)
+          }
+          setIsLoading(false)
+          setNeedsTap(true)
+          return
+        }
+        fail('Playback failed')
       }
-    }
-
-    const handleError = (msg: string): void => {
-      if (isStale()) return
-      video.removeEventListener('playing', onPlaybackStarted)
-      videoHandlersRef.current.playing = undefined
-      setError(msg)
-      setIsLoading(false)
     }
 
     if (Hls.isSupported()) {
@@ -242,54 +296,57 @@ export function WebcamViewer({
                 xhr.open('GET', url, true)
                 return
               }
-              const proxyUrl = getStreamUrl(url, config.referer)
-              xhr.open('GET', proxyUrl, true)
+              xhr.open('GET', proxiedUrl(url, config.referer), true)
             }
           : undefined,
       })
 
-      hlsRef.current = hls
+      hls.on(Hls.Events.MANIFEST_PARSED, () => void handleReady())
+      hls.on(Hls.Events.ERROR, (_event: Events.ERROR, data: ErrorData) => {
+        if (isStale() || !data.fatal) return
+        if (data.response?.code === 404) {
+          fail('Camera is offline')
+        } else if (data.details === 'manifestLoadError') {
+          fail('Failed to load stream')
+        } else {
+          fail('Stream error')
+        }
+      })
       hls.loadSource(finalUrl)
       hls.attachMedia(video)
 
-      const onManifestParsed = (): void => {
-        void handleReady()
+      // hls.destroy() detaches all of its own listeners + the media element.
+      teardownRef.current = (): void => {
+        detachPlaying()
+        hls.destroy()
       }
-      const onHlsError = (_event: Events.ERROR, data: ErrorData): void => {
-        if (isStale()) return
-        if (!data.fatal) return
-
-        const code = data.response?.code
-        if (code === 404) {
-          handleError('Camera is offline')
-        } else if (data.details === 'manifestLoadError') {
-          handleError('Failed to load stream')
-        } else {
-          handleError('Stream error')
-        }
-      }
-
-      hlsHandlersRef.current.manifestParsed = onManifestParsed
-      hlsHandlersRef.current.error = onHlsError
-      hls.on(Hls.Events.MANIFEST_PARSED, onManifestParsed)
-      hls.on(Hls.Events.ERROR, onHlsError)
     } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+      // Native HLS (iOS Safari — no MSE, so hls.js is unsupported there).
       video.src = finalUrl
-      const onLoadedMetadata = (): void => {
-        void handleReady()
+      video.onloadedmetadata = (): void => void handleReady()
+      video.onerror = (): void => fail('Playback error')
+
+      teardownRef.current = (): void => {
+        detachPlaying()
+        video.onloadedmetadata = null
+        video.onerror = null
       }
-      const onVideoError = (): void => handleError('Playback error')
-      video.onloadedmetadata = onLoadedMetadata
-      video.onerror = onVideoError
-      videoHandlersRef.current.loadedmetadata = onLoadedMetadata
-      videoHandlersRef.current.error = onVideoError
     } else {
-      handleError('HLS not supported')
+      fail('HLS not supported')
     }
   }, [config, cleanupStream, startAfkTimer])
 
   const handleRetry = useCallback(() => {
     initStream()
+  }, [initStream])
+
+  const handleTapToPlay = useCallback(() => {
+    // Inside the click gesture, play() is allowed. The existing 'playing'
+    // listener clears the overlay + starts the AFK timer. If play still
+    // fails (stream died meanwhile), fall back to a full re-init.
+    const video = videoRef.current
+    if (!video) return
+    video.play().catch(() => initStream())
   }, [initStream])
 
   const handleKeepWatching = useCallback(() => {
@@ -430,11 +487,22 @@ export function WebcamViewer({
     >
       <video
         ref={videoRef}
-        className="size-full"
+        className={cn('size-full', needsTap && 'invisible')}
         playsInline
         muted
         autoPlay
-        preload="metadata"
+        // "auto", not "metadata": decode the first frame immediately so the
+        // tap-to-play snapshot (blocked autoplay) is ready without a lag. The
+        // extra fetch is one segment — noise next to actually streaming.
+        preload="auto"
+      />
+      <canvas
+        ref={canvasRef}
+        aria-hidden
+        className={cn(
+          'pointer-events-none absolute inset-0 size-full',
+          !needsTap && 'hidden'
+        )}
       />
 
       {isLoading && !isAfk && (
@@ -443,6 +511,19 @@ export function WebcamViewer({
           {config.website_url && (
             <p className="mt-4 text-sm">This camera takes longer to load</p>
           )}
+        </Overlay>
+      )}
+
+      {needsTap && !error && !isAfk && (
+        <Overlay>
+          <Button
+            onClick={handleTapToPlay}
+            variant="overlay"
+            size="icon-circle"
+            aria-label="Play"
+          >
+            <Play />
+          </Button>
         </Overlay>
       )}
 
@@ -486,7 +567,7 @@ export function WebcamViewer({
         </div>
       )}
 
-      {!isLoading && !error && !isAfk && (
+      {!isLoading && !error && !isAfk && !needsTap && (
         <TooltipProvider>
           <Tooltip>
             <TooltipTrigger
