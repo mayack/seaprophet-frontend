@@ -659,10 +659,7 @@ export function removeSpotLayers(map: mapboxgl.Map): void {
   detachSpotLayerInteractions(map)
   resetSpotLayerDataCache()
   selectedSpotId = null
-  for (const layerId of [
-    SPOTS_UNCLUSTERED_LAYER_ID,
-    SPOTS_CLUSTERS_LAYER_ID,
-  ]) {
+  for (const layerId of [SPOTS_UNCLUSTERED_LAYER_ID, SPOTS_CLUSTERS_LAYER_ID]) {
     if (map.getLayer(layerId)) {
       map.removeLayer(layerId)
     }

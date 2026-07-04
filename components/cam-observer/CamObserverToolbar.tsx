@@ -71,7 +71,9 @@ function BandSlider({
 
   return (
     <div>
-      <p className="mb-3 text-xs font-medium tracking-wide uppercase">{title}</p>
+      <p className="mb-3 text-xs font-medium tracking-wide uppercase">
+        {title}
+      </p>
       <div className="px-0.5">
         <div className="relative">
           <Slider
