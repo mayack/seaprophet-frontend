@@ -127,13 +127,11 @@ export function FavoritesPopover(): React.JSX.Element {
             <DropdownMenuItem disabled>Loading...</DropdownMenuItem>
           )}
         </DropdownMenuGroup>
-        {rows.map((row, index) => {
+        {rows.map((row) => {
           if (row.kind === 'header') {
             return (
               <React.Fragment key={row.key}>
-                {row.level === 'country' && index > 0 && (
-                  <DropdownMenuSeparator />
-                )}
+                {row.level === 'country' && <DropdownMenuSeparator />}
                 {/* Plain div, not DropdownMenuLabel: a Base UI Menu.GroupLabel
                       must live inside a Menu.Group, but these headers are flat
                       siblings. Styled to match the label. */}
