@@ -16,6 +16,8 @@ import React, { useCallback, useEffect, useState } from 'react'
 interface ForecastTableMobileProps {
   day: ForecastDay
   units: UserUnits
+  /** Bucket time ("09:00") to highlight as "now" — today's table only. */
+  currentHour?: string
 }
 
 const SLIDE_COUNT = 2
@@ -61,6 +63,7 @@ function ForecastRow({
 export function ForecastTableMobile({
   day,
   units,
+  currentHour,
 }: ForecastTableMobileProps): React.JSX.Element {
   const hours = Object.entries(day.forecast)
   const [emblaRef, emblaApi] = useEmblaCarousel({
@@ -95,7 +98,12 @@ export function ForecastTableMobile({
           {hours.map(([hour]) => (
             <div
               key={hour}
-              className="flex h-10 items-center border-t border-border/50 text-2xs/[1] text-muted-foreground"
+              className={cn(
+                'flex h-10 items-center border-t border-border/50 text-2xs/[1]',
+                hour === currentHour
+                  ? 'font-semibold text-foreground'
+                  : 'text-muted-foreground'
+              )}
             >
               {hour.slice(0, 2)}
             </div>

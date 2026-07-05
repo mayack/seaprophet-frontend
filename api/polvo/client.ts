@@ -2,6 +2,7 @@ import { BaseApiClient } from '@/lib/baseApiClient'
 import { CONFIG } from '@/constants/config'
 import { createError, getErrorMessage } from '@/utils/error'
 import { ForecastParams, ForecastResponse } from './interfaces/forecast'
+import { NowConditions, NowConditionsParams } from './interfaces/now'
 
 // Shared meta shape Polvo wraps every successful response with.
 interface PolvoMeta {
@@ -65,6 +66,34 @@ export class PolvoClient extends BaseApiClient {
         'auth'
       )
     }
+  }
+
+  /**
+   * Current-hour conditions for every spot (map cards). Backend derives this
+   * purely from its pre-warmed forecast cache (never builds on a miss), and
+   * micro-caches the summary for 5 minutes — mirror that briefly here so
+   * concurrent server actions dedupe.
+   */
+  async getNowConditions(
+    params: NowConditionsParams,
+    token: string
+  ): Promise<NowConditions[]> {
+    const query = new URLSearchParams({
+      surfUnits: params.surfUnits,
+      windUnits: params.windUnits,
+      periodStatistic: params.periodStatistic,
+    }).toString()
+
+    const response = await this.fetch<PolvoEnvelope<NowConditions[]>>(
+      `${CONFIG.api.endpoints.polvo.forecast.now}?${query}`,
+      {
+        init: {
+          headers: { Authorization: `Bearer ${token}` },
+          next: { revalidate: 240 },
+        },
+      }
+    )
+    return response.data
   }
 
   async getForecast(

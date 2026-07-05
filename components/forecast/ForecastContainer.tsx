@@ -18,6 +18,7 @@ import React from 'react'
 
 interface ForecastContainerProps {
   initialDays: ForecastDay[]
+  timezone?: string | null
   /** Params from the server render (units may lag behind UserContext). */
   forecastParams: ForecastParams
   className?: string
@@ -25,6 +26,7 @@ interface ForecastContainerProps {
 
 export function ForecastContainer({
   initialDays,
+  timezone,
   forecastParams,
   className,
 }: ForecastContainerProps): React.JSX.Element {
@@ -112,7 +114,7 @@ export function ForecastContainer({
           <Spinner className="size-8" />
         </div>
       ) : (
-        <Forecast days={days} />
+        <Forecast days={days} timezone={timezone} />
       )}
     </div>
   )

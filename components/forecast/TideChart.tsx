@@ -3,7 +3,7 @@
 import type { Astronomical, Tide } from '@/api/polvo/interfaces/forecast'
 import { useEffect, useRef, useState, useMemo } from 'react'
 import { Skeleton } from '../ui/skeleton'
-import { formatValueWithUnit } from '@/lib/units'
+import { formatUnit, formatValueWithUnit } from '@/lib/units'
 import { UserUnits } from '@/api/sargo/interfaces/user'
 import { cn } from '@/lib/utils'
 import React from 'react'
@@ -12,6 +12,10 @@ interface TideChartProps {
   data: Tide[]
   astronomical?: Astronomical
   unit: UserUnits['tide_height']
+  /** Spot-local minute-of-day to rest the hover indicator at when the mouse
+   *  isn't over the chart (today's chart shows "where we are in the tide").
+   *  Hovering overrides it; mouse-leave falls back to it. */
+  nowMinute?: number
   className?: string
 }
 
@@ -69,6 +73,7 @@ export default function TideChart({
   data,
   astronomical,
   unit,
+  nowMinute,
   className,
 }: TideChartProps): React.JSX.Element | null {
   const height = 88
@@ -230,14 +235,13 @@ export default function TideChart({
     }
   }
 
-  // Tooltip value is fully derived from the hovered minute — no separate state.
+  // The indicator rests at the spot-local "now" (today's chart) and follows
+  // the mouse while hovering. Tooltip value derives from whichever is active.
+  const displayMinute = mousePosition ?? nowMinute ?? null
   const currentTideValue =
-    mousePosition === null
+    displayMinute === null
       ? null
-      : formatValueWithUnit(
-          Number(interpolateTideHeight(tideData, mousePosition).toFixed(1)),
-          unit
-        )
+      : Number(interpolateTideHeight(tideData, displayMinute).toFixed(1))
 
   const handleMouseMove = (event: React.MouseEvent<SVGSVGElement>): void => {
     const rect = svgRef.current?.getBoundingClientRect()
@@ -342,31 +346,34 @@ export default function TideChart({
               </g>
             )
           })}
-        {mousePosition !== null && (
+        {displayMinute !== null && (
           <line
-            x1={PADDING.left + mousePosition * xScale}
+            x1={PADDING.left + displayMinute * xScale}
             y1={0}
-            x2={PADDING.left + mousePosition * xScale}
+            x2={PADDING.left + displayMinute * xScale}
             y2={height}
             className="stroke-primary"
             strokeWidth="1"
           />
         )}
       </svg>
-      {mousePosition !== null && currentTideValue !== null && (
+      {displayMinute !== null && currentTideValue !== null && (
         <div
           className="absolute flex flex-col gap-1 rounded bg-foreground px-2 py-1.5 text-center whitespace-nowrap text-background"
           style={{
-            left: `${PADDING.left + mousePosition * xScale}px`,
+            left: `${PADDING.left + displayMinute * xScale}px`,
             top: `${PADDING.top - 80}px`,
             transform: 'translateX(-50%)',
             pointerEvents: 'none',
           }}
         >
-          <div className="text-xs leading-none font-semibold">
-            {minutesToTime(mousePosition)}
+          <div className="text-2xs leading-none font-semibold">
+            {minutesToTime(displayMinute)}
           </div>
-          <div className="text-2xs leading-none">{currentTideValue}</div>
+          <div className="flex justify-center gap-[1.5px] text-2xs leading-none">
+            <span>{currentTideValue}</span>
+            <span>{formatUnit(unit)}</span>
+          </div>
         </div>
       )}
     </div>

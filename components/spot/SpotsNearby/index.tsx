@@ -9,6 +9,9 @@ import { useSpotNavigation } from '@/hooks/useSpotNavigation'
 import React, { useCallback, useEffect, useState } from 'react'
 import { SPOT_PANEL } from '@/constants/spotPanel'
 import { SpotSummaryCard } from '@/components/spot/SpotSummaryCard'
+import { useNowConditions } from '@/hooks/useNowConditions'
+import { useUser } from '@/contexts/UserContext'
+import { normalizeUserUnits } from '@/constants/units'
 
 interface SpotsNearbyProps {
   spots: SpotSummary[]
@@ -27,6 +30,9 @@ export function SpotsNearby({
   title,
 }: SpotsNearbyProps): React.JSX.Element {
   const { openSpot } = useSpotNavigation()
+  const { userData } = useUser()
+  const units = normalizeUserUnits(userData.settings.units)
+  const nowConditions = useNowConditions(units)
   const [emblaRef, emblaApi] = useEmblaCarousel({
     align: 'start',
     containScroll: 'keepSnaps',
@@ -107,6 +113,8 @@ export function SpotsNearby({
                 >
                   <SpotSummaryCard
                     spot={spot}
+                    conditions={nowConditions[String(spot.id)] ?? null}
+                    units={units}
                     interactive
                     onSelect={(selectedSpot) =>
                       openSpot({

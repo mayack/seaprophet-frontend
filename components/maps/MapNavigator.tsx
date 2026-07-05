@@ -70,6 +70,8 @@ import {
   SPOTS_UNCLUSTERED_LAYER_ID,
 } from '@/components/maps/spotClusters'
 import { ViewportSpotsCarousel } from '@/components/maps/ViewportSpotsCarousel'
+import { useNowConditions } from '@/hooks/useNowConditions'
+import { normalizeUserUnits } from '@/constants/units'
 
 export function MapNavigator({
   className = '',
@@ -176,6 +178,14 @@ export function MapNavigator({
     homeSpot.latitude,
     homeSpot.longitude,
   ])
+
+  // Current-hour conditions for the spot cards (cache-derived server-side,
+  // refreshed every 5 min; nulls render as dashes).
+  const cardUnits = useMemo(
+    () => normalizeUserUnits(userData.settings.units),
+    [userData.settings.units]
+  )
+  const nowConditions = useNowConditions(cardUnits)
 
   const { resetFocus } = useSpotCamera({
     camera,
@@ -540,6 +550,8 @@ export function MapNavigator({
           spots={visibleSpots}
           visible={!isSpotOpen}
           onSelectSpot={handleSpotClick}
+          conditions={nowConditions}
+          units={cardUnits}
         />
       )}
 

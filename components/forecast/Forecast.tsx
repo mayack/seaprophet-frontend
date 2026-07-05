@@ -9,11 +9,12 @@ import { TooltipProvider } from '@/components/ui/tooltip'
 
 interface ForecastProps {
   days: ForecastDay[]
+  timezone?: string | null
 }
 
 const INITIAL_VISIBLE_DAYS = CONFIG.forecast.initialVisibleDays
 
-export function Forecast({ days }: ForecastProps): React.JSX.Element {
+export function Forecast({ days, timezone }: ForecastProps): React.JSX.Element {
   const [visibleDays, setVisibleDays] = useState<number>(INITIAL_VISIBLE_DAYS)
   const loadMoreRef = useRef<HTMLDivElement>(null)
   const { userData } = useUser()
@@ -56,7 +57,7 @@ export function Forecast({ days }: ForecastProps): React.JSX.Element {
       <div className="relative space-y-8 px-4 pb-2 sm:space-y-12 sm:px-6 sm:pb-4">
         {days.slice(0, visibleDays).map((day) => (
           <div className="animate-fade-in" key={day.date}>
-            <ForecastItem day={day} units={units} />
+            <ForecastItem day={day} units={units} timezone={timezone} />
           </div>
         ))}
         {visibleDays < days.length && <div ref={loadMoreRef} className="h-5" />}

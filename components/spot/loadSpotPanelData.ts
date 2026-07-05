@@ -29,6 +29,7 @@ export interface SpotPanelData {
   nearbySpots: SpotSummary[]
   forecastParams: ForecastParams
   forecastDays: ForecastDay[] | null
+  forecastTimezone: string | null
   forecastError: string | null
   terrainData: boolean
   bathymetryData: boolean
@@ -95,6 +96,7 @@ export async function loadSpotPanelData(
     nearbySpots,
     forecastParams,
     forecastDays: forecastRes.data?.days ?? null,
+    forecastTimezone: forecastRes.data?.timezone ?? null,
     forecastError: forecastRes.data
       ? null
       : forecastRes.error || 'Unknown error',

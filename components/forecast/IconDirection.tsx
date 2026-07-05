@@ -28,6 +28,9 @@ const directions = [
 
 const sizes = {
   small: 'size-2.5',
+  // Between small and medium — the compact spot-card wind bubble (size-4)
+  // wants a slightly larger arrow than `small` without medium's crowding.
+  smallPlus: 'size-3',
   medium: 'size-3.5',
   large: 'size-4',
 } as const
@@ -39,7 +42,7 @@ export function IconDirection({
 }: {
   degrees: number
   isWind: boolean
-  size?: 'small' | 'medium' | 'large'
+  size?: 'small' | 'smallPlus' | 'medium' | 'large'
 }): React.JSX.Element {
   const { adjustedDegrees, cardinalDirection } = useMemo(() => {
     const intDegrees = Math.round(degrees) - 180

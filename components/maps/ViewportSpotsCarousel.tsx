@@ -1,6 +1,8 @@
 'use client'
 
+import type { NowConditions } from '@/api/polvo/interfaces/now'
 import type { SpotSummary } from '@/api/sargo/interfaces/spot'
+import type { UserUnits } from '@/api/sargo/interfaces/user'
 import { SpotSummaryCard } from '@/components/spot/SpotSummaryCard'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
@@ -12,12 +14,16 @@ interface ViewportSpotsCarouselProps {
   spots: SpotSummary[]
   visible: boolean
   onSelectSpot: (spot: SpotSummary) => void
+  conditions?: Record<string, NowConditions>
+  units?: UserUnits
 }
 
 export function ViewportSpotsCarousel({
   spots,
   visible,
   onSelectSpot,
+  conditions,
+  units,
 }: ViewportSpotsCarouselProps): React.JSX.Element | null {
   const [emblaRef, emblaApi] = useEmblaCarousel({
     align: 'start',
@@ -109,6 +115,10 @@ export function ViewportSpotsCarousel({
                 variant="elevated"
                 interactive
                 onSelect={onSelectSpot}
+                conditions={
+                  conditions ? (conditions[String(spot.id)] ?? null) : undefined
+                }
+                units={units}
               />
             </div>
           ))}

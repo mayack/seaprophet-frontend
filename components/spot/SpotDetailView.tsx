@@ -43,6 +43,7 @@ export function SpotDetailView({
         <ForecastContainer
           className="mt-6 sm:mt-10"
           initialDays={data.forecastDays}
+          timezone={data.forecastTimezone}
           forecastParams={data.forecastParams}
         />
       ) : (

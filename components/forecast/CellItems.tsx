@@ -14,7 +14,8 @@ export function SurfItem({
 }: {
   height: number
   period: number
-  direction: number
+  /** Omit to hide the direction icon (map spot cards). */
+  direction?: number
   unit: string
   className?: string
 }): React.JSX.Element {
@@ -29,7 +30,9 @@ export function SurfItem({
         {formatValueWithUnitSeparated(height, unit, 'font-medium flex-1')}
         {formatValueWithUnitSeparated(period, 'seconds', 'flex-1 justify-end')}
       </div>
-      <IconDirection degrees={direction} isWind={false} size="small" />
+      {direction !== undefined && (
+        <IconDirection degrees={direction} isWind={false} size="small" />
+      )}
     </div>
   )
 }
@@ -96,12 +99,50 @@ export function SwellItem({
   )
 }
 
-const WIND_RATING_BACKGROUNDS = {
+export const WIND_RATING_BACKGROUNDS = {
   0: 'bg-red-200 text-red-900 dark:bg-red-600 dark:text-foreground',
   1: 'bg-orange-200 text-orange-900 dark:bg-orange-600 dark:text-foreground',
   2: 'bg-yellow-200 text-yellow-900 dark:bg-yellow-600 dark:text-foreground',
   3: 'bg-green-200 text-green-900 dark:bg-green-600 dark:text-foreground',
 } as const
+
+/** Rating-coloured circle + wind direction arrow — the "wind bubble".
+ *  Shared by the forecast table's WindItem and the map/nearby spot cards. */
+export function WindRatingBubble({
+  direction,
+  windRating,
+  size = 'default',
+  className,
+}: {
+  direction: number
+  windRating: number
+  /** `sm` for the compact spot cards; `default` matches the forecast table. */
+  size?: 'default' | 'sm'
+  className?: string
+}): React.JSX.Element {
+  const safeRating = (
+    Number.isFinite(windRating)
+      ? Math.max(0, Math.min(3, Math.floor(windRating)))
+      : 0
+  ) as keyof typeof WIND_RATING_BACKGROUNDS
+
+  return (
+    <div
+      className={cn(
+        'flex shrink-0 items-center justify-center rounded-full',
+        size === 'sm' ? 'size-4' : 'size-5',
+        WIND_RATING_BACKGROUNDS[safeRating],
+        className
+      )}
+    >
+      <IconDirection
+        degrees={direction}
+        isWind={true}
+        size={size === 'sm' ? 'smallPlus' : 'medium'}
+      />
+    </div>
+  )
+}
 
 export function WindItem({
   speed,
@@ -118,14 +159,6 @@ export function WindItem({
   className: string
   windRating: number
 }): React.JSX.Element {
-  // Clamp the rating to the valid 0..3 range (and guard NaN coming from the API)
-  // so an out-of-range value can't fall through to undefined / blank styling.
-  const safeRating = (
-    Number.isFinite(windRating)
-      ? Math.max(0, Math.min(3, Math.floor(windRating)))
-      : 0
-  ) as keyof typeof WIND_RATING_BACKGROUNDS
-
   return (
     <div className={cn(className, 'flex items-center gap-2')}>
       <div className="flex items-center gap-1.5">
@@ -137,14 +170,7 @@ export function WindItem({
           </div>
         </div>
       </div>
-      <div
-        className={cn(
-          'flex size-5 shrink-0 items-center justify-center rounded-full',
-          WIND_RATING_BACKGROUNDS[safeRating]
-        )}
-      >
-        <IconDirection degrees={direction} isWind={true} />
-      </div>
+      <WindRatingBubble direction={direction} windRating={windRating} />
     </div>
   )
 }

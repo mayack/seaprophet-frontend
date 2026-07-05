@@ -6,20 +6,31 @@ import { ForecastTableMobile } from './ForecastTableMobile'
 import TideChart from './TideChart'
 import { UserUnits } from '@/api/sargo/interfaces/user'
 import { getDateLabel } from '@/utils/getDateLabel'
+import { closestForecastHour, spotLocalNow } from '@/utils/spotLocalNow'
 import { useIsForecastTableDesktop } from '@/hooks/useIsForecastTableDesktop'
 import React from 'react'
 
 interface ForecastItemProps {
   day: ForecastDay
   units: UserUnits
+  timezone?: string | null
 }
 
 export function ForecastItem({
   day,
   units,
+  timezone,
 }: ForecastItemProps): React.JSX.Element {
   const date = new Date(day.date)
   const isForecastTableDesktop = useIsForecastTableDesktop()
+
+  // Rest the tide chart's hover indicator at the spot-local "now" — but only
+  // on the day that IS today in the spot's timezone.
+  const local = spotLocalNow(timezone)
+  const nowMinute =
+    local && local.date === day.date ? local.minutes : undefined
+  // Highlight the current (closest) hour row in today's table.
+  const currentHour = closestForecastHour(Object.keys(day.forecast), nowMinute)
 
   return (
     <div className="flex flex-col gap-y-6">
@@ -41,13 +52,14 @@ export function ForecastItem({
           data={day.tides}
           astronomical={day.astronomical}
           unit={units.tide_height}
+          nowMinute={nowMinute}
           className="w-full sm:w-56 xl:w-64"
         />
       </aside>
       {isForecastTableDesktop ? (
-        <ForecastTableDesktop day={day} units={units} />
+        <ForecastTableDesktop day={day} units={units} currentHour={currentHour} />
       ) : (
-        <ForecastTableMobile day={day} units={units} />
+        <ForecastTableMobile day={day} units={units} currentHour={currentHour} />
       )}
     </div>
   )

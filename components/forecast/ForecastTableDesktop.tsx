@@ -2,16 +2,20 @@ import { SwellItem, TemperatureItem, WaveItem, WindItem } from './CellItems'
 import type { ForecastDay } from '@/api/polvo/interfaces/forecast'
 import { ForecastHeader } from './ForecastHeader'
 import type { UserUnits } from '@/api/sargo/interfaces/user'
+import { cn } from '@/lib/utils'
 import React from 'react'
 
 interface ForecastTableDesktopProps {
   day: ForecastDay
   units: UserUnits
+  /** Bucket time ("09:00") to highlight as "now" — today's table only. */
+  currentHour?: string
 }
 
 export function ForecastTableDesktop({
   day,
   units,
+  currentHour,
 }: ForecastTableDesktopProps): React.JSX.Element {
   return (
     <div className="relative flex-1">
@@ -21,7 +25,14 @@ export function ForecastTableDesktop({
           key={hour}
           className="flex h-10 items-center justify-between border-t border-border/50"
         >
-          <div className="flex h-10 w-3 items-center text-2xs/[1] text-muted-foreground">
+          <div
+            className={cn(
+              'flex h-10 w-3 items-center text-2xs/[1]',
+              hour === currentHour
+                ? 'font-semibold text-foreground'
+                : 'text-muted-foreground'
+            )}
+          >
             {hour.slice(0, 2)}
           </div>
           <WaveItem

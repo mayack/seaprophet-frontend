@@ -10,6 +10,8 @@ export type ForecastActionResponse = ActionResponse<ForecastResponse>
 export interface ForecastResponse {
   days: ForecastDay[]
   tidalDatum: string
+  /** IANA timezone of the spot — all day dates / hour buckets are in it. */
+  timezone?: string
   _meta?: {
     success: boolean
     cached: boolean
