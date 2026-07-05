@@ -27,8 +27,7 @@ export function ForecastItem({
   // Rest the tide chart's hover indicator at the spot-local "now" — but only
   // on the day that IS today in the spot's timezone.
   const local = spotLocalNow(timezone)
-  const nowMinute =
-    local && local.date === day.date ? local.minutes : undefined
+  const nowMinute = local && local.date === day.date ? local.minutes : undefined
   // Highlight the current (closest) hour row in today's table.
   const currentHour = closestForecastHour(Object.keys(day.forecast), nowMinute)
 
@@ -57,9 +56,17 @@ export function ForecastItem({
         />
       </aside>
       {isForecastTableDesktop ? (
-        <ForecastTableDesktop day={day} units={units} currentHour={currentHour} />
+        <ForecastTableDesktop
+          day={day}
+          units={units}
+          currentHour={currentHour}
+        />
       ) : (
-        <ForecastTableMobile day={day} units={units} currentHour={currentHour} />
+        <ForecastTableMobile
+          day={day}
+          units={units}
+          currentHour={currentHour}
+        />
       )}
     </div>
   )
