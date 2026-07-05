@@ -7,6 +7,7 @@ import { getCurrentUser } from '@/api/sargo/actions/auth'
 import { UserProvider } from '@/contexts/UserContext'
 import { ThemeProvider } from '@/contexts/ThemeContext'
 import { SpotIndexPreloader } from '@/components/common/SpotIndexPreloader'
+import { BuildRefreshGuard } from '@/components/common/BuildRefreshGuard'
 import { redirect } from 'next/navigation'
 import { Toaster } from 'sonner'
 import React from 'react'
@@ -63,6 +64,7 @@ export default async function AuthenticatedLayout({
             <Toaster />
           </UserProvider>
           <SpotIndexPreloader />
+          <BuildRefreshGuard />
         </ThemeProvider>
       </body>
     </html>

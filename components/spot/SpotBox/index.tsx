@@ -14,6 +14,7 @@ import {
   getMobilePeekVisiblePx,
 } from '@/lib/spotFocusPadding'
 import { SPOT_PANEL } from '@/constants/spotPanel'
+import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 
 /** Spot panel shell — mobile inset in context; camera in MapNavigator. */
@@ -60,8 +61,11 @@ export function SpotBox(): React.JSX.Element | null {
     ) : panel.status === 'not-found' ? (
       <div className="p-6 text-center">Spot not found.</div>
     ) : panel.status === 'error' ? (
-      <div className="p-6 text-center">
-        Couldn’t load this spot. Please try again.
+      <div className="flex flex-col items-center gap-4 p-6 text-center">
+        Couldn’t load this spot.
+        <Button variant="outline" size="sm" onClick={panel.retry}>
+          Try again
+        </Button>
       </div>
     ) : isLoading && !isMobileLoading ? (
       <SpotModalLoading />
