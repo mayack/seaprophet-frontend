@@ -219,6 +219,25 @@ export default function TideChart({
     return null
   }
 
+  // Horizon edge: with fewer than 2 real extremes the "curve" would be a
+  // meaningless interpolated line that reads as a bug. Rare since polvo's
+  // harmonic tide extension, but still reachable (e.g. fit-time outages).
+  const realExtremes = data.filter(
+    (t) => t.type === 'high' || t.type === 'low'
+  ).length
+  if (realExtremes < 2) {
+    return (
+      <div
+        className={cn(
+          'flex h-24 items-center justify-center text-xs text-muted-foreground',
+          className
+        )}
+      >
+        Tide forecast available closer to this date
+      </div>
+    )
+  }
+
   if (!isClient) {
     return <Skeleton className={cn('h-24 w-full', className)} />
   }
