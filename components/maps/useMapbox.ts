@@ -45,6 +45,7 @@ export function useMapbox(options: UseMapboxOptions = {}): UseMapboxReturn {
     onSpotClick,
     skipInitialFlyTo = false,
     skipAutoUserLocation = false,
+    styleMode = 'default',
   } = options
 
   // Keep the latest spot-click handler in a ref so layer interactions always
@@ -105,7 +106,7 @@ export function useMapbox(options: UseMapboxOptions = {}): UseMapboxReturn {
     useState<UseMapboxReturn['locationState']>('idle')
   const [retryCount, setRetryCount] = useState(0)
 
-  const { isDark, mapStyle, isThemeReady } = useMapTheme()
+  const { isDark, mapStyle, isThemeReady } = useMapTheme(styleMode)
   const {
     userData,
     requestLocation,
@@ -643,7 +644,7 @@ export function useMapbox(options: UseMapboxOptions = {}): UseMapboxReturn {
 
     try {
       const initTheme = isDark ? 'dark' : 'light'
-      const initStyle = getMapStyle(isDark)
+      const initStyle = getMapStyle(isDark, styleMode)
       appliedMapStyleRef.current = initStyle
 
       const map = createMap({
@@ -651,6 +652,7 @@ export function useMapbox(options: UseMapboxOptions = {}): UseMapboxReturn {
         center: initialCenterRef.current,
         zoom: initialZoomRef.current,
         theme: initTheme,
+        styleMode,
         disablePanning,
         disableZooming,
       })

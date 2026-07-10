@@ -7,6 +7,7 @@ import {
   useState,
   useActionState,
 } from 'react'
+import Image from 'next/image'
 import { useTheme } from 'next-themes'
 import { Monitor, Moon, Sun } from 'lucide-react'
 import { toast } from 'sonner'
@@ -61,6 +62,11 @@ import {
 } from '@/lib/userSettings'
 import { useDebouncedSettingsSave } from '@/hooks/useDebouncedSettingsSave'
 import { cn } from '@/lib/utils'
+import type { MapStyleMode } from '@/types/map'
+import thumbMinimalLight from '@/app/thumbnail-minimal-light.webp'
+import thumbMinimalDark from '@/app/thumbnail-minimal-dark.webp'
+import thumbSatelliteLight from '@/app/thumbnail-satellite-light.webp'
+import thumbSatelliteDark from '@/app/thumbnail-satellite-dark.webp'
 
 type SettingsTab = 'general' | 'account' | 'units'
 type AccountEdit = 'username' | 'password' | null
@@ -79,6 +85,28 @@ const THEME_OPTIONS = [
 
 const SETTINGS_TAB_FOCUS =
   'focus-visible:border-transparent focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none'
+
+// Thumbnails follow the app appearance: the light/dark pair is swapped purely
+// via the `dark:` variant, so no mount gating is needed.
+const MAP_STYLE_OPTIONS = [
+  {
+    value: 'default',
+    label: 'Minimal',
+    thumbLight: thumbMinimalLight,
+    thumbDark: thumbMinimalDark,
+  },
+  {
+    value: 'satellite',
+    label: 'Satellite',
+    thumbLight: thumbSatelliteLight,
+    thumbDark: thumbSatelliteDark,
+  },
+] as const satisfies readonly {
+  value: MapStyleMode
+  label: string
+  thumbLight: import('next/image').StaticImageData
+  thumbDark: import('next/image').StaticImageData
+}[]
 
 const UNIT_SETTINGS = [
   { key: 'wind_speed', label: 'Wind speed', options: WIND_SPEED_OPTIONS },
@@ -189,6 +217,16 @@ export function SettingsForm(): React.JSX.Element {
     [persistSettingsPatch]
   )
 
+  const handleMapStyleChange = useCallback(
+    async (mode: MapStyleMode): Promise<void> => {
+      if (getWorkingSettings().mapStyleMode === mode) return
+      setSavingKey('mapStyleMode')
+      await persistSettingsPatch({ mapStyleMode: mode }, 'Map style updated')
+      setSavingKey(null)
+    },
+    [getWorkingSettings, persistSettingsPatch]
+  )
+
   return (
     <>
       <div className="flex flex-col sm:max-h-[min(32rem,85dvh)] sm:flex-row sm:overflow-hidden">
@@ -259,6 +297,59 @@ export function SettingsForm(): React.JSX.Element {
                     </TabsList>
                   </Tabs>
                 ) : null}
+              </Field>
+
+              <FieldSeparator />
+              <Field orientation="horizontal">
+                <FieldLabel>Map style</FieldLabel>
+                <div className="flex gap-3">
+                  <TooltipProvider>
+                    {MAP_STYLE_OPTIONS.map(
+                      ({ value, label, thumbLight, thumbDark }) => {
+                        const selected =
+                          normalizedSettings.mapStyleMode === value
+                        return (
+                          <Tooltip key={value}>
+                            <TooltipTrigger
+                              render={
+                                <button
+                                  type="button"
+                                  aria-pressed={selected}
+                                  aria-label={label}
+                                  disabled={savingKey === 'mapStyleMode'}
+                                  onClick={() =>
+                                    void handleMapStyleChange(value)
+                                  }
+                                  className={cn(
+                                    'block size-16 overflow-hidden rounded-lg transition-shadow',
+                                    SETTINGS_TAB_FOCUS,
+                                    selected
+                                      ? 'ring-2 ring-primary'
+                                      : 'ring-1 ring-foreground/10 hover:ring-foreground/25'
+                                  )}
+                                />
+                              }
+                            >
+                              <Image
+                                src={thumbLight}
+                                alt=""
+                                className="size-full object-cover dark:hidden"
+                              />
+                              <Image
+                                src={thumbDark}
+                                alt=""
+                                className="hidden size-full object-cover dark:block"
+                              />
+                            </TooltipTrigger>
+                            <TooltipContent sideOffset={12}>
+                              {label}
+                            </TooltipContent>
+                          </Tooltip>
+                        )
+                      }
+                    )}
+                  </TooltipProvider>
+                </div>
               </Field>
 
               <FieldSeparator />

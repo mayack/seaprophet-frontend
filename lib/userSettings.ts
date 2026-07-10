@@ -4,10 +4,11 @@ import { normalizeUserUnits } from '@/constants/units'
 
 export type NormalizedUserSettings = Omit<
   UserSettings,
-  'camObserverEnabled' | 'locationTrackingEnabled'
+  'camObserverEnabled' | 'locationTrackingEnabled' | 'mapStyleMode'
 > & {
   camObserverEnabled: boolean
   locationTrackingEnabled: boolean
+  mapStyleMode: NonNullable<UserSettings['mapStyleMode']>
 }
 
 /** Ensure settings always include a full units object and favorites array. */
@@ -23,6 +24,9 @@ export function normalizeUserSettings(
     camObserverEnabled: base.camObserverEnabled !== false,
     // Location tracking; opt-out, so defaults to on.
     locationTrackingEnabled: base.locationTrackingEnabled !== false,
+    // Base map style; satellite unless the user explicitly picked the
+    // minimal style ('default' is the persisted value, not the default pick).
+    mapStyleMode: base.mapStyleMode === 'default' ? 'default' : 'satellite',
   }
 }
 

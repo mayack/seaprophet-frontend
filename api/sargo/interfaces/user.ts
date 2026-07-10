@@ -41,6 +41,11 @@ export interface UserSettings {
    * to the Peniche default (see `lib/homeSpot.ts`).
    */
   homeSpot?: HomeSpot
+  /**
+   * Base map style on the navigator: minimal theme-driven light/dark
+   * ('default') or satellite imagery. Unset means satellite.
+   */
+  mapStyleMode?: import('@/types/map').MapStyleMode
 }
 
 export interface HomeSpot {

@@ -104,10 +104,11 @@ export function MapNavigator({
     [userData.settings]
   )
 
-  // Location tracking opt-out (Settings → Location). Drives whether the map
-  // requests/shows the user's location at all.
-  const locationTrackingEnabled = useMemo(
-    () => normalizeUserSettings(userData.settings).locationTrackingEnabled,
+  // Settings-driven map behavior: location tracking opt-out (whether the map
+  // requests/shows the user's location at all) and the base map style, both
+  // managed in Settings.
+  const { locationTrackingEnabled, mapStyleMode } = useMemo(
+    () => normalizeUserSettings(userData.settings),
     [userData.settings]
   )
 
@@ -153,6 +154,7 @@ export function MapNavigator({
     skipInitialFlyTo: initialView !== null || isSpotOpen || isDirectSpotLink,
     skipAutoUserLocation: isDirectSpotLink,
     onSpotClick: handleSpotClick,
+    styleMode: mapStyleMode,
   })
 
   const activeSpot = spotPanel.activeSpot

@@ -202,6 +202,8 @@ export const CONFIG = {
     styles: {
       light: 'mapbox://styles/mayack/cmchapi2w007h01sba9v1edwl',
       dark: 'mapbox://styles/mayack/cm7a9jq2x002i01s87y377mrx',
+      satelliteLight: 'mapbox://styles/mayack/cmrag6smr000b01qz2j00as4h',
+      satelliteDark: 'mapbox://styles/mayack/cmragild3000a01r59dmg81ih',
     } satisfies MapboxStylesConfig,
   },
 } as const

@@ -1,7 +1,11 @@
 'use client'
 import { SpotSummary } from '@/api/sargo/interfaces/spot'
 import { CONFIG } from '@/constants/config'
-import { GeographicBounds, type LocationState } from '@/types/map'
+import {
+  GeographicBounds,
+  type LocationState,
+  type MapStyleMode,
+} from '@/types/map'
 import { calculateDistance } from '@/utils/location'
 import mapboxgl from 'mapbox-gl'
 import { useTheme } from 'next-themes'
@@ -16,8 +20,9 @@ if (process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN) {
 // thresholds in CONFIG with the km-output Haversine implementation.
 const METERS_PER_KILOMETER = 1000
 
-// Unified theme management for maps
-export function useMapTheme(): {
+// Unified theme management for maps. Both base styles (default + satellite)
+// have a light/dark variant, so appearance mode always applies.
+export function useMapTheme(styleMode: MapStyleMode = 'default'): {
   isDark: boolean
   mapStyle: string
   isThemeReady: boolean
@@ -26,9 +31,7 @@ export function useMapTheme(): {
 
   const isThemeReady = resolvedTheme !== undefined
   const isDark = resolvedTheme === 'dark'
-  const mapStyle = isDark
-    ? CONFIG.mapbox.styles.dark
-    : CONFIG.mapbox.styles.light
+  const mapStyle = getMapStyle(isDark, styleMode)
 
   return { isDark, mapStyle, isThemeReady }
 }
@@ -64,10 +67,17 @@ export function switchMapStyle(
 // Re-exported for map modules that already import from this file.
 export { debounce } from '@/lib/debounce'
 
-// Get map style based on theme
-export function getMapStyle(isDark?: boolean): string {
+// Get map style based on theme + base style mode
+export function getMapStyle(
+  isDark?: boolean,
+  styleMode: MapStyleMode = 'default'
+): string {
   const useDark = isDark ?? false
-  return useDark ? CONFIG.mapbox.styles.dark : CONFIG.mapbox.styles.light
+  const { styles } = CONFIG.mapbox
+  if (styleMode === 'satellite') {
+    return useDark ? styles.satelliteDark : styles.satelliteLight
+  }
+  return useDark ? styles.dark : styles.light
 }
 
 interface CreateMapOptions {
@@ -75,6 +85,7 @@ interface CreateMapOptions {
   center: [number, number]
   zoom: number
   theme?: string | null
+  styleMode?: MapStyleMode
   disablePanning?: boolean
   disableZooming?: boolean
 }
@@ -120,11 +131,18 @@ function configureDragPan(map: mapboxgl.Map): void {
 
 // Create map with theme support
 export function createMap(options: CreateMapOptions): mapboxgl.Map {
-  const { container, center, zoom, theme, disablePanning, disableZooming } =
-    options
+  const {
+    container,
+    center,
+    zoom,
+    theme,
+    styleMode,
+    disablePanning,
+    disableZooming,
+  } = options
 
   const isDark = theme === 'dark'
-  const style = getMapStyle(isDark)
+  const style = getMapStyle(isDark, styleMode)
 
   const map = new mapboxgl.Map({
     container,

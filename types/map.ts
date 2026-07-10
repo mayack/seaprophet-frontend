@@ -20,6 +20,9 @@ export type LocationState =
   | 'error'
   | 'permission-denied'
 
+// Base map style: theme-driven light/dark, or satellite imagery.
+export type MapStyleMode = 'default' | 'satellite'
+
 // Base map interfaces
 export interface BaseMapProps {
   /** Map center coordinates [longitude, latitude] */
@@ -52,6 +55,8 @@ export interface UseMapboxOptions extends BaseMapProps, MapInteractionProps {
   skipInitialFlyTo?: boolean
   /** Skip auto-requesting geolocation on load (direct spot links). */
   skipAutoUserLocation?: boolean
+  /** Base map style: theme-driven light/dark (default) or satellite. */
+  styleMode?: MapStyleMode
 }
 
 export interface MapNavigatorProps extends BaseMapProps {
@@ -172,6 +177,10 @@ export interface MapboxStylesConfig {
   light: string
   /** Dark theme style URL */
   dark: string
+  /** Satellite style URL for the light theme */
+  satelliteLight: string
+  /** Satellite style URL for the dark theme */
+  satelliteDark: string
 }
 
 export interface MapSpotsCacheConfig {
