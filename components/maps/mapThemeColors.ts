@@ -34,6 +34,10 @@ export function setMapPinsForceDark(force: boolean): void {
   forceDarkPalette = force
 }
 
+export function isMapPinsForceDark(): boolean {
+  return forceDarkPalette
+}
+
 function isMapboxSafeColor(color: string): boolean {
   return (
     color.startsWith('#') ||

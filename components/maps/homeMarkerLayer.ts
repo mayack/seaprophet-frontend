@@ -1,7 +1,11 @@
 'use client'
 
 import mapboxgl from 'mapbox-gl'
-import { getMapThemeColors, resolveMapThemeCssColor } from './mapThemeColors'
+import {
+  getMapThemeColors,
+  isMapPinsForceDark,
+  resolveMapThemeCssColor,
+} from './mapThemeColors'
 import {
   spotPinIconSizeExpression,
   spotPinPixelSize,
@@ -29,7 +33,11 @@ const HOME_IMAGE_PIXEL_RATIO = 2
  * rendered shadow matches.
  */
 function homeSpotSvg(): string {
-  const primary = resolveMapThemeCssColor('--primary')
+  // Satellite: pure white house (dark --primary is #ebebeb, which reads
+  // slightly grey against the imagery).
+  const primary = isMapPinsForceDark()
+    ? '#ffffff'
+    : resolveMapThemeCssColor('--primary')
   const { background } = getMapThemeColors()
   const size = spotPinPixelSize()
 

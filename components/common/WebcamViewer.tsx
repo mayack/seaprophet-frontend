@@ -484,8 +484,11 @@ export function WebcamViewer({
         // Always a full-width 16:9 stage. Feeds with a different aspect
         // (e.g. square cams) are scaled to the stage height and centered
         // (object-contain), leaving bars at the sides instead of growing
-        // the panel vertically.
-        'relative aspect-video w-full overflow-hidden bg-card text-card-foreground',
+        // the panel vertically. shrink-0 is load-bearing: the panel body is a
+        // scrollable column flexbox, and overflow-hidden zeroes this item's
+        // automatic minimum size — without shrink-0 the stage flex-shrinks to
+        // 0 height whenever the panel content overflows (i.e. always).
+        'relative aspect-video w-full shrink-0 overflow-hidden bg-card text-card-foreground',
         className
       )}
     >
