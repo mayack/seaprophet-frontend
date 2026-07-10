@@ -481,13 +481,17 @@ export function WebcamViewer({
     <div
       data-theme="dark"
       className={cn(
-        'relative aspect-video w-full bg-card text-card-foreground',
+        // Always a full-width 16:9 stage. Feeds with a different aspect
+        // (e.g. square cams) are scaled to the stage height and centered
+        // (object-contain), leaving bars at the sides instead of growing
+        // the panel vertically.
+        'relative aspect-video w-full overflow-hidden bg-card text-card-foreground',
         className
       )}
     >
       <video
         ref={videoRef}
-        className={cn('size-full', needsTap && 'invisible')}
+        className={cn('size-full object-contain', needsTap && 'invisible')}
         playsInline
         muted
         autoPlay
@@ -500,7 +504,9 @@ export function WebcamViewer({
         ref={canvasRef}
         aria-hidden
         className={cn(
-          'pointer-events-none absolute inset-0 size-full',
+          // Mirror the video's object-contain so the frozen tap-to-play
+          // frame sits exactly where the live frame will appear.
+          'pointer-events-none absolute inset-0 size-full object-contain',
           !needsTap && 'hidden'
         )}
       />

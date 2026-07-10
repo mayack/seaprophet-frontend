@@ -5,9 +5,33 @@ export type MapThemeColors = {
 
 let colorCanvas: HTMLCanvasElement | null = null
 
-const FALLBACK_COLORS: Record<'--foreground' | '--background', string> = {
-  '--foreground': '#252525',
-  '--background': '#ffffff',
+type MapCssVariable = '--foreground' | '--background' | '--primary'
+
+// Approximations of the theme values in globals.css, used when the CSS
+// variables can't be resolved (SSR, probe failure).
+const FALLBACK_COLORS: Record<
+  'light' | 'dark',
+  Record<MapCssVariable, string>
+> = {
+  light: {
+    '--foreground': '#252525',
+    '--background': '#ffffff',
+    '--primary': '#171717',
+  },
+  dark: {
+    '--foreground': '#fbfbfb',
+    '--background': '#252525',
+    '--primary': '#ebebeb',
+  },
+}
+
+// Satellite imagery is dark regardless of the app theme — when set, all map
+// marker colors resolve against the dark theme block so light-theme (near
+// black) pins don't disappear into the imagery.
+let forceDarkPalette = false
+
+export function setMapPinsForceDark(force: boolean): void {
+  forceDarkPalette = force
 }
 
 function isMapboxSafeColor(color: string): boolean {
@@ -55,18 +79,38 @@ export function toMapboxColor(cssColor: string): string {
   }
 }
 
-/** Resolve shadcn `--foreground` / `--background` to #hex for Mapbox/SVG. */
-function resolveCssColor(variable: '--foreground' | '--background'): string {
-  if (typeof document === 'undefined') {
-    return FALLBACK_COLORS[variable]
+function readCssVariable(variable: MapCssVariable): string {
+  if (!forceDarkPalette) {
+    return getComputedStyle(document.documentElement)
+      .getPropertyValue(variable)
+      .trim()
   }
 
-  const raw = getComputedStyle(document.documentElement)
-    .getPropertyValue(variable)
-    .trim()
+  // Resolve the dark value even while the app renders light: a hidden probe
+  // carrying data-theme="dark" picks up the dark variable block from
+  // globals.css without touching the live theme.
+  const probe = document.createElement('div')
+  probe.setAttribute('data-theme', 'dark')
+  probe.style.display = 'none'
+  document.body.appendChild(probe)
+  const raw = getComputedStyle(probe).getPropertyValue(variable).trim()
+  probe.remove()
+  return raw
+}
 
+/** Resolve a shadcn theme variable to #hex for Mapbox/SVG, honoring the
+ *  forced dark palette (satellite mode). */
+export function resolveMapThemeCssColor(variable: MapCssVariable): string {
+  const fallback =
+    FALLBACK_COLORS[forceDarkPalette ? 'dark' : 'light'][variable]
+
+  if (typeof document === 'undefined') {
+    return fallback
+  }
+
+  const raw = readCssVariable(variable)
   if (!raw) {
-    return FALLBACK_COLORS[variable]
+    return fallback
   }
 
   return toMapboxColor(raw)
@@ -74,7 +118,7 @@ function resolveCssColor(variable: '--foreground' | '--background'): string {
 
 export function getMapThemeColors(): MapThemeColors {
   return {
-    foreground: resolveCssColor('--foreground'),
-    background: resolveCssColor('--background'),
+    foreground: resolveMapThemeCssColor('--foreground'),
+    background: resolveMapThemeCssColor('--background'),
   }
 }

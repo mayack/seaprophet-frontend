@@ -30,6 +30,7 @@ import {
   type SpotLayerState,
 } from './spotClusters'
 import { layerBeforeId } from './mapLayerStack'
+import { setMapPinsForceDark } from './mapThemeColors'
 import { MapCamera } from './mapCamera'
 import type { UseMapboxOptions, UseMapboxReturn } from '@/types/map'
 import { CONFIG } from '@/constants/config'
@@ -627,6 +628,14 @@ export function useMapbox(options: UseMapboxOptions = {}): UseMapboxReturn {
       syncLocationStateToMapCenter()
     }
   }, [locationDegraded, syncLocationStateToMapCenter])
+
+  // Satellite imagery is dark regardless of the app theme, so force the dark
+  // pin/cluster palette there — light-theme (near black) pins are nearly
+  // invisible on imagery. Defined BEFORE the init and style-switch effects so
+  // the flag is set before any pin image (re)generation they trigger.
+  useLayoutEffect(() => {
+    setMapPinsForceDark(styleMode === 'satellite')
+  }, [styleMode])
 
   // Initialize map. This effect runs exactly once per mount; later changes
   // to `center` are routed through the dedicated `flyTo` effect below so

@@ -1,11 +1,12 @@
 'use client'
 
 import mapboxgl from 'mapbox-gl'
-import { getMapThemeColors, toMapboxColor } from './mapThemeColors'
+import { getMapThemeColors, resolveMapThemeCssColor } from './mapThemeColors'
 import {
   spotPinIconSizeExpression,
   spotPinPixelSize,
   loadSvgImage,
+  markerShadowFilterSvg,
 } from './spotLayerIcons'
 import { layerBeforeId } from './mapLayerStack'
 
@@ -20,22 +21,21 @@ const HOME_IMAGE_PIXEL_RATIO = 2
 
 /**
  * House-heart glyph: house body filled with `--primary`, heart filled with
- * `--background` (white). A 2-unit pad around the 24-unit icon keeps it a touch
- * smaller than the image bounds, like the spot pins sit inside their circle.
+ * `--background`. Both resolve through the map theme helpers so satellite
+ * mode's forced dark palette applies here like it does to the spot pins.
+ * A 2-unit pad around the 24-unit icon keeps it a touch smaller than the
+ * image bounds, like the spot pins sit inside their circle. The shadow unit
+ * is scaled from the spot pins' 48-unit viewBox to this 28-unit one so the
+ * rendered shadow matches.
  */
 function homeSpotSvg(): string {
-  const primaryRaw =
-    typeof document !== 'undefined'
-      ? getComputedStyle(document.documentElement)
-          .getPropertyValue('--primary')
-          .trim()
-      : ''
-  const primary = toMapboxColor(primaryRaw || '#2563eb')
+  const primary = resolveMapThemeCssColor('--primary')
   const { background } = getMapThemeColors()
   const size = spotPinPixelSize()
 
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="-2 -2 28 28">
-    <path fill="${primary}" d="M3 10a2 2 0 0 1 .709-1.528l7-6a2 2 0 0 1 2.582 0l7 6A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
+    <defs>${markerShadowFilterSvg('shadow', 28 / 48)}</defs>
+    <path fill="${primary}" filter="url(#shadow)" d="M3 10a2 2 0 0 1 .709-1.528l7-6a2 2 0 0 1 2.582 0l7 6A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
     <path fill="${background}" d="M8.62 13.8A2.25 2.25 0 1 1 12 10.836a2.25 2.25 0 1 1 3.38 2.966l-2.626 2.856a.998.998 0 0 1-1.507 0z"/>
   </svg>`
 }

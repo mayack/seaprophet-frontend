@@ -44,11 +44,24 @@ const WAVE_PATHS = [
 const CAMERA_PATH =
   'm16 13 5.223 3.482a.5.5 0 0 0 .777-.416V7.87a.5.5 0 0 0-.752-.432L16 10.5'
 
+/**
+ * Slight drop shadow baked into every marker image (mirrors the toolbar
+ * buttons' shadow-sm) so markers separate from the map on any base style.
+ * `unit` converts the offset/blur into the SVG's viewBox scale so the
+ * rendered shadow looks identical across icons with different viewBoxes.
+ */
+export function markerShadowFilterSvg(id: string, unit: number = 1): string {
+  return `<filter id="${id}" x="-30%" y="-30%" width="160%" height="160%">
+    <feDropShadow dx="0" dy="${unit}" stdDeviation="${unit}" flood-color="#000000" flood-opacity="0.25"/>
+  </filter>`
+}
+
 function clusterCircleSvg(): string {
   const { foreground } = getMapThemeColors()
   const size = clusterPixelSize()
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 48 48">
-    <circle cx="24" cy="24" r="20" fill="${foreground}"/>
+    <defs>${markerShadowFilterSvg('shadow')}</defs>
+    <circle cx="24" cy="24" r="20" fill="${foreground}" filter="url(#shadow)"/>
   </svg>`
 }
 
@@ -80,7 +93,8 @@ function spotPinSvg(selected: boolean, icon: SpotPinIcon): string {
   const iconTransform = `translate(${center} ${center}) scale(${SPOT_PIN_ICON_SCALE}) translate(-12 -12)`
 
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 ${SPOT_PIN_VIEWBOX} ${SPOT_PIN_VIEWBOX}">
-    <circle cx="${center}" cy="${center}" r="${SPOT_PIN_CIRCLE_RADIUS}" fill="${fill}" stroke="${foreground}" stroke-width="${SPOT_PIN_CIRCLE_STROKE}"/>
+    <defs>${markerShadowFilterSvg('shadow')}</defs>
+    <circle cx="${center}" cy="${center}" r="${SPOT_PIN_CIRCLE_RADIUS}" fill="${fill}" stroke="${foreground}" stroke-width="${SPOT_PIN_CIRCLE_STROKE}" filter="url(#shadow)"/>
     <g transform="${iconTransform}">${innerIcon}</g>
   </svg>`
 }
