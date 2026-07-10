@@ -6,6 +6,12 @@
       "runtimeExecutable": "npm",
       "runtimeArgs": ["run", "dev"],
       "port": 3000
+    },
+    {
+      "name": "spell-v2-dev",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev", "--prefix", "/Users/mayack/Sites/spell-v2-prototyping/spell-prototype"],
+      "port": 5173
     }
   ]
 }
