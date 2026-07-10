@@ -233,7 +233,7 @@ export default function TideChart({
           className
         )}
       >
-        Tide forecast available closer to this date
+        No tide data yet
       </div>
     )
   }
