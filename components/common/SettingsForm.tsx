@@ -265,6 +265,62 @@ export function SettingsForm(): React.JSX.Element {
           >
             <FieldGroup>
               <Field orientation="horizontal">
+                <FieldLabel>Map style</FieldLabel>
+                <div className="flex gap-3">
+                  <TooltipProvider>
+                    {MAP_STYLE_OPTIONS.map(
+                      ({ value, label, thumbLight, thumbDark }) => {
+                        const selected =
+                          normalizedSettings.mapStyleMode === value
+                        return (
+                          <Tooltip key={value}>
+                            <TooltipTrigger
+                              render={
+                                <button
+                                  type="button"
+                                  aria-pressed={selected}
+                                  aria-label={label}
+                                  disabled={savingKey === 'mapStyleMode'}
+                                  onClick={() =>
+                                    void handleMapStyleChange(value)
+                                  }
+                                  className={cn(
+                                    'block size-16 overflow-hidden rounded-lg transition-shadow',
+                                    SETTINGS_TAB_FOCUS,
+                                    selected
+                                      ? // ring-offset keeps a 1px background gap between
+                                        // the active ring and the thumbnail so the ring
+                                        // doesn't blend into similar image colors.
+                                        'ring-2 ring-primary ring-offset-1 ring-offset-background'
+                                      : 'ring-1 ring-foreground/10 hover:ring-foreground/25'
+                                  )}
+                                />
+                              }
+                            >
+                              <Image
+                                src={thumbLight}
+                                alt=""
+                                className="size-full object-cover dark:hidden"
+                              />
+                              <Image
+                                src={thumbDark}
+                                alt=""
+                                className="hidden size-full object-cover dark:block"
+                              />
+                            </TooltipTrigger>
+                            <TooltipContent sideOffset={12}>
+                              {label}
+                            </TooltipContent>
+                          </Tooltip>
+                        )
+                      }
+                    )}
+                  </TooltipProvider>
+                </div>
+              </Field>
+
+              <FieldSeparator />
+              <Field orientation="horizontal">
                 <FieldLabel>Appearance</FieldLabel>
                 {themeMounted ? (
                   <Tabs
@@ -297,59 +353,6 @@ export function SettingsForm(): React.JSX.Element {
                     </TabsList>
                   </Tabs>
                 ) : null}
-              </Field>
-
-              <FieldSeparator />
-              <Field orientation="horizontal">
-                <FieldLabel>Map style</FieldLabel>
-                <div className="flex gap-3">
-                  <TooltipProvider>
-                    {MAP_STYLE_OPTIONS.map(
-                      ({ value, label, thumbLight, thumbDark }) => {
-                        const selected =
-                          normalizedSettings.mapStyleMode === value
-                        return (
-                          <Tooltip key={value}>
-                            <TooltipTrigger
-                              render={
-                                <button
-                                  type="button"
-                                  aria-pressed={selected}
-                                  aria-label={label}
-                                  disabled={savingKey === 'mapStyleMode'}
-                                  onClick={() =>
-                                    void handleMapStyleChange(value)
-                                  }
-                                  className={cn(
-                                    'block size-16 overflow-hidden rounded-lg transition-shadow',
-                                    SETTINGS_TAB_FOCUS,
-                                    selected
-                                      ? 'ring-2 ring-primary'
-                                      : 'ring-1 ring-foreground/10 hover:ring-foreground/25'
-                                  )}
-                                />
-                              }
-                            >
-                              <Image
-                                src={thumbLight}
-                                alt=""
-                                className="size-full object-cover dark:hidden"
-                              />
-                              <Image
-                                src={thumbDark}
-                                alt=""
-                                className="hidden size-full object-cover dark:block"
-                              />
-                            </TooltipTrigger>
-                            <TooltipContent sideOffset={12}>
-                              {label}
-                            </TooltipContent>
-                          </Tooltip>
-                        )
-                      }
-                    )}
-                  </TooltipProvider>
-                </div>
               </Field>
 
               <FieldSeparator />
