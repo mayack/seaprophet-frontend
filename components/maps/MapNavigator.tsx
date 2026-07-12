@@ -7,6 +7,8 @@ import { toast } from 'sonner'
 import { useUser } from '@/contexts/UserContext'
 import { useHomeSpot } from '@/contexts/HomeSpotContext'
 import { useMapbox } from './useMapbox'
+import { useWindLayer } from './useWindLayer'
+import { Slider } from '@/components/ui/slider'
 import { useHomeSpotMarker } from './useHomeSpotMarker'
 import {
   getLocationButtonLabel,
@@ -22,6 +24,7 @@ import {
   LocateOff,
   Move,
   HouseHeart,
+  Wind,
 } from './icons'
 import { Button } from '@/components/ui/button'
 import {
@@ -156,6 +159,15 @@ export function MapNavigator({
     onSpotClick: handleSpotClick,
     styleMode: mapStyleMode,
   })
+
+  const {
+    windEnabled,
+    toggleWind,
+    bandIndex,
+    setBandIndex,
+    bandCount,
+    bandTime,
+  } = useWindLayer(map, isLoaded)
 
   const activeSpot = spotPanel.activeSpot
 
@@ -529,6 +541,29 @@ export function MapNavigator({
                   </TooltipContent>
                 </Tooltip>
               </div>
+              <div className="flex flex-col rounded-md shadow-sm ring-1 ring-foreground/10">
+                <Tooltip>
+                  <TooltipTrigger
+                    render={
+                      <Button
+                        variant="elevated"
+                        size="icon-sm"
+                        onClick={toggleWind}
+                        aria-label={
+                          windEnabled ? 'Hide wind layer' : 'Show wind layer'
+                        }
+                        aria-pressed={windEnabled}
+                        className="rounded-md shadow-none ring-0"
+                      />
+                    }
+                  >
+                    <Wind className={cn(windEnabled && 'text-blue-500')} />
+                  </TooltipTrigger>
+                  <TooltipContent side="right" sideOffset={12}>
+                    {windEnabled ? 'Hide wind layer' : 'Show wind layer'}
+                  </TooltipContent>
+                </Tooltip>
+              </div>
               {isLoading && (
                 <div
                   className="flex size-8 items-center justify-center"
@@ -545,6 +580,36 @@ export function MapNavigator({
             <UserMenu user={userData} />
           </div>
         </TooltipProvider>
+      )}
+
+      {/* Wind timeline scrubber — 3-hourly ECMWF frames from polvo,
+          refreshed with the forecast prewarm. */}
+      {!isEditing && windEnabled && (
+        <div className="pointer-events-none absolute inset-x-0 bottom-[calc(env(safe-area-inset-bottom,0px)+10.5rem)] flex justify-center px-4">
+          <div className="pointer-events-auto flex w-full max-w-md items-center gap-3 rounded-full bg-popover px-4 py-2.5 shadow-md ring-1 ring-foreground/10">
+            <Wind className="size-4 shrink-0 text-muted-foreground" />
+            <Slider
+              value={[bandIndex]}
+              min={0}
+              max={bandCount - 1}
+              step={1}
+              onValueChange={(value) => {
+                const next = Array.isArray(value) ? value[0] : value
+                setBandIndex(next)
+              }}
+              aria-label="Wind forecast time"
+            />
+            <span className="w-20 shrink-0 text-right text-xs whitespace-nowrap text-muted-foreground">
+              {bandTime
+                ? new Date(`${bandTime}:00Z`).toLocaleString(undefined, {
+                    weekday: 'short',
+                    hour: '2-digit',
+                    minute: '2-digit',
+                  })
+                : '…'}
+            </span>
+          </div>
+        </div>
       )}
 
       {!isEditing && (

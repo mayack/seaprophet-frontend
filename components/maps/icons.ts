@@ -7,4 +7,5 @@ export {
   LocateOff,
   Move,
   HouseHeart,
+  Wind,
 } from 'lucide-react'
