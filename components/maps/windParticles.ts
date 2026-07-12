@@ -68,8 +68,11 @@ export class WindParticleEngine {
   constructor(map: mapboxgl.Map) {
     this.map = map
     this.canvas = document.createElement('canvas')
+    // No z-index: appended last inside the map container it paints above the
+    // GL canvas by DOM order, while the app's positioned UI overlays (buttons,
+    // scrubber pill), which come later in the DOM, still paint above it.
     this.canvas.style.cssText =
-      'position:absolute;inset:0;pointer-events:none;z-index:2;'
+      'position:absolute;inset:0;pointer-events:none;'
     map.getContainer().appendChild(this.canvas)
     const ctx = this.canvas.getContext('2d')
     if (!ctx) throw new Error('2d canvas unavailable')

@@ -8,4 +8,6 @@ export {
   Move,
   HouseHeart,
   Wind,
+  Play,
+  Pause,
 } from 'lucide-react'

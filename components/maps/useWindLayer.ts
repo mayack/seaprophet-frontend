@@ -14,7 +14,12 @@ export interface UseWindLayerReturn {
   bandCount: number
   /** UTC ISO timestamp of the current frame ('' until meta loads). */
   bandTime: string
+  isPlaying: boolean
+  togglePlay: () => void
 }
+
+// Playback cadence. ~500 ms per 3h frame sweeps the 5-day timeline in ~20 s.
+const PLAY_INTERVAL_MS = 500
 
 /**
  * Owns the wind particle overlay: toggling creates/destroys the Canvas2D
@@ -29,6 +34,7 @@ export function useWindLayer(
   const [windEnabled, setWindEnabled] = useState(false)
   const [bandIndex, setBandIndexState] = useState(0)
   const [meta, setMeta] = useState<WindFieldMeta | null>(null)
+  const [isPlaying, setIsPlaying] = useState(false)
 
   const engineRef = useRef<WindParticleEngine | null>(null)
   const framesRef = useRef(new Map<number, Uint8Array>())
@@ -66,6 +72,7 @@ export function useWindLayer(
       cancelled = true
       engine.destroy()
       engineRef.current = null
+      setIsPlaying(false)
     }
   }, [map, isLoaded, windEnabled, loadFrame])
 
@@ -73,8 +80,34 @@ export function useWindLayer(
     setWindEnabled((v) => !v)
   }, [])
 
+  const togglePlay = useCallback((): void => {
+    setIsPlaying((v) => !v)
+  }, [])
+
+  // Playback: advance one frame per tick, looping. Frames prefetch on first
+  // pass via the same memoized loader the scrubber uses, so the second loop
+  // is perfectly smooth even on slow networks.
+  useEffect(() => {
+    if (!isPlaying || !windEnabled || !meta) return
+    const count = meta.times.length
+    const timer = setInterval(() => {
+      setBandIndexState((current) => {
+        const next = (current + 1) % count
+        wantedFrameRef.current = next
+        void loadFrame(next).then((frame) => {
+          if (frame && wantedFrameRef.current === next)
+            engineRef.current?.setFrame(frame)
+        })
+        return next
+      })
+    }, PLAY_INTERVAL_MS)
+    return (): void => clearInterval(timer)
+  }, [isPlaying, windEnabled, meta, loadFrame])
+
   const setBandIndex = useCallback(
     (index: number): void => {
+      // Manual scrub takes over from playback.
+      setIsPlaying(false)
       const count = meta?.times.length ?? 40
       const clamped = Math.max(0, Math.min(count - 1, index))
       setBandIndexState(clamped)
@@ -94,5 +127,7 @@ export function useWindLayer(
     setBandIndex,
     bandCount: meta?.times.length ?? 40,
     bandTime: meta?.times[bandIndex] ?? '',
+    isPlaying,
+    togglePlay,
   }
 }

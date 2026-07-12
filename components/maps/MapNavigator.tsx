@@ -25,6 +25,8 @@ import {
   Move,
   HouseHeart,
   Wind,
+  Play,
+  Pause,
 } from './icons'
 import { Button } from '@/components/ui/button'
 import {
@@ -167,6 +169,8 @@ export function MapNavigator({
     setBandIndex,
     bandCount,
     bandTime,
+    isPlaying,
+    togglePlay,
   } = useWindLayer(map, isLoaded)
 
   const activeSpot = spotPanel.activeSpot
@@ -587,7 +591,15 @@ export function MapNavigator({
       {!isEditing && windEnabled && (
         <div className="pointer-events-none absolute inset-x-0 bottom-[calc(env(safe-area-inset-bottom,0px)+10.5rem)] flex justify-center px-4">
           <div className="pointer-events-auto flex w-full max-w-md items-center gap-3 rounded-full bg-popover px-4 py-2.5 shadow-md ring-1 ring-foreground/10">
-            <Wind className="size-4 shrink-0 text-muted-foreground" />
+            <Button
+              variant="ghost"
+              size="icon-xs"
+              onClick={togglePlay}
+              aria-label={isPlaying ? 'Pause wind timeline' : 'Play wind timeline'}
+              className="shrink-0"
+            >
+              {isPlaying ? <Pause /> : <Play />}
+            </Button>
             <Slider
               value={[bandIndex]}
               min={0}
