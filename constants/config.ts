@@ -4,7 +4,6 @@ import type {
   MapLocationConfig,
   MapInteractionConfig,
   MapUIConfig,
-  MapSpotsCacheConfig,
   MapUserMarkerConfig,
   MapMarkersConfig,
   MapClustersConfig,
@@ -125,8 +124,6 @@ export const CONFIG = {
       center: [-9.356267, 39.368892] as Coordinates, // Portugal
       zoom: 11,
       height: '100%',
-      initialRadius: 250, // km - initial radius for loading spots
-      viewportPadding: 100, // percentage - expand bounds when loading new spots
     } satisfies MapDefaults,
     location: {
       maxRetries: 3,
@@ -177,10 +174,6 @@ export const CONFIG = {
         size: 16,
       },
     } satisfies MapUIConfig,
-    // Module-level spots cache (components/maps/utils.ts).
-    spotsCache: {
-      maxLoadedRegions: 50,
-    } satisfies MapSpotsCacheConfig,
     // User-location marker retry behaviour in useMapbox.
     userMarker: {
       maxRetries: 10, // ~5s of attempts at retryDelayMs each

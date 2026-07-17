@@ -81,8 +81,6 @@ import { normalizeUserUnits } from '@/constants/units'
 export function MapNavigator({
   className = '',
   height = CONFIG.map.defaults.height,
-  initialRadius = CONFIG.map.defaults.initialRadius,
-  viewportPadding = CONFIG.map.defaults.viewportPadding,
   initialZoom = CONFIG.map.defaults.zoom,
 }: MapNavigatorProps): React.JSX.Element {
   const spotPanel = useSpotPanel()
@@ -117,7 +115,7 @@ export function MapNavigator({
     [userData.settings]
   )
 
-  const { initialView, mapInitCenter, spotLoadCenter } = useMapInitialCenter(
+  const { initialView, mapInitCenter } = useMapInitialCenter(
     getRememberedMapView(),
     userData.latitude,
     userData.longitude,
@@ -175,11 +173,6 @@ export function MapNavigator({
 
   const activeSpot = spotPanel.activeSpot
 
-  const effectiveSpotLoadCenter = useMemo((): [number, number] => {
-    if (activeSpot) return [activeSpot.lng, activeSpot.lat]
-    if (directSpotCenter) return directSpotCenter
-    return spotLoadCenter
-  }, [activeSpot, directSpotCenter, spotLoadCenter])
   const mobileBottomInset = spotPanel.mobileBottomInset
   const mapTouchBlocked =
     !isDesktop && isSpotOpen && spotPanel.mobileSheetSnap === 'expanded'
@@ -226,9 +219,6 @@ export function MapNavigator({
   const { isLoading, visibleSpots } = useMapSpots({
     map,
     isLoaded,
-    spotLoadCenter: effectiveSpotLoadCenter,
-    initialRadius,
-    viewportPadding,
     activeSpotId: activeSpot?.id ?? null,
     userLocation: distanceOrigin,
     updateSpotLayers,
@@ -588,7 +578,7 @@ export function MapNavigator({
 
       {/* Wind timeline scrubber — 3-hourly ECMWF frames from polvo,
           refreshed with the forecast prewarm. */}
-      {!isEditing && windEnabled && (
+      {!isEditing && windEnabled && !isSpotOpen && (
         <div className="pointer-events-none absolute inset-x-0 bottom-[calc(env(safe-area-inset-bottom,0px)+10.5rem)] flex justify-center px-4">
           <div className="pointer-events-auto flex w-full max-w-md items-center gap-3 rounded-full bg-popover px-4 py-2.5 shadow-md ring-1 ring-foreground/10">
             <Button

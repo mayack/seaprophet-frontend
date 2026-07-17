@@ -61,6 +61,11 @@ export class WindParticleEngine {
   private ctx: CanvasRenderingContext2D
   private meta: WindFieldMeta | null = null
   private frame: Uint8Array | null = null
+  // Cross-fade state: while blending, samples lerp prevFrame -> frame so a
+  // timeline step reshapes the flow smoothly instead of snapping.
+  private prevFrame: Uint8Array | null = null
+  private blendStart = 0
+  private blendDuration = 0
   private particles: Particle[] = []
   private raf = 0
   private resizeHandler: () => void
@@ -89,7 +94,14 @@ export class WindParticleEngine {
     if (this.particles.length === 0) this.seed()
   }
 
-  setFrame(frame: Uint8Array): void {
+  setFrame(frame: Uint8Array, transitionMs = 0): void {
+    if (transitionMs > 0 && this.frame && this.frame !== frame) {
+      this.prevFrame = this.frame
+      this.blendStart = performance.now()
+      this.blendDuration = transitionMs
+    } else {
+      this.prevFrame = null
+    }
     this.frame = frame
   }
 
@@ -131,11 +143,25 @@ export class WindParticleEngine {
     this.particles = Array.from({ length: n }, () => this.randomInView())
   }
 
-  /** Bilinear u,v (m/s) from the byte grid at a geographic position. */
-  private sample(lon: number, lat: number): [number, number] {
+  /** 0..1 progress of the current cross-fade (1 = fully on new frame). */
+  private blendT(): number {
+    if (!this.prevFrame) return 1
+    const t = (performance.now() - this.blendStart) / this.blendDuration
+    if (t >= 1) {
+      this.prevFrame = null
+      return 1
+    }
+    return t
+  }
+
+  /** Bilinear u,v (m/s) from one byte grid at a geographic position. */
+  private sampleFrame(
+    frame: Uint8Array,
+    lon: number,
+    lat: number
+  ): [number, number] {
     const meta = this.meta
-    const frame = this.frame
-    if (!meta || !frame) return [0, 0]
+    if (!meta) return [0, 0]
     // Wrap longitude into grid space; clamp latitude.
     let x = (((lon - meta.lon0) % 360) + 360) % 360
     let y = (meta.lat0 - lat) / meta.step
@@ -160,6 +186,15 @@ export class WindParticleEngine {
     const u = (u00 * (1 - fx) + u10 * fx) * (1 - fy) + (u01 * (1 - fx) + u11 * fx) * fy
     const v = (v00 * (1 - fx) + v10 * fx) * (1 - fy) + (v01 * (1 - fx) + v11 * fx) * fy
     return [u, v]
+  }
+
+  /** Time-blended sample across the cross-fade, if one is running. */
+  private sample(lon: number, lat: number, t: number): [number, number] {
+    if (!this.frame) return [0, 0]
+    const [u1, v1] = this.sampleFrame(this.frame, lon, lat)
+    if (t >= 1 || !this.prevFrame) return [u1, v1]
+    const [u0, v0] = this.sampleFrame(this.prevFrame, lon, lat)
+    return [u0 + (u1 - u0) * t, v0 + (v1 - v0) * t]
   }
 
   private loop = (): void => {
@@ -187,8 +222,9 @@ export class WindParticleEngine {
     while (this.particles.length < target)
       this.particles.push(this.randomInView())
 
+    const blend = this.blendT()
     for (const p of this.particles) {
-      const [u, v] = this.sample(p.lon, p.lat)
+      const [u, v] = this.sample(p.lon, p.lat, blend)
       const speed = Math.hypot(u, v)
       p.age += 1
       if (p.age > MAX_AGE_FRAMES || speed < 0.3) {

@@ -1,44 +1,45 @@
 'use client'
 
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import type mapboxgl from 'mapbox-gl'
 import { getSpot } from '@/api/sargo/actions/spot'
 import { spotsCache, debounce } from '@/components/maps/utils'
-import { loadSpotsForBounds } from '@/components/maps/loadSpotsForBounds'
-import { calculateBounds, calculateDistance } from '@/utils/location'
+import {
+  getCachedSpotIndex,
+  loadSpotIndex,
+  subscribeSpotIndex,
+  type SpotIndex,
+} from '@/lib/spotSearchIndex'
+import { calculateDistance } from '@/utils/location'
 import type { GeographicBounds } from '@/types/map'
 import type { SpotSummary } from '@/api/sargo/interfaces/spot'
 import { CONFIG } from '@/constants/config'
-import { spotToSummary } from '@/lib/spotSummary'
+import { indexEntryToSummary, spotToSummary } from '@/lib/spotSummary'
 
 interface UseMapSpotsOptions {
   map: mapboxgl.Map | null
   isLoaded: boolean
-  spotLoadCenter: [number, number]
-  initialRadius: number
-  viewportPadding: number
   activeSpotId: number | null
   userLocation?: { latitude: number; longitude: number }
   updateSpotLayers: (spots: SpotSummary[]) => void
 }
 
+/**
+ * Feeds map pins and the carousel from the full spot search index — the same
+ * catalog search uses — so every published spot is always available and
+ * viewport "filtering" is purely client-side. This replaced per-viewport bbox
+ * fetching, whose coverage heuristic left unfetched slivers while panning
+ * (pins missing from the map yet findable in search).
+ */
 export function useMapSpots({
   map,
   isLoaded,
-  spotLoadCenter,
-  initialRadius,
-  viewportPadding,
   activeSpotId,
   userLocation,
   updateSpotLayers,
 }: UseMapSpotsOptions): { isLoading: boolean; visibleSpots: SpotSummary[] } {
-  const [isLoading, setIsLoading] = useState(false)
+  const [isLoading, setIsLoading] = useState(true)
   const [visibleSpots, setVisibleSpots] = useState<SpotSummary[]>([])
-  // In-flight guard — a ref (not state) so toggling it doesn't re-subscribe
-  // the moveend/zoomend handler below.
-  const isFetchingRef = useRef(false)
-  const spotsRequestIdRef = useRef(0)
-  const hasShownFetchErrorRef = useRef(false)
 
   const updateSpotsInView = useCallback(() => {
     if (!map) return
@@ -64,66 +65,43 @@ export function useMapSpots({
     updateSpotLayers(spotsToShow)
   }, [map, activeSpotId, userLocation, updateSpotLayers])
 
-  const fetchSpotsForViewport = useCallback(
-    async (bounds: GeographicBounds): Promise<boolean> => {
-      spotsRequestIdRef.current += 1
-      const myId = spotsRequestIdRef.current
-      isFetchingRef.current = true
-      setIsLoading(true)
-
-      try {
-        const result = await loadSpotsForBounds(bounds, {
-          requestId: myId,
-          currentRequestId: () => spotsRequestIdRef.current,
-          onErrorShown: (): void => {
-            hasShownFetchErrorRef.current = true
-          },
-          hasShownError: (): boolean => hasShownFetchErrorRef.current,
-        })
-
-        if (result.addedToCache) {
-          hasShownFetchErrorRef.current = false
-        }
-
-        return result.addedToCache
-      } finally {
-        if (myId === spotsRequestIdRef.current) {
-          setIsLoading(false)
-          isFetchingRef.current = false
-        }
-      }
-    },
-    []
-  )
-
+  // Seed the spots cache from the search index (preloaded at app start) and
+  // re-seed whenever the index revalidates to a new catalog version, so newly
+  // published spots appear without a reload.
   useEffect(() => {
     if (!map || !isLoaded) return
 
     let cancelled = false
 
-    const loadInitialSpots = async (): Promise<void> => {
-      const bounds = calculateBounds(
-        spotLoadCenter[1],
-        spotLoadCenter[0],
-        initialRadius
-      )
-
-      if (!spotsCache.hasCoverage(bounds)) {
-        await fetchSpotsForViewport(bounds)
+    const seedFromIndex = (index: SpotIndex): void => {
+      for (const entry of index.byId.values()) {
+        spotsCache.addSpot(indexEntryToSummary(entry))
       }
-
-      if (cancelled) return
-
       updateSpotsInView()
     }
 
-    void loadInitialSpots()
+    void loadSpotIndex()
+      .then((index) => {
+        if (cancelled) return
+        seedFromIndex(index)
+      })
+      .catch(() => {
+        // Index unreachable — pins for already-cached spots (direct links,
+        // primed favorites) still render; the next revalidation retries.
+      })
+      .finally(() => {
+        if (!cancelled) setIsLoading(false)
+      })
 
-    // Safety net: re-sync spots once the map settles after load (the `idle`
-    // event), including after any geolocation flyTo. When the map lands
-    // directly at a cached location there's no flyTo and therefore no
-    // `moveend` to drive the normal viewport sync — this provides the same
-    // recovery a manual pan/zoom does, so spots aren't left unsynced.
+    const unsubscribe = subscribeSpotIndex(() => {
+      if (cancelled) return
+      const index = getCachedSpotIndex()
+      if (index) seedFromIndex(index)
+    })
+
+    // Safety net: re-sync once the map settles after load (the `idle` event),
+    // including after any geolocation flyTo — when the map lands directly at a
+    // cached location there's no moveend to drive the viewport sync.
     const handleInitialIdle = (): void => {
       if (cancelled) return
       updateSpotsInView()
@@ -132,57 +110,18 @@ export function useMapSpots({
 
     return (): void => {
       cancelled = true
+      unsubscribe()
       map.off('idle', handleInitialIdle)
     }
-  }, [
-    map,
-    isLoaded,
-    spotLoadCenter,
-    initialRadius,
-    updateSpotsInView,
-    fetchSpotsForViewport,
-  ])
+  }, [map, isLoaded, updateSpotsInView])
 
+  // Viewport sync on pan/zoom — pure client-side filtering of the seeded
+  // catalog, no fetching.
   useEffect(() => {
     if (!map) return
 
-    const handleMapMovement = async (): Promise<void> => {
-      // Always sync layers to the current viewport, even while a fetch is in
-      // flight (e.g. initial load + geolocation flyTo racing).
-      updateSpotsInView()
-
-      if (isFetchingRef.current) return
-
-      const mapBounds = map.getBounds()
-      if (!mapBounds) return
-
-      const currentBounds: GeographicBounds = {
-        north: mapBounds.getNorth(),
-        south: mapBounds.getSouth(),
-        east: mapBounds.getEast(),
-        west: mapBounds.getWest(),
-      }
-
-      if (spotsCache.hasCoverage(currentBounds)) return
-
-      const latPadding =
-        (currentBounds.north - currentBounds.south) * (viewportPadding / 100)
-      const lngPadding =
-        (currentBounds.east - currentBounds.west) * (viewportPadding / 100)
-
-      const expandedBounds = {
-        north: currentBounds.north + latPadding,
-        south: currentBounds.south - latPadding,
-        east: currentBounds.east + lngPadding,
-        west: currentBounds.west - lngPadding,
-      }
-
-      await fetchSpotsForViewport(expandedBounds)
-      updateSpotsInView()
-    }
-
     const debouncedHandler = debounce(
-      handleMapMovement,
+      updateSpotsInView,
       CONFIG.map.interaction.debounce.mapMovement
     )
     map.on('moveend', debouncedHandler)
@@ -192,8 +131,10 @@ export function useMapSpots({
       map.off('moveend', debouncedHandler)
       map.off('zoomend', debouncedHandler)
     }
-  }, [map, viewportPadding, updateSpotsInView, fetchSpotsForViewport])
+  }, [map, updateSpotsInView])
 
+  // Deep-link safety net: a spot newer than the cached index (or unpublished
+  // from it) is fetched by id so its pin and panel still work.
   useEffect(() => {
     if (!map || !activeSpotId) return
 
@@ -221,12 +162,6 @@ export function useMapSpots({
       cancelled = true
     }
   }, [map, activeSpotId, updateSpotsInView])
-
-  useEffect(() => {
-    return (): void => {
-      spotsRequestIdRef.current += 1
-    }
-  }, [])
 
   return { isLoading, visibleSpots }
 }

@@ -18,8 +18,13 @@ export interface UseWindLayerReturn {
   togglePlay: () => void
 }
 
-// Playback cadence. ~500 ms per 3h frame sweeps the 5-day timeline in ~20 s.
-const PLAY_INTERVAL_MS = 500
+// Playback cadence: 1.5 s per 3h frame sweeps the 5-day timeline in ~60 s.
+// The cross-fade spans the ENTIRE interval, so during playback the field is
+// continuously morphing — one frame finishes blending exactly as the next
+// begins, and direction changes never snap.
+const PLAY_INTERVAL_MS = 1500
+const PLAY_TRANSITION_MS = 1500
+const SCRUB_TRANSITION_MS = 350
 
 /**
  * Owns the wind particle overlay: toggling creates/destroys the Canvas2D
@@ -96,7 +101,7 @@ export function useWindLayer(
         wantedFrameRef.current = next
         void loadFrame(next).then((frame) => {
           if (frame && wantedFrameRef.current === next)
-            engineRef.current?.setFrame(frame)
+            engineRef.current?.setFrame(frame, PLAY_TRANSITION_MS)
         })
         return next
       })
@@ -114,7 +119,7 @@ export function useWindLayer(
       wantedFrameRef.current = clamped
       void loadFrame(clamped).then((frame) => {
         if (frame && wantedFrameRef.current === clamped)
-          engineRef.current?.setFrame(frame)
+          engineRef.current?.setFrame(frame, SCRUB_TRANSITION_MS)
       })
     },
     [meta, loadFrame]

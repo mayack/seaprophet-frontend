@@ -5,7 +5,6 @@ import { cookies } from 'next/headers'
 import { User, UserAuthResponse, UserSettings } from './interfaces/user'
 import { Spot } from './interfaces/spot'
 import type { SubmitCamObserverReportInput } from './interfaces/camObserver'
-import { GeographicBounds } from '@/types/map'
 import { calculateBounds } from '@/utils/location'
 
 // Strapi populate chain for the full municipality → country location tree.
@@ -197,43 +196,6 @@ export class SargoClient extends BaseApiClient {
         init: {
           headers,
           next: { revalidate: 3600 },
-        },
-      }
-    )
-
-    return {
-      data: response.data,
-    }
-  }
-
-  async getSpotsByBounds(
-    bounds: GeographicBounds,
-    pageSize: number = 100,
-    isPublic = true
-  ): Promise<{ data: Spot[] }> {
-    const queryParams = new URLSearchParams({
-      'filters[location_lat][$gte]': bounds.south.toString(),
-      'filters[location_lat][$lte]': bounds.north.toString(),
-      'filters[location_long][$gte]': bounds.west.toString(),
-      'filters[location_long][$lte]': bounds.east.toString(),
-      'fields[0]': 'name',
-      'fields[1]': 'location_lat',
-      'fields[2]': 'location_long',
-      'populate[webcam]': 'true',
-      'pagination[pageSize]': pageSize.toString(),
-    }).toString()
-
-    const headers = await this.getHeaders(
-      `${CONFIG.api.endpoints.sargo.spots.list}?${queryParams}`,
-      isPublic
-    )
-
-    const response = await this.fetch<{ data: Spot[] }>(
-      `${CONFIG.api.endpoints.sargo.spots.list}?${queryParams}`,
-      {
-        init: {
-          headers,
-          next: { revalidate: 60 }, // Short cache time for map data
         },
       }
     )

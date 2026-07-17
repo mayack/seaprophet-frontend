@@ -432,12 +432,10 @@ export function isWebKitBrowser(): boolean {
   return isIOS || isDesktopSafari
 }
 
-// Module-level spots cache — persists for the SPA session while MapNavigator stays mounted.
-const MAX_LOADED_REGIONS = CONFIG.map.spotsCache.maxLoadedRegions
-
+// Module-level spot store — seeded from the search index catalog (plus per-id
+// fetches for deep links); persists for the SPA session.
 const spotsCache = {
   spots: new Map<number, SpotSummary>(),
-  loadedRegions: [] as GeographicBounds[],
 
   addSpot(spot: SpotSummary): void {
     this.spots.set(spot.id, spot)
@@ -445,39 +443,6 @@ const spotsCache = {
 
   getSpot(id: number): SpotSummary | undefined {
     return this.spots.get(id)
-  },
-
-  addLoadedRegion(region: GeographicBounds): void {
-    this.loadedRegions.push(region)
-    // Drop the oldest entries once we exceed the cap so the array can't
-    // accumulate forever across map pans/zooms.
-    if (this.loadedRegions.length > MAX_LOADED_REGIONS) {
-      this.loadedRegions.splice(
-        0,
-        this.loadedRegions.length - MAX_LOADED_REGIONS
-      )
-    }
-  },
-
-  /** True when a loaded region covers at least 80% of the requested bounds. */
-  hasCoverage(bounds: GeographicBounds): boolean {
-    return this.loadedRegions.some((region) => {
-      const overlapNorth = Math.min(region.north, bounds.north)
-      const overlapSouth = Math.max(region.south, bounds.south)
-      const overlapEast = Math.min(region.east, bounds.east)
-      const overlapWest = Math.max(region.west, bounds.west)
-
-      if (overlapNorth <= overlapSouth || overlapEast <= overlapWest) {
-        return false
-      }
-
-      const overlapArea =
-        (overlapNorth - overlapSouth) * (overlapEast - overlapWest)
-      const requestedArea =
-        (bounds.north - bounds.south) * (bounds.east - bounds.west)
-
-      return overlapArea / requestedArea >= 0.8
-    })
   },
 
   getSpotsInBounds(bounds: GeographicBounds): SpotSummary[] {

@@ -32,7 +32,7 @@ function resolveMapCenter(
   return fallback
 }
 
-/** Map init center (mount snapshot) and spot-load center (tracks geolocation). */
+/** Map init center — a mount snapshot; the map must not re-init later. */
 export function useMapInitialCenter(
   rememberedView: { center: [number, number]; zoom: number } | null,
   userLat: number | undefined,
@@ -41,7 +41,6 @@ export function useMapInitialCenter(
 ): {
   initialView: { center: [number, number]; zoom: number } | null
   mapInitCenter: [number, number]
-  spotLoadCenter: [number, number]
 } {
   const defaultCenter = CONFIG.map.defaults.center
   const initialView = useMemo(
@@ -65,33 +64,5 @@ export function useMapInitialCenter(
     []
   )
 
-  const preferLng = preferences?.preferCenter?.[0]
-  const preferLat = preferences?.preferCenter?.[1]
-  const ignoreUserLocation = preferences?.ignoreUserLocation
-  const fallbackLng = preferences?.fallbackCenter?.[0]
-  const fallbackLat = preferences?.fallbackCenter?.[1]
-
-  const spotLoadCenter = useMemo(
-    (): [number, number] =>
-      resolveMapCenter(
-        initialView,
-        userLat,
-        userLng,
-        defaultCenter,
-        preferences
-      ),
-    [
-      initialView,
-      userLat,
-      userLng,
-      defaultCenter,
-      preferLng,
-      preferLat,
-      ignoreUserLocation,
-      fallbackLng,
-      fallbackLat,
-    ]
-  )
-
-  return { initialView, mapInitCenter, spotLoadCenter }
+  return { initialView, mapInitCenter }
 }

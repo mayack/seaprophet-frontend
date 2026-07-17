@@ -60,10 +60,6 @@ export interface UseMapboxOptions extends BaseMapProps, MapInteractionProps {
 }
 
 export interface MapNavigatorProps extends BaseMapProps {
-  /** Initial radius for loading spots (km) */
-  initialRadius?: number
-  /** Viewport padding for spot loading (percentage) */
-  viewportPadding?: number
   /** Initial zoom level (renamed from zoom for clarity) */
   initialZoom?: number
 }
@@ -101,10 +97,6 @@ export interface MapDefaults {
   zoom: number
   /** Default container height */
   height: string
-  /** Default initial radius for spot loading */
-  initialRadius: number
-  /** Default viewport padding */
-  viewportPadding: number
 }
 
 export interface MapLocationConfig {
@@ -183,11 +175,6 @@ export interface MapboxStylesConfig {
   satelliteDark: string
 }
 
-export interface MapSpotsCacheConfig {
-  /** FIFO eviction beyond this many loaded regions */
-  maxLoadedRegions: number
-}
-
 export interface MapUserMarkerConfig {
   /** Max attempts to attach the user-location marker before giving up */
   maxRetries: number
@@ -218,7 +205,6 @@ export interface MapConfig {
   location: MapLocationConfig
   interaction: MapInteractionConfig
   ui: MapUIConfig
-  spotsCache: MapSpotsCacheConfig
   userMarker: MapUserMarkerConfig
   markers: MapMarkersConfig
   clusters: MapClustersConfig

@@ -4,6 +4,7 @@ import { spotsCache } from '@/components/maps/utils'
 import { CONFIG } from '@/constants/config'
 import {
   ensureSpotLayerImages,
+  isSpotLayerImageId,
   removeSpotLayerImages,
   spotClusterImageId,
   spotPinImageExpression,
@@ -198,8 +199,21 @@ function clusterRadiusPx(): number {
 
 async function whenStyleReady(map: mapboxgl.Map): Promise<void> {
   if (map.isStyleLoaded()) return
+  // Never wait solely on `style.load`: it fires ONCE per setStyle, while
+  // `isStyleLoaded()` also returns false TRANSIENTLY during sprite/glyph/tile
+  // loads long after that event. A one-shot listener taken during such a
+  // window waits forever — the intermittent "pins never appear" bug. Instead
+  // re-check on every styledata/idle tick; `idle` is guaranteed to fire once
+  // the map settles, so this always terminates.
   await new Promise<void>((resolve) => {
-    map.once('style.load', () => resolve())
+    const check = (): void => {
+      if (!map.isStyleLoaded()) return
+      map.off('styledata', check)
+      map.off('idle', check)
+      resolve()
+    }
+    map.on('styledata', check)
+    map.on('idle', check)
   })
 }
 
@@ -330,8 +344,26 @@ function spotsToFeatureCollection(
   }
 }
 
-export async function ensureSpotLayers(map: mapboxgl.Map): Promise<void> {
+// Serializes ensureSpotLayers per map: two concurrent callers (the
+// style.load restore path and the spots-data sync effect) could otherwise
+// both pass the `!map.getSource(...)` checks and double-add, throwing and
+// killing one caller's setup halfway.
+const ensureSpotLayersChain = new WeakMap<mapboxgl.Map, Promise<void>>()
+
+export function ensureSpotLayers(map: mapboxgl.Map): Promise<void> {
+  const prev = ensureSpotLayersChain.get(map) ?? Promise.resolve()
+  const next = prev.catch(() => {}).then(() => ensureSpotLayersInner(map))
+  ensureSpotLayersChain.set(map, next)
+  return next
+}
+
+async function ensureSpotLayersInner(map: mapboxgl.Map): Promise<void> {
   await whenStyleReady(map)
+
+  // Safety net for symbols rendering blank: if GL ever asks for one of our
+  // pin/cluster images and it's missing (lost to an addImage/style-switch
+  // race), reload the full set instead of silently drawing nothing.
+  ensureMissingImageListener(map)
 
   // Guarantee a repaint whenever the spots source finishes clustering, so
   // symbols never stay blank until the user pans (idempotent per map).
@@ -422,6 +454,23 @@ function applyClusterSizeLayout(map: mapboxgl.Map): void {
  * the map (NOT a module global) so a remounted/new map re-attaches cleanly and
  * the handler is GC'd with the map — no stale-singleton desync across remounts.
  */
+const missingImageAttached = new WeakMap<mapboxgl.Map, true>()
+
+function ensureMissingImageListener(map: mapboxgl.Map): void {
+  if (missingImageAttached.has(map)) return
+  missingImageAttached.set(map, true)
+  let reloading = false
+  map.on('styleimagemissing', (event: { id: string }): void => {
+    if (!isSpotLayerImageId(event.id) || reloading) return
+    reloading = true
+    void ensureSpotLayerImages(map)
+      .catch(() => {})
+      .finally(() => {
+        reloading = false
+      })
+  })
+}
+
 const spotsRepaintAttached = new WeakMap<mapboxgl.Map, true>()
 
 function ensureSpotsRepaintListener(map: mapboxgl.Map): void {

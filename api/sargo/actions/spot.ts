@@ -3,7 +3,6 @@ import { sargoClient } from '../client'
 import type { SpotSummary, Spot, SpotActionResponse } from '../interfaces/spot'
 import type { LocationInfo } from '../interfaces/spot'
 import { spotToSummary } from '@/lib/spotSummary'
-import { GeographicBounds } from '@/types/map'
 
 // Caching note: sargoClient.getSpot already uses
 // `fetch(..., { next: { revalidate: 3600 } })` so the Next.js Data Cache
@@ -67,48 +66,6 @@ export async function getNearbySpots(
       error:
         error instanceof Error ? error.message : 'Failed to load nearby spots',
       meta: { timestamp, source: 'error', success: false },
-    }
-  }
-}
-
-export async function getSpotsByBounds(
-  bounds: GeographicBounds,
-  pageSize: number = 100
-): Promise<SpotActionResponse<SpotSummary[]>> {
-  const timestamp = new Date().toISOString()
-
-  try {
-    // Distance is measured from the viewport center.
-    const centerLat = (bounds.north + bounds.south) / 2
-    const centerLng = (bounds.east + bounds.west) / 2
-
-    const response = await sargoClient.getSpotsByBounds(bounds, pageSize, true)
-    const nearbySpots = response.data.map((spot) =>
-      spotToSummary(spot, { lat: centerLat, lon: centerLng })
-    )
-
-    return {
-      data: nearbySpots,
-      error: null,
-      meta: {
-        timestamp,
-        source: 'spots-by-bounds',
-        success: true,
-      },
-    }
-  } catch (error) {
-    console.error('getSpotsByBounds error:', error)
-    return {
-      data: [],
-      error:
-        error instanceof Error
-          ? error.message
-          : 'Failed to load spots in this area',
-      meta: {
-        timestamp,
-        source: 'error',
-        success: false,
-      },
     }
   }
 }

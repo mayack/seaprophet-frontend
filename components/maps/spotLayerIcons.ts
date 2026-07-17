@@ -279,6 +279,11 @@ export async function ensureSpotLayerImages(map: mapboxgl.Map): Promise<void> {
   )
 }
 
+/** Whether `id` is one of the pin/cluster images this module owns. */
+export function isSpotLayerImageId(id: string): boolean {
+  return (SPOT_IMAGE_IDS as readonly string[]).includes(id)
+}
+
 export function removeSpotLayerImages(map: mapboxgl.Map): void {
   for (const id of SPOT_IMAGE_IDS) {
     if (map.hasImage(id)) {
