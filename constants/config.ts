@@ -105,7 +105,13 @@ export const CONFIG = {
   },
   search: {
     index: {
-      storageKey: 'spot-search-index-v6',
+      // v7: index entries carry `webcam.website_url` alongside `url`, and a
+      // webcam with neither is now emitted as null. Bumped because the
+      // `version` signature only tracks CONTENT changes — a payload whose
+      // SHAPE changed would otherwise be served from localStorage until some
+      // unrelated spot happened to be edited. Also busts the CDN copy, since
+      // the key is sent as the `?v=` cache-buster.
+      storageKey: 'spot-search-index-v7',
       // Serve the cached index instantly, but revalidate against the backend
       // `version` once it's older than this (and on tab focus). Short, since
       // revalidation is cheap and only rebuilds when the catalog changed.
