@@ -12,19 +12,42 @@ export interface UseWindLayerReturn {
   bandIndex: number
   setBandIndex: (index: number) => void
   bandCount: number
+  /** Left edge of the usable timeline — the "Now" frame index. */
+  minBandIndex: number
   /** UTC ISO timestamp of the current frame ('' until meta loads). */
   bandTime: string
+  /** All frame timestamps (UTC ISO), for the timeline axis labels. */
+  bandTimes: string[]
   isPlaying: boolean
   togglePlay: () => void
 }
 
-// Playback cadence: 1.5 s per 3h frame sweeps the 5-day timeline in ~60 s.
+// Playback cadence: 1.5 s per 3h frame sweeps the 7-day timeline in ~85 s.
 // The cross-fade spans the ENTIRE interval, so during playback the field is
 // continuously morphing — one frame finishes blending exactly as the next
 // begins, and direction changes never snap.
 const PLAY_INTERVAL_MS = 1500
 const PLAY_TRANSITION_MS = 1500
 const SCRUB_TRANSITION_MS = 350
+// Timeline length assumed before /api/wind meta arrives (7 days of 3h bands).
+// Only affects the scrubber's initial extent; the real count replaces it.
+const FALLBACK_BAND_COUNT = 56
+
+/**
+ * Index of the frame at or just before the real clock — the timeline's "Now".
+ * Frames begin at the model run's start (up to ~a day in the past), so we
+ * start the scrubber here rather than at frame 0, and treat this as the left
+ * edge (past frames aren't shown).
+ */
+function nowFrameIndex(times: string[]): number {
+  const now = Date.now()
+  let idx = 0
+  for (let i = 0; i < times.length; i++) {
+    if (new Date(`${times[i]}:00Z`).getTime() <= now) idx = i
+    else break
+  }
+  return idx
+}
 
 /**
  * Owns the wind particle overlay: toggling creates/destroys the Canvas2D
@@ -38,6 +61,9 @@ export function useWindLayer(
 ): UseWindLayerReturn {
   const [windEnabled, setWindEnabled] = useState(false)
   const [bandIndex, setBandIndexState] = useState(0)
+  // Left edge of the usable timeline (the "Now" frame). Frames before it are
+  // in the past and hidden from the scrubber.
+  const [minBandIndex, setMinBandIndex] = useState(0)
   const [meta, setMeta] = useState<WindFieldMeta | null>(null)
   const [isPlaying, setIsPlaying] = useState(false)
 
@@ -65,11 +91,15 @@ export function useWindLayer(
     engineRef.current = engine
 
     void (async () => {
-      const [m, frame] = await Promise.all([fetchWindMeta(), loadFrame(0)])
-      if (cancelled || !m || !frame) return
+      const m = await fetchWindMeta()
+      if (cancelled || !m) return
+      const start = nowFrameIndex(m.times)
+      const frame = await loadFrame(start)
+      if (cancelled || !frame) return
       setMeta(m)
-      wantedFrameRef.current = 0
-      setBandIndexState(0)
+      setMinBandIndex(start)
+      wantedFrameRef.current = start
+      setBandIndexState(start)
       engine.setField(m, frame)
     })()
 
@@ -97,7 +127,8 @@ export function useWindLayer(
     const count = meta.times.length
     const timer = setInterval(() => {
       setBandIndexState((current) => {
-        const next = (current + 1) % count
+        // Loop within the visible window: past the end, jump back to "Now".
+        const next = current + 1 > count - 1 ? minBandIndex : current + 1
         wantedFrameRef.current = next
         void loadFrame(next).then((frame) => {
           if (frame && wantedFrameRef.current === next)
@@ -107,14 +138,14 @@ export function useWindLayer(
       })
     }, PLAY_INTERVAL_MS)
     return (): void => clearInterval(timer)
-  }, [isPlaying, windEnabled, meta, loadFrame])
+  }, [isPlaying, windEnabled, meta, minBandIndex, loadFrame])
 
   const setBandIndex = useCallback(
     (index: number): void => {
       // Manual scrub takes over from playback.
       setIsPlaying(false)
-      const count = meta?.times.length ?? 40
-      const clamped = Math.max(0, Math.min(count - 1, index))
+      const count = meta?.times.length ?? FALLBACK_BAND_COUNT
+      const clamped = Math.max(minBandIndex, Math.min(count - 1, index))
       setBandIndexState(clamped)
       wantedFrameRef.current = clamped
       void loadFrame(clamped).then((frame) => {
@@ -122,7 +153,7 @@ export function useWindLayer(
           engineRef.current?.setFrame(frame, SCRUB_TRANSITION_MS)
       })
     },
-    [meta, loadFrame]
+    [meta, minBandIndex, loadFrame]
   )
 
   return {
@@ -130,8 +161,10 @@ export function useWindLayer(
     toggleWind,
     bandIndex,
     setBandIndex,
-    bandCount: meta?.times.length ?? 40,
+    bandCount: meta?.times.length ?? FALLBACK_BAND_COUNT,
+    minBandIndex,
     bandTime: meta?.times[bandIndex] ?? '',
+    bandTimes: meta?.times ?? [],
     isPlaying,
     togglePlay,
   }

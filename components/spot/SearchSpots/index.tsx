@@ -49,6 +49,7 @@ function SpotSearchCommand({
   query,
   onInputValueChange,
   rows,
+  favoriteRows,
   isLoading,
   error,
   spotCount,
@@ -60,6 +61,7 @@ function SpotSearchCommand({
   query: string
   onInputValueChange: (value: string) => void
   rows: SpotSearchRow[]
+  favoriteRows: SpotSearchRow[]
   isLoading: boolean
   error: string | null
   spotCount: number | null
@@ -67,10 +69,46 @@ function SpotSearchCommand({
   isMobile: boolean
 }): React.JSX.Element {
   const hasQuery = query.trim().length > 0
+  // With no query, the list shows favorites instead of search results.
+  const showFavorites = !hasQuery && favoriteRows.length > 0
+  const listRows = hasQuery ? rows : favoriteRows
   const emptyPrompt =
     spotCount !== null
       ? `${spotCount.toLocaleString()} spots available`
       : 'Start typing to search spots'
+
+  const renderRow = (row: SpotSearchRow): React.JSX.Element => {
+    if (row.kind === 'header') {
+      return (
+        <div
+          key={row.key}
+          role="presentation"
+          className={cn(
+            'flex items-center gap-1.5 px-2 py-1.5 text-xs font-medium text-muted-foreground',
+            // small breathing room above every country block
+            row.level === 'country' && 'mt-2 font-semibold text-foreground'
+          )}
+        >
+          {row.emoji && <span aria-hidden>{row.emoji}</span>}
+          {row.label}
+        </div>
+      )
+    }
+    return (
+      <CommandItem
+        key={row.key}
+        value={`${row.item.id}-${row.item.name}`}
+        onSelect={() => onSelect(row.item)}
+      >
+        {row.item.name}
+        {row.item.webcam && (
+          <CommandShortcut>
+            <Video strokeWidth={1.5} />
+          </CommandShortcut>
+        )}
+      </CommandItem>
+    )
+  }
 
   return (
     <Command
@@ -88,7 +126,7 @@ function SpotSearchCommand({
       />
       <CommandList
         className={
-          isMobile && hasQuery
+          isMobile && (hasQuery || showFavorites)
             ? 'max-h-[calc(var(--search-dialog-max)-2.5rem)]'
             : undefined
         }
@@ -100,41 +138,15 @@ function SpotSearchCommand({
               : (error ?? 'No spots found')
             : emptyPrompt}
         </CommandEmpty>
-        <CommandGroup>
-          {rows.map((row) => {
-            if (row.kind === 'header') {
-              return (
-                <div
-                  key={row.key}
-                  role="presentation"
-                  className={cn(
-                    'flex items-center gap-1.5 px-2 py-1.5 text-xs font-medium text-muted-foreground',
-                    // small breathing room above every country block
-                    row.level === 'country' &&
-                      'mt-2 font-semibold text-foreground'
-                  )}
-                >
-                  {row.emoji && <span aria-hidden>{row.emoji}</span>}
-                  {row.label}
-                </div>
-              )
-            }
-            return (
-              <CommandItem
-                key={row.key}
-                value={`${row.item.id}-${row.item.name}`}
-                onSelect={() => onSelect(row.item)}
-              >
-                {row.item.name}
-                {row.item.webcam && (
-                  <CommandShortcut>
-                    <Video strokeWidth={1.5} />
-                  </CommandShortcut>
-                )}
-              </CommandItem>
-            )
-          })}
-        </CommandGroup>
+        {showFavorites && (
+          <div
+            role="presentation"
+            className="px-2 py-1.5 text-xs font-semibold text-foreground"
+          >
+            Favorites
+          </div>
+        )}
+        <CommandGroup>{listRows.map(renderRow)}</CommandGroup>
       </CommandList>
     </Command>
   )
@@ -155,6 +167,7 @@ export function SearchSpots({
     query,
     onInputValueChange,
     rows,
+    favoriteRows,
     isLoading,
     error,
     spotCount,
@@ -307,12 +320,11 @@ export function SearchSpots({
         title="Search spots"
         description="Search for a surf spot by name"
         showCloseButton
-        closeButtonClassName="top-2 right-2 text-muted-foreground"
         initialFocus={searchInputRef}
         contentStyle={mobileContentStyle}
         className={cn(
           !isDesktop ? 'h-auto auto-rows-min' : undefined,
-          'rounded-2xl!'
+          'rounded-xl!'
         )}
       >
         <SpotSearchCommand
@@ -321,6 +333,7 @@ export function SearchSpots({
           query={query}
           onInputValueChange={onInputValueChange}
           rows={rows}
+          favoriteRows={favoriteRows}
           isLoading={isLoading}
           error={error}
           spotCount={spotCount}

@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import type mapboxgl from 'mapbox-gl'
 import { getSpot } from '@/api/sargo/actions/spot'
 import { spotsCache, debounce } from '@/components/maps/utils'
@@ -65,6 +65,22 @@ export function useMapSpots({
     updateSpotLayers(spotsToShow)
   }, [map, activeSpotId, userLocation, updateSpotLayers])
 
+  // Latest-identity ref so the seed and pan/zoom effects below don't tear down
+  // and re-run whenever updateSpotsInView's inputs (userLocation on every GPS
+  // poll, activeSpotId) change — seeding and listener wiring happen once per
+  // map load.
+  const updateSpotsInViewRef = useRef(updateSpotsInView)
+
+  // Keep the ref current, and recompute the view when its inputs change
+  // (e.g. carousel distances after a geolocation update) — pure client-side
+  // work on the seeded cache. The recompute is deferred to a timeout so it
+  // doesn't set state synchronously inside the effect.
+  useEffect(() => {
+    updateSpotsInViewRef.current = updateSpotsInView
+    const id = window.setTimeout(updateSpotsInView, 0)
+    return (): void => window.clearTimeout(id)
+  }, [updateSpotsInView])
+
   // Seed the spots cache from the search index (preloaded at app start) and
   // re-seed whenever the index revalidates to a new catalog version, so newly
   // published spots appear without a reload.
@@ -77,7 +93,7 @@ export function useMapSpots({
       for (const entry of index.byId.values()) {
         spotsCache.addSpot(indexEntryToSummary(entry))
       }
-      updateSpotsInView()
+      updateSpotsInViewRef.current()
     }
 
     void loadSpotIndex()
@@ -104,7 +120,7 @@ export function useMapSpots({
     // cached location there's no moveend to drive the viewport sync.
     const handleInitialIdle = (): void => {
       if (cancelled) return
-      updateSpotsInView()
+      updateSpotsInViewRef.current()
     }
     map.once('idle', handleInitialIdle)
 
@@ -113,7 +129,7 @@ export function useMapSpots({
       unsubscribe()
       map.off('idle', handleInitialIdle)
     }
-  }, [map, isLoaded, updateSpotsInView])
+  }, [map, isLoaded])
 
   // Viewport sync on pan/zoom — pure client-side filtering of the seeded
   // catalog, no fetching.
@@ -121,7 +137,7 @@ export function useMapSpots({
     if (!map) return
 
     const debouncedHandler = debounce(
-      updateSpotsInView,
+      () => updateSpotsInViewRef.current(),
       CONFIG.map.interaction.debounce.mapMovement
     )
     map.on('moveend', debouncedHandler)
@@ -131,7 +147,7 @@ export function useMapSpots({
       map.off('moveend', debouncedHandler)
       map.off('zoomend', debouncedHandler)
     }
-  }, [map, updateSpotsInView])
+  }, [map])
 
   // Deep-link safety net: a spot newer than the cached index (or unpublished
   // from it) is fetched by id so its pin and panel still work.

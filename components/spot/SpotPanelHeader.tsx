@@ -41,7 +41,7 @@ export function SpotPanelHeader({
       <div
         className={cn(
           'flex items-center justify-end gap-2',
-          closeOnly ? 'p-1.5' : 'py-1.5 pr-1.5 pl-4 md:pl-6'
+          closeOnly ? 'p-1.5' : 'py-2 pr-2 pl-4 md:pl-6'
         )}
         style={
           closeOnly ? { height: SPOT_PANEL.mobilePeekHeaderPx } : undefined
@@ -50,7 +50,7 @@ export function SpotPanelHeader({
         {!closeOnly ? <SpotPanelHeaderMeta meta={meta} /> : null}
         <Button
           variant="ghost"
-          size="icon"
+          size="icon-sm"
           onPointerDown={(event) => event.stopPropagation()}
           onClick={onClose}
           aria-label="Close spot details"

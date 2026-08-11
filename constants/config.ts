@@ -34,10 +34,7 @@ export const CONFIG = {
         },
         spots: {
           list: '/api/spots',
-          detail: (id: number) => `/api/spots/${id}?populate=*`,
-          byCountry: '/api/spots',
-          search:
-            '/api/spots?filters[name][$containsi]=:query&fields[0]=name&populate[webcam]=true',
+          detail: (id: number) => `/api/spots/${id}`,
           searchIndex: '/api/spots/search-index',
         },
         camObserver: {

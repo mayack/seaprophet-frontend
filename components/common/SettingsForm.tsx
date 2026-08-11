@@ -418,7 +418,7 @@ export function SettingsForm(): React.JSX.Element {
           >
             <FieldGroup>
               <Field orientation="horizontal">
-                <FieldLabel htmlFor="newPassword">Username</FieldLabel>
+                <FieldLabel>Username</FieldLabel>
                 <div className="flex items-center gap-4">
                   {username}
                   <Button
@@ -432,7 +432,7 @@ export function SettingsForm(): React.JSX.Element {
               </Field>
               <FieldSeparator />
               <Field orientation="horizontal">
-                <FieldLabel htmlFor="newPassword">Password</FieldLabel>
+                <FieldLabel>Password</FieldLabel>
                 <div className="flex items-center gap-4">
                   <span className="tracking-widest">••••••••</span>
                   <Button

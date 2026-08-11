@@ -6,6 +6,7 @@ import { sargoClient } from '../client'
 import { CONFIG } from '@/constants/config'
 import { normalizeUserSettings } from '@/lib/userSettings'
 import { readSargoOptions, writeSargoOptions } from '../cookies'
+import { getStringField } from '@/lib/formData'
 import type { User, UserAuthResponse } from '../interfaces/user'
 
 export type SignInState = { error?: string; success?: boolean } | null
@@ -14,15 +15,10 @@ export async function signIn(
   _prevState: SignInState,
   formData: FormData
 ): Promise<SignInState> {
-  const identifier = formData.get('identifier')
-  const password = formData.get('password')
+  const identifier = getStringField(formData, 'identifier')
+  const password = getStringField(formData, 'password')
 
-  if (
-    !identifier ||
-    !password ||
-    typeof identifier !== 'string' ||
-    typeof password !== 'string'
-  ) {
+  if (!identifier || !password) {
     return { error: 'Enter your email/username and password.' }
   }
 

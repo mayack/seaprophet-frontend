@@ -61,16 +61,6 @@ export interface SpotAttributes {
   locationInfo?: LocationInfo
 }
 
-export type RegionsType = {
-  [district: string]: SpotSummary[]
-}
-
-export type SpotsByCountry = {
-  [country: string]: {
-    [region: string]: RegionsType
-  }
-}
-
 export interface SpotSummary {
   id: number
   name: string

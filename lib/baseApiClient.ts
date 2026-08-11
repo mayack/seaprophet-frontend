@@ -15,8 +15,8 @@ export abstract class BaseApiClient {
     endpoint: string,
     options: ApiRequestOptions = {}
   ): Promise<T> {
-    const { params, init = {} } = options
-    const url = this.buildUrl(endpoint, params)
+    const { init = {} } = options
+    const url = this.buildUrl(endpoint)
 
     try {
       const response = await fetch(url, {
@@ -47,28 +47,20 @@ export abstract class BaseApiClient {
 
       return data
     } catch (error) {
-      // Re-throw our own errors, wrap others
-      if (error instanceof Error && error.name !== 'unknown') {
+      // Re-throw our own tagged errors; wrap everything else (fetch rejects
+      // with TypeError on connectivity failures, json() with SyntaxError) as
+      // 'network' so consumers switching on error.name can route the message.
+      if (
+        error instanceof Error &&
+        ['auth', 'network', 'validation'].includes(error.name)
+      ) {
         throw error
       }
       throw createError(getErrorMessage(error), 'network')
     }
   }
 
-  protected buildUrl(
-    endpoint: string,
-    params?: Record<string, string | number | boolean>
-  ): string {
-    const url = new URL(`${this.config.baseURL}${endpoint}`)
-
-    if (params) {
-      Object.entries(params).forEach(([key, value]) => {
-        if (value !== undefined) {
-          url.searchParams.append(key, String(value))
-        }
-      })
-    }
-
-    return url.toString()
+  protected buildUrl(endpoint: string): string {
+    return new URL(`${this.config.baseURL}${endpoint}`).toString()
   }
 }

@@ -17,10 +17,7 @@ export class SargoClient extends BaseApiClient {
     super(CONFIG.api.urls.sargo || '')
   }
 
-  protected async getHeaders(
-    endpoint: string,
-    isPublic?: boolean
-  ): Promise<HeadersInit> {
+  protected async getHeaders(isPublic?: boolean): Promise<HeadersInit> {
     const headers: HeadersInit = {
       'Content-Type': 'application/json',
       Accept: 'application/json',
@@ -48,10 +45,7 @@ export class SargoClient extends BaseApiClient {
 
   // Auth Endpoints (No Caching)
   async login(identifier: string, password: string): Promise<UserAuthResponse> {
-    const headers = await this.getHeaders(
-      CONFIG.api.endpoints.sargo.auth.login,
-      true
-    )
+    const headers = await this.getHeaders(true)
 
     return this.fetch(CONFIG.api.endpoints.sargo.auth.login, {
       init: {
@@ -67,9 +61,7 @@ export class SargoClient extends BaseApiClient {
     username?: string
     settings?: UserSettings
   }): Promise<User> {
-    const headers = await this.getHeaders(
-      CONFIG.api.endpoints.sargo.user.update
-    )
+    const headers = await this.getHeaders()
 
     const response = await this.fetch<User>(
       CONFIG.api.endpoints.sargo.user.update,
@@ -93,9 +85,7 @@ export class SargoClient extends BaseApiClient {
     newPassword: string
     confirmPassword: string
   }): Promise<UserAuthResponse> {
-    const headers = await this.getHeaders(
-      CONFIG.api.endpoints.sargo.auth.changePassword
-    )
+    const headers = await this.getHeaders()
 
     // Strapi's users-permissions change-password controller responds with
     // a fresh JWT (and the sanitized user). Callers need both so they can
@@ -121,7 +111,7 @@ export class SargoClient extends BaseApiClient {
   // name === 'auth') from network failures. Previously this swallowed all
   // errors and returned null, which made auth/network indistinguishable.
   async getCurrentUser(): Promise<User | null> {
-    const headers = await this.getHeaders(CONFIG.api.endpoints.sargo.user.me)
+    const headers = await this.getHeaders()
 
     return await this.fetch<User>(CONFIG.api.endpoints.sargo.user.me, {
       init: {
@@ -141,9 +131,8 @@ export class SargoClient extends BaseApiClient {
       'populate[webcam]': 'true',
     }).toString()
 
-    const base = CONFIG.api.endpoints.sargo.spots.detail(id).split('?')[0]
-    const endpoint = `${base}?${queryParams}`
-    const headers = await this.getHeaders(endpoint, isPublic)
+    const endpoint = `${CONFIG.api.endpoints.sargo.spots.detail(id)}?${queryParams}`
+    const headers = await this.getHeaders(isPublic)
 
     const response = await this.fetch<{ data: Spot }>(endpoint, {
       init: {
@@ -185,10 +174,7 @@ export class SargoClient extends BaseApiClient {
       'pagination[pageSize]': '100',
     }).toString()
 
-    const headers = await this.getHeaders(
-      `${CONFIG.api.endpoints.sargo.spots.list}?${queryParams}`,
-      isPublic
-    )
+    const headers = await this.getHeaders(isPublic)
 
     const response = await this.fetch<{ data: Spot[] }>(
       `${CONFIG.api.endpoints.sargo.spots.list}?${queryParams}`,
@@ -215,10 +201,7 @@ export class SargoClient extends BaseApiClient {
       'pagination[pageSize]': '12',
     }).toString()
 
-    const headers = await this.getHeaders(
-      `${CONFIG.api.endpoints.sargo.spots.list}?${queryParams}`,
-      isPublic
-    )
+    const headers = await this.getHeaders(isPublic)
 
     return this.fetch<{ data: Spot[] }>(
       `${CONFIG.api.endpoints.sargo.spots.list}?${queryParams}`,
@@ -234,9 +217,7 @@ export class SargoClient extends BaseApiClient {
   async submitCamObserverReport(
     payload: SubmitCamObserverReportInput
   ): Promise<{ id: string; observedAt: string }> {
-    const headers = await this.getHeaders(
-      CONFIG.api.endpoints.sargo.camObserver.observations
-    )
+    const headers = await this.getHeaders()
 
     const response = await this.fetch<{
       success?: boolean

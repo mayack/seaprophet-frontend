@@ -7,6 +7,7 @@ import { debounce } from '@/lib/debounce'
 import { CONFIG } from '@/constants/config'
 import type { SpotIndex, SpotIndexEntry } from '@/lib/spotSearchIndex'
 import { groupSpotsByGeo, type GeoRow } from '@/lib/groupSpotsByGeo'
+import { useUser } from '@/contexts/UserContext'
 import { useSpotIndex } from './useSpotIndex'
 
 const MAX_RESULTS = CONFIG.search.maxResults
@@ -45,16 +46,33 @@ function searchLocalIndex(index: SpotIndex, query: string): SearchResultSpot[] {
   return spots
 }
 
+/** Group resolved spots into the geo header/item rows the command list renders. */
+function toGeoRows(spots: SearchResultSpot[]): SpotSearchRow[] {
+  return groupSpotsByGeo(
+    spots.map((spot) => ({
+      country: spot.country,
+      countryEmoji: spot.countryEmoji,
+      municipality: spot.municipality ?? null,
+      item: spot,
+    })),
+    (spot) => `${spot.id}`
+  )
+}
+
 export function useSpotSearch(): {
   query: string
   onInputValueChange: (value: string) => void
   rows: SpotSearchRow[]
+  /** Favorite spots as geo rows, shown when the query is empty. */
+  favoriteRows: SpotSearchRow[]
   isLoading: boolean
   error: string | null
   spotCount: number | null
   clearSearch: () => void
 } {
   const spotIndex = useSpotIndex()
+  const { userData } = useUser()
+  const favoriteIds = userData.settings.favorites
   const [query, setQuery] = useState('')
   const [spots, setSpots] = useState<SearchResultSpot[]>([])
   const [isLoading, setIsLoading] = useState(false)
@@ -151,21 +169,26 @@ export function useSpotSearch(): {
 
   const rows = useMemo<SpotSearchRow[]>(() => {
     if (!query.trim()) return []
-    return groupSpotsByGeo(
-      displayedSpots.map((spot) => ({
-        country: spot.country,
-        countryEmoji: spot.countryEmoji,
-        municipality: spot.municipality ?? null,
-        item: spot,
-      })),
-      (spot) => `${spot.id}`
-    )
+    return toGeoRows(displayedSpots)
   }, [displayedSpots, query])
+
+  // Favorites are an ordered ID list in user settings; resolve them against the
+  // in-memory index (no network) and group them the same way as search results.
+  const favoriteRows = useMemo<SpotSearchRow[]>(() => {
+    if (!spotIndex || !favoriteIds?.length) return []
+    const spots: SearchResultSpot[] = []
+    for (const id of favoriteIds) {
+      const entry = spotIndex.byId.get(id)
+      if (entry) spots.push(entryToResult(entry))
+    }
+    return toGeoRows(spots)
+  }, [spotIndex, favoriteIds])
 
   return {
     query,
     onInputValueChange,
     rows,
+    favoriteRows,
     isLoading: Boolean(query.trim()) && isLoading,
     error: query.trim() ? error : null,
     spotCount: spotIndex?.count ?? null,

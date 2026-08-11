@@ -7,14 +7,7 @@ import { CONFIG } from '@/constants/config'
 import type { UserSettings } from '../interfaces/user'
 import { normalizeUserSettings } from '@/lib/userSettings'
 import { readSargoOptions, mergeSargoOptions } from '../cookies'
-
-// FormData.get returns `FormDataEntryValue | null`, which can be a `File`
-// (e.g. if the form was tampered with). Always validate to `string` before
-// using a field as text. Mirrors the guard in `signIn` (auth.ts).
-function getStringField(fd: FormData, key: string): string | null {
-  const v = fd.get(key)
-  return typeof v === 'string' ? v : null
-}
+import { getStringField } from '@/lib/formData'
 
 function formActionError(
   error: unknown,
