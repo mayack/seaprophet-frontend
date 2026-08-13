@@ -31,14 +31,20 @@ export interface WebcamExtractionResponse {
  * OUR address and mint a URL that 403s in the visitor's browser.
  *
  * Cloudflare's header first: it writes that one itself, so a client behind it
- * cannot forge it. `x-forwarded-for` is the fallback and its left-most entry
- * is the original client.
+ * cannot forge it. Netlify's own header is next — on production it holds
+ * Cloudflare's edge address (Netlify's peer IS Cloudflare, so it must not
+ * outrank `cf-connecting-ip`), but on a deploy preview or the raw
+ * `*.netlify.app` origin, which Cloudflare doesn't front, it is the visitor
+ * and the only header written by infrastructure rather than by the caller.
+ * `x-forwarded-for` is the last resort precisely because its left-most entry
+ * is client-supplied.
  */
 async function viewerIpFromRequest(): Promise<string | undefined> {
   try {
     const h = await headers()
     return (
       h.get('cf-connecting-ip') ??
+      h.get('x-nf-client-connection-ip') ??
       h.get('x-real-ip') ??
       h.get('x-forwarded-for')?.split(',')[0]?.trim() ??
       undefined

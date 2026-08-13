@@ -27,9 +27,28 @@ interface WebcamViewerProps {
 // Pure helpers (no component state)
 // ---------------------------------------------------------------------------
 
+/**
+ * Providers that bind a stream URL to the address that fetches it. These must
+ * be played DIRECTLY by the browser: polvo mints them for the visitor, so
+ * routing them through our server means the server's address fetches a URL
+ * signed for the visitor's — a guaranteed 403, with nothing in the response
+ * to say why. Configuring a `referer` on one of these cams in Sargo would
+ * otherwise silently break it.
+ */
+const DIRECT_ONLY_HOSTS = ['rtsp.me']
+
+function isDirectOnly(url: string): boolean {
+  try {
+    const host = new URL(url, window.location.origin).hostname.toLowerCase()
+    return DIRECT_ONLY_HOSTS.some((h) => host === h || host.endsWith(`.${h}`))
+  } catch {
+    return false
+  }
+}
+
 /** Route through /api/proxy when the cam needs a Referer header. */
 function proxiedUrl(url: string, referer?: string): string {
-  if (!referer) return url
+  if (!referer || isDirectOnly(url)) return url
   return `/api/proxy?url=${encodeURIComponent(url)}&referer=${encodeURIComponent(referer)}`
 }
 
@@ -306,6 +325,22 @@ export function WebcamViewer({
         if (isStale() || !data.fatal) return
         if (data.response?.code === 404) {
           fail('Camera is offline')
+        } else if (
+          data.response?.code === 403 &&
+          isDirectOnly(data.url ?? '')
+        ) {
+          // Scoped deliberately to the per-viewer provider: a 403 from one of
+          // those means the URL was signed for a different address than this
+          // browser is fetching from — a stale mint, or the visitor reaching
+          // us over IPv6 while the stream host is IPv4-only. From the user's
+          // side that is indistinguishable from a dead camera, which is how it
+          // went unnoticed once already. Every other provider keeps the exact
+          // branches it had before.
+          console.warn(
+            `[webcam] 403 from ${config.name ?? 'stream'} — the URL was signed ` +
+              'for a different address than this browser is using'
+          )
+          fail('Stream unavailable')
         } else if (data.details === 'manifestLoadError') {
           fail('Failed to load stream')
         } else {
