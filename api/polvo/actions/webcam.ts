@@ -1,5 +1,6 @@
 'use server'
 
+import { headers } from 'next/headers'
 import { getErrorMessage } from '@/utils/error'
 import { polvoClient } from '../client'
 import { withPolvoAuth } from './withPolvoAuth'
@@ -22,19 +23,47 @@ export interface WebcamExtractionResponse {
   }
 }
 
+/**
+ * The visitor's IP, as seen by this server.
+ *
+ * Needed because some cam providers bind a stream URL to the address that
+ * requested it. This action runs on the server, so polvo would otherwise see
+ * OUR address and mint a URL that 403s in the visitor's browser.
+ *
+ * Cloudflare's header first: it writes that one itself, so a client behind it
+ * cannot forge it. `x-forwarded-for` is the fallback and its left-most entry
+ * is the original client.
+ */
+async function viewerIpFromRequest(): Promise<string | undefined> {
+  try {
+    const h = await headers()
+    return (
+      h.get('cf-connecting-ip') ??
+      h.get('x-real-ip') ??
+      h.get('x-forwarded-for')?.split(',')[0]?.trim() ??
+      undefined
+    )
+  } catch {
+    // Outside a request scope (build-time prerender): no viewer to speak of.
+    return undefined
+  }
+}
+
 export async function extractWebcamUrl(
   params: WebcamExtractionParams
 ): Promise<WebcamExtractionResponse> {
   const timestamp = new Date().toISOString()
 
   try {
+    const viewerIp = await viewerIpFromRequest()
     const m3u8Url = await withPolvoAuth((token) =>
       polvoClient.getWebcamUrl(
         params.websiteUrl,
         token,
         params.containerId,
         params.autoPlay,
-        params.cacheExpiration
+        params.cacheExpiration,
+        viewerIp
       )
     )
 

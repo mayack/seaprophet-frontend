@@ -194,7 +194,13 @@ export class PolvoClient extends BaseApiClient {
     token: string,
     containerId?: string,
     autoPlay?: boolean,
-    cacheExpiration?: number
+    cacheExpiration?: number,
+    /**
+     * The visitor's IP. Some providers bind a stream URL to whoever asked for
+     * it, and this call is made from a server action — so without passing it
+     * along, polvo mints for THIS server and the URL 403s in the browser.
+     */
+    viewerIp?: string
   ): Promise<string> {
     if (!websiteUrl) {
       throw createError('Website URL is required', 'validation')
@@ -228,6 +234,7 @@ export class PolvoClient extends BaseApiClient {
             Accept: 'application/json',
             'Cache-Control': 'no-cache',
             'Accept-Encoding': 'gzip',
+            ...(viewerIp ? { 'X-Viewer-IP': viewerIp } : {}),
           },
           cache: 'no-store',
         },
