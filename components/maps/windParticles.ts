@@ -25,6 +25,17 @@ const MAX_AGE_FRAMES = 90
 // geographic step per frame is derived from this against the current
 // meters-per-pixel, so motion feels equally alive at every zoom.
 const TARGET_PX_PER_FRAME_AT_8MS = 1.4
+// Below this the field is dead (or a land grid point) and a particle would sit
+// still forever, so it respawns. Kept very low on purpose: the source field is
+// 1°, and a higher threshold evacuates whole light-wind regions — the calm SE
+// corner of Biscay used to render as blank ocean with a hard edge at the coast.
+const DEAD_AIR_MS = 0.05
+// A 1 m/s particle advances 0.18 px/frame, and trails fade out after ~30
+// frames, so honest proportional segments make light wind invisible against a
+// dark basemap. Drawing at least this many px keeps calm areas stippled; the
+// particle's real position is unchanged and the colour ramp still reports the
+// true speed.
+const MIN_SEGMENT_PX = 1.5
 // One particle per this many px² of canvas (≈3.5k on a laptop viewport).
 const PX_PER_PARTICLE = 5000
 const MAX_PARTICLES = 6000
@@ -227,7 +238,7 @@ export class WindParticleEngine {
       const [u, v] = this.sample(p.lon, p.lat, blend)
       const speed = Math.hypot(u, v)
       p.age += 1
-      if (p.age > MAX_AGE_FRAMES || speed < 0.3) {
+      if (p.age > MAX_AGE_FRAMES || speed < DEAD_AIR_MS) {
         Object.assign(p, this.randomInView(), { age: 0 })
         continue
       }
@@ -241,9 +252,17 @@ export class WindParticleEngine {
       // horizon) and ones fully off-canvas.
       const dx = to.x - from.x
       const dy = to.y - from.y
-      if (dx * dx + dy * dy > 400) {
+      const len2 = dx * dx + dy * dy
+      if (len2 > 400) {
         Object.assign(p, this.randomInView(), { age: 0 })
         continue
+      }
+      // Stretch the *drawn* segment to a legible minimum in the flow direction.
+      // p is already advected by the true amount; this only affects paint.
+      if (len2 > 0 && len2 < MIN_SEGMENT_PX * MIN_SEGMENT_PX) {
+        const scale = MIN_SEGMENT_PX / Math.sqrt(len2)
+        to.x = from.x + dx * scale
+        to.y = from.y + dy * scale
       }
       if (
         (from.x < 0 && to.x < 0) ||
