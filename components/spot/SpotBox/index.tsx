@@ -95,7 +95,9 @@ export function SpotBox(): React.JSX.Element | null {
       style={!isDesktop ? sheetStyle : undefined}
       className={cn(
         'fixed inset-x-0 bottom-0 z-40 mx-auto flex h-[calc(100dvh-68px)] min-h-0 max-w-md flex-col overflow-hidden rounded-t-xl bg-background shadow-xl ring-1 ring-foreground/10 select-none',
-        'sm:max-w-2xl',
+        // Between sm and lg the sheet is centred and wide enough to reach the
+        // map toolbar — cap it so it stops short of the buttons on both sides.
+        'sm:max-w-[min(42rem,calc(100%-9rem))]',
         'lg:inset-y-4 lg:right-4 lg:left-auto lg:mx-0 lg:h-auto lg:w-168 lg:max-w-168 lg:rounded-xl',
         'xl:w-200 xl:max-w-200',
         'md:transition-transform md:duration-300 md:ease-out',
