@@ -301,7 +301,24 @@ export function WebcamViewer({
         backBufferLength: 30,
         maxBufferLength: 18,
         maxMaxBufferLength: 30,
-        liveSyncDurationCount: 3,
+        // How many segments back from the live edge playback begins, and by far
+        // the biggest lever on perceived load time — because it is measured in
+        // SEGMENTS, and a segment is whatever the provider decided.
+        //
+        // Camaramar publishes 10-second segments of 1080p at 4.4 Mbps, i.e.
+        // ~5.2 MB each, with only three in the chunklist. So the previous value
+        // of 3 meant downloading ~15.7 MB before the first frame AND watching
+        // footage up to 30 seconds old — on a surf cam, where the whole point is
+        // what the water is doing now.
+        //
+        // 2 halves the wait to ~10.4 MB and the staleness to ~20s while keeping
+        // one segment of slack. 1 would be faster still, but with only three
+        // segments published and no lower-bitrate rendition to fall back to it
+        // leaves no margin at all: one slow fetch and the viewer stalls.
+        //
+        // Worth re-checking if a provider with short segments is added — at 2s
+        // segments this costs almost nothing, and the calculus changes entirely.
+        liveSyncDurationCount: 2,
         liveMaxLatencyDurationCount: 8,
         xhrSetup: config.referer
           ? (xhr, url): void => {
