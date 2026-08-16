@@ -149,6 +149,10 @@ export function WebcamViewer({
 
   const config = configs[activeIndex] ?? configs[0]
 
+  // Which of this spot's other cams we've already warmed, so switching between
+  // them doesn't pay a cold resolve. Survives switches; reset only on remount.
+  const prefetchedRef = useRef<Set<string>>(new Set())
+
   const videoRef = useRef<HTMLVideoElement>(null)
   // Frozen frame shown while the tap-to-play overlay is up. iOS paints its own
   // play glyph INSIDE the video's UA shadow DOM when autoplay is blocked and
@@ -200,6 +204,47 @@ export function WebcamViewer({
     }
   }, [clearAfkTimer])
 
+  /**
+   * Warm the OTHER cams on this spot, so switching is quick.
+   *
+   * Deliberately warms the SERVER's cache rather than holding URLs here. A
+   * client-side URL goes stale — Camaramar's live ~25 minutes — so a prefetch on
+   * arrival used after a longer visit would hand the player a dead URL and turn
+   * a saved wait into a broken cam. Asking again costs one round trip and hits a
+   * warm cache (~2ms server-side) instead of a cold extraction (~4s).
+   *
+   * Only cams that need resolving: one configured with a direct `url` has
+   * nothing to fetch. Sequential, not parallel — for a login-gated provider each
+   * resolve is a Chromium launch on a box that shares its memory with the
+   * forecast pipeline, and La Espasa has four cams. Firing them at once would
+   * turn a convenience into a spike.
+   *
+   * Runs only after the first cam is PLAYING, so it never competes with the
+   * stream the viewer is actually waiting for.
+   */
+  const prefetchOtherCams = useCallback(async () => {
+    if (configs.length < 2) return
+    for (const cam of configs) {
+      if (isAfkRef.current) return // Left the tab; stop spending on their behalf.
+      const target = cam.website_url
+      if (!target || cam.url) continue // Direct URL: already resolved.
+      if (target === config.website_url) continue // The one already playing.
+      if (prefetchedRef.current.has(target)) continue
+      prefetchedRef.current.add(target)
+      try {
+        await extractWebcamUrl({
+          websiteUrl: target,
+          containerId: cam.container_id,
+          autoPlay: cam.autoplay ?? true,
+          cacheExpiration: cam.cache ?? 300,
+        })
+      } catch {
+        // Best effort: a cam that fails to warm just costs its own wait later.
+        prefetchedRef.current.delete(target)
+      }
+    }
+  }, [configs, config.website_url])
+
   const startAfkTimer = useCallback(() => {
     clearAfkTimer()
     afkTimerRef.current = setTimeout(() => {
@@ -247,6 +292,9 @@ export function WebcamViewer({
       setIsLoading(false)
       setNeedsTap(false)
       startAfkTimer()
+      // Now that this cam is up, get the spot's others ready. Not awaited: the
+      // viewer is watching, and a slow warm must never hold up the UI.
+      void prefetchOtherCams()
     }
     video.addEventListener('playing', onPlaybackStarted, { once: true })
     const detachPlaying = (): void =>
@@ -386,7 +434,7 @@ export function WebcamViewer({
     } else {
       fail('HLS not supported')
     }
-  }, [config, cleanupStream, startAfkTimer])
+  }, [config, cleanupStream, startAfkTimer, prefetchOtherCams])
 
   const handleRetry = useCallback(() => {
     initStream()
