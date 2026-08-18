@@ -4,7 +4,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { flushSync } from 'react-dom'
 import { usePathname } from 'next/navigation'
 import type { DialogRoot } from '@base-ui/react/dialog'
-import { Search, Video } from 'lucide-react'
+import { Heart, Search, Video } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
   Command,
@@ -141,8 +141,9 @@ function SpotSearchCommand({
         {showFavorites && (
           <div
             role="presentation"
-            className="px-2 py-1.5 text-xs font-semibold text-foreground"
+            className="flex items-center gap-1.5 px-2 pt-3 pb-1.5 text-sm font-semibold text-foreground"
           >
+            <Heart strokeWidth={1.5} className="size-4" aria-hidden />
             Favorites
           </div>
         )}
