@@ -14,6 +14,13 @@ import {
 import { extractWebcamUrl } from '@/api/polvo/actions/webcam'
 import { WebcamConfig } from '@/api/sargo/interfaces/webcam'
 import { CONFIG } from '@/constants/config'
+import {
+  cacheTtlFor,
+  isPrefetchable,
+  isRecoverable,
+  refreshIntervalMs,
+  shouldBypassProxy,
+} from '@/lib/webcamProviders'
 import { cn } from '@/lib/utils'
 
 const AFK_TIMEOUT_MS = CONFIG.webcam.afk_timer
@@ -28,28 +35,43 @@ interface WebcamViewerProps {
 // ---------------------------------------------------------------------------
 
 /**
- * Providers that bind a stream URL to the address that fetches it. These must
- * be played DIRECTLY by the browser: polvo mints them for the visitor, so
- * routing them through our server means the server's address fetches a URL
- * signed for the visitor's — a guaranteed 403, with nothing in the response
- * to say why. Configuring a `referer` on one of these cams in Sargo would
- * otherwise silently break it.
+ * Route through /api/proxy when the cam needs a Referer header.
+ *
+ * Per-viewer providers are exempt: polvo mints their URL for the visitor, so
+ * fetching it from our server means the server's address requests a URL signed
+ * for the visitor's — a guaranteed 403 with nothing in the response to say why.
+ * `shouldBypassProxy` owns that decision; see lib/webcamProviders.ts.
  */
-const DIRECT_ONLY_HOSTS = ['rtsp.me']
-
-function isDirectOnly(url: string): boolean {
-  try {
-    const host = new URL(url, window.location.origin).hostname.toLowerCase()
-    return DIRECT_ONLY_HOSTS.some((h) => host === h || host.endsWith(`.${h}`))
-  } catch {
-    return false
-  }
+function proxiedUrl(url: string, referer?: string): string {
+  if (!referer || shouldBypassProxy(url)) return url
+  return `/api/proxy?url=${encodeURIComponent(url)}&referer=${encodeURIComponent(referer)}`
 }
 
-/** Route through /api/proxy when the cam needs a Referer header. */
-function proxiedUrl(url: string, referer?: string): string {
-  if (!referer || isDirectOnly(url)) return url
-  return `/api/proxy?url=${encodeURIComponent(url)}&referer=${encodeURIComponent(referer)}`
+/**
+ * Overlay the freshest token params onto a URL the playlist handed us.
+ *
+ * Token-bearing CDNs echo whatever token was used to fetch the playlist into
+ * every segment URL rather than re-signing, so a player that loaded once keeps
+ * replaying a token that is quietly aging towards its cutoff. Swapping in the
+ * current params per request keeps every fetch inside the token's lifetime —
+ * a freshly minted token validates a segment path discovered under an older
+ * one, because these signatures cover time, not path.
+ */
+function withFreshToken(url: string, fresh: URLSearchParams | null): string {
+  if (!fresh || url.startsWith('/api/proxy')) return url
+  try {
+    const next = new URL(url)
+    let changed = false
+    fresh.forEach((value, key) => {
+      if (next.searchParams.has(key)) {
+        next.searchParams.set(key, value)
+        changed = true
+      }
+    })
+    return changed ? next.toString() : url
+  } catch {
+    return url
+  }
 }
 
 /**
@@ -57,7 +79,8 @@ function proxiedUrl(url: string, referer?: string): string {
  * or we scrape it from the cam provider's page via the polvo action.
  */
 async function resolveStreamUrl(
-  config: WebcamConfig
+  config: WebcamConfig,
+  opts?: { bypassCache?: boolean }
 ): Promise<{ url: string } | { error: string }> {
   if (config.url) return { url: config.url }
 
@@ -68,7 +91,13 @@ async function resolveStreamUrl(
       websiteUrl: config.website_url,
       containerId: config.container_id,
       autoPlay: config.autoplay ?? true,
-      cacheExpiration: config.cache ?? 300,
+      // Never cache a resolved URL for longer than its token can survive —
+      // the Strapi default of 300 happens to equal one provider's exact token
+      // lifetime, which handed later viewers an already-dead URL. 0 forces a
+      // fresh mint, used when refreshing a token mid-playback.
+      cacheExpiration: opts?.bypassCache
+        ? 0
+        : cacheTtlFor(config.website_url, config.cache),
     })
     if (result.error || !result.data?.m3u8Url) {
       return {
@@ -178,6 +207,13 @@ export function WebcamViewer({
   // replaces the previous per-listener ref bookkeeping.
   const teardownRef = useRef<(() => void) | null>(null)
 
+  // Freshest token params for a token-bearing origin, applied to every outgoing
+  // playlist/segment request. Null for providers whose URLs don't expire.
+  const freshTokenRef = useRef<URLSearchParams | null>(null)
+  // One bounded re-resolve per stream, so a genuinely dead cam still fails
+  // instead of retrying forever.
+  const recoveredRef = useRef(false)
+
   const clearAfkTimer = useCallback(() => {
     if (afkTimerRef.current) {
       clearTimeout(afkTimerRef.current)
@@ -229,6 +265,10 @@ export function WebcamViewer({
       const target = cam.website_url
       if (!target || cam.url) continue // Direct URL: already resolved.
       if (target === config.website_url) continue // The one already playing.
+      // Short-token providers must not be warmed: the token starts aging the
+      // moment it is minted, so warming spends its life before anyone watches
+      // and makes the switch worse than not warming at all.
+      if (!isPrefetchable(target)) continue
       if (prefetchedRef.current.has(target)) continue
       prefetchedRef.current.add(target)
       try {
@@ -236,7 +276,7 @@ export function WebcamViewer({
           websiteUrl: target,
           containerId: cam.container_id,
           autoPlay: cam.autoplay ?? true,
-          cacheExpiration: cam.cache ?? 300,
+          cacheExpiration: cacheTtlFor(target, cam.cache),
         })
       } catch {
         // Best effort: a cam that fails to warm just costs its own wait later.
@@ -277,6 +317,9 @@ export function WebcamViewer({
     video.defaultMuted = true
     video.playsInline = true
 
+    freshTokenRef.current = null
+    recoveredRef.current = false
+
     const resolved = await resolveStreamUrl(config)
     if (isStale()) return
     if ('error' in resolved) {
@@ -286,6 +329,35 @@ export function WebcamViewer({
     }
 
     const finalUrl = proxiedUrl(resolved.url, config.referer)
+
+    // Token-bearing origins expire on a hard clock, and the CDN echoes the
+    // token into every segment instead of re-signing — so without this the
+    // stream dies mid-watch at the token's cutoff. Re-resolve well before then
+    // and let `withFreshToken` apply the new params per request; playback never
+    // reloads and the viewer sees nothing.
+    //
+    // The cache TTL is passed in because a refresh does NOT get a freshly
+    // minted token: polvo may hand back one already that old, so the usable
+    // margin is (token life - cache TTL). See refreshIntervalMs.
+    const cacheTtl = cacheTtlFor(config.website_url, config.cache)
+    const refreshEvery = refreshIntervalMs(resolved.url, cacheTtl)
+    let refreshTimer: ReturnType<typeof setInterval> | null = null
+    if (refreshEvery && config.website_url) {
+      const seed = new URL(resolved.url).searchParams
+      freshTokenRef.current = seed.size > 0 ? seed : null
+      refreshTimer = setInterval(() => {
+        if (isStale()) return
+        void (async () => {
+          const next = await resolveStreamUrl(config, { bypassCache: true })
+          if (isStale() || 'error' in next) return
+          try {
+            freshTokenRef.current = new URL(next.url).searchParams
+          } catch {
+            /* keep the previous token rather than dropping to none */
+          }
+        })()
+      }, refreshEvery)
+    }
 
     const onPlaybackStarted = (): void => {
       if (isStale()) return
@@ -368,32 +440,56 @@ export function WebcamViewer({
         // segments this costs almost nothing, and the calculus changes entirely.
         liveSyncDurationCount: 2,
         liveMaxLatencyDurationCount: 8,
-        xhrSetup: config.referer
-          ? (xhr, url): void => {
-              // Don't double-proxy: segments rewritten by the proxy already
-              // route through /api/proxy, but hls.js resolves them to absolute
-              // URLs (e.g. https://seaprophet.com/api/proxy?...).
-              if (
-                url.startsWith('/api/proxy') ||
-                url.startsWith(`${window.location.origin}/api/proxy`)
-              ) {
-                xhr.open('GET', url, true)
-                return
-              }
-              xhr.open('GET', proxiedUrl(url, config.referer), true)
-            }
-          : undefined,
+        // Always set: besides proxying, this is where an aging token gets
+        // swapped for the current one on every playlist and segment request.
+        xhrSetup: (xhr, url): void => {
+          // Don't double-proxy: segments rewritten by the proxy already
+          // route through /api/proxy, but hls.js resolves them to absolute
+          // URLs (e.g. https://seaprophet.com/api/proxy?...).
+          if (
+            url.startsWith('/api/proxy') ||
+            url.startsWith(`${window.location.origin}/api/proxy`)
+          ) {
+            xhr.open('GET', url, true)
+            return
+          }
+          const fresh = withFreshToken(url, freshTokenRef.current)
+          xhr.open('GET', proxiedUrl(fresh, config.referer), true)
+        },
       })
 
       hls.on(Hls.Events.MANIFEST_PARSED, () => void handleReady())
       hls.on(Hls.Events.ERROR, (_event: Events.ERROR, data: ErrorData) => {
         if (isStale() || !data.fatal) return
-        if (data.response?.code === 404) {
-          fail('Camera is offline')
-        } else if (
-          data.response?.code === 403 &&
-          isDirectOnly(data.url ?? '')
+        const code = data.response?.code
+        // A stale token is not a dead camera. Where the provider is known to
+        // expire URLs, re-mint once and resume rather than surfacing an error —
+        // previously a 401 fell through to the generic branch and read as a
+        // broken cam, with no way to tell the two apart from the UI.
+        if (
+          !recoveredRef.current &&
+          isRecoverable(data.url ?? resolved.url, code)
         ) {
+          recoveredRef.current = true
+          void (async () => {
+            const next = await resolveStreamUrl(config, { bypassCache: true })
+            if (isStale()) return
+            if ('error' in next) {
+              fail('Stream unavailable')
+              return
+            }
+            try {
+              freshTokenRef.current = new URL(next.url).searchParams
+            } catch {
+              /* fall through: startLoad still retries with what we have */
+            }
+            hls.startLoad()
+          })()
+          return
+        }
+        if (code === 404) {
+          fail('Camera is offline')
+        } else if (code === 403 && shouldBypassProxy(data.url ?? '')) {
           // Scoped deliberately to the per-viewer provider: a 403 from one of
           // those means the URL was signed for a different address than this
           // browser is fetching from — a stale mint, or the visitor reaching
@@ -417,21 +513,28 @@ export function WebcamViewer({
 
       // hls.destroy() detaches all of its own listeners + the media element.
       teardownRef.current = (): void => {
+        if (refreshTimer) clearInterval(refreshTimer)
         detachPlaying()
         hls.destroy()
       }
     } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
       // Native HLS (iOS Safari — no MSE, so hls.js is unsupported there).
+      // There is no request hook here, so a token cannot be swapped per
+      // segment: Safari replays whatever the playlist gave it. Short-token
+      // providers therefore still end at the token's cutoff on iOS, and the
+      // refresh timer only helps the next load.
       video.src = finalUrl
       video.onloadedmetadata = (): void => void handleReady()
       video.onerror = (): void => fail('Playback error')
 
       teardownRef.current = (): void => {
+        if (refreshTimer) clearInterval(refreshTimer)
         detachPlaying()
         video.onloadedmetadata = null
         video.onerror = null
       }
     } else {
+      if (refreshTimer) clearInterval(refreshTimer)
       fail('HLS not supported')
     }
   }, [config, cleanupStream, startAfkTimer, prefetchOtherCams])
