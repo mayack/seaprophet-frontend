@@ -141,7 +141,7 @@ function SpotSearchCommand({
         {showFavorites && (
           <div
             role="presentation"
-            className="flex items-center gap-1.5 px-2 pt-3 pb-1.5 text-sm font-semibold text-foreground"
+            className="flex items-center gap-1.5 px-2 pt-4 pb-1 text-sm font-semibold text-foreground"
           >
             <Heart strokeWidth={1.5} className="size-4" aria-hidden />
             Favorites
