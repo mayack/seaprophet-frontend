@@ -773,7 +773,12 @@ export function WebcamViewer({
               variant="overlay"
               data-active={i === activeIndex || undefined}
             >
-              {cam.name || `CAM ${i + 1}`}
+              {/* Deliberately ignores `cam.name`. Providers name their pages
+                  for their own catalogue ("Leça — L'Kodak (Aterro)", or a raw
+                  slug), which is noise on a switcher button and overflows it.
+                  Position is what the viewer actually needs. `name` stays on
+                  the component for diagnostics — see the 403 warning below. */}
+              {`CAM ${i + 1}`}
             </Button>
           ))}
         </div>
