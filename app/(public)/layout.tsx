@@ -4,6 +4,7 @@ import '../globals.css'
 import React from 'react'
 import { ThemeProvider } from '@/contexts/ThemeContext'
 import { cn } from '@/lib/utils'
+import { Analytics } from '@/components/common/Analytics'
 
 const inter = Inter({
   subsets: ['latin'],
@@ -28,6 +29,7 @@ export default function PublicRootLayout({
     >
       <body className="h-full min-h-full antialiased" suppressHydrationWarning>
         <ThemeProvider>{children}</ThemeProvider>
+        <Analytics />
       </body>
     </html>
   )

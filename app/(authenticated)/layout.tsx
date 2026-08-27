@@ -9,6 +9,7 @@ import { ThemeProvider } from '@/contexts/ThemeContext'
 import { SpotIndexPreloader } from '@/components/common/SpotIndexPreloader'
 import { BuildRefreshGuard } from '@/components/common/BuildRefreshGuard'
 import { PreloadMapStyleThumbs } from '@/components/common/PreloadMapStyleThumbs'
+import { Analytics } from '@/components/common/Analytics'
 import { redirect } from 'next/navigation'
 import { Toaster } from 'sonner'
 import React from 'react'
@@ -68,6 +69,7 @@ export default async function AuthenticatedLayout({
           <BuildRefreshGuard />
           <PreloadMapStyleThumbs />
         </ThemeProvider>
+        <Analytics />
       </body>
     </html>
   )
