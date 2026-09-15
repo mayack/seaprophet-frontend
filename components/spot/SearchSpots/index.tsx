@@ -21,6 +21,14 @@ import {
   CommandShortcut,
 } from '@/components/ui/command'
 import { Kbd, KbdGroup } from '@/components/ui/kbd'
+import { Avatar, AvatarFallback } from '@/components/ui/avatar'
+import {
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from '@/components/ui/empty'
 import {
   Tooltip,
   TooltipContent,
@@ -150,7 +158,11 @@ function SpotSearchCommand({
     >
       <CommandInput
         ref={inputRef}
-        placeholder={placeholder}
+        placeholder={
+          spotCount !== null
+            ? `Search ${spotCount.toLocaleString()} spots...`
+            : placeholder
+        }
         value={query}
         onValueChange={onInputValueChange}
         inputMode="search"
@@ -173,7 +185,7 @@ function SpotSearchCommand({
               : emptyPrompt}
           </CommandEmpty>
         )}
-        {showFavorites && (
+        {showFavorites && favoriteCount > 0 && (
           <div
             role="presentation"
             className="flex items-center gap-1.5 px-2 pt-6 pb-0.5 text-sm font-semibold text-foreground"
@@ -183,9 +195,21 @@ function SpotSearchCommand({
           </div>
         )}
         {showFavorites && favoriteCount === 0 && (
-          <p className="px-2 pt-1 pb-4 text-sm text-muted-foreground">
-            No favorites yet. Tap the heart on a spot to keep it here.
-          </p>
+          <Empty className="px-4 pt-8 pb-5">
+            <EmptyHeader className="gap-0.5">
+              <EmptyMedia className="mb-3.5">
+                <Avatar size="lg">
+                  <AvatarFallback>
+                    <Heart strokeWidth={2} className="size-5" aria-hidden />
+                  </AvatarFallback>
+                </Avatar>
+              </EmptyMedia>
+              <EmptyTitle className="text-base">No favorites yet</EmptyTitle>
+              <EmptyDescription>
+                Tap the heart on a spot to keep it here.
+              </EmptyDescription>
+            </EmptyHeader>
+          </Empty>
         )}
         <CommandGroup>{listRows.map(renderRow)}</CommandGroup>
       </CommandList>
