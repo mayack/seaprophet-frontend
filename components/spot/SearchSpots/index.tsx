@@ -72,6 +72,10 @@ function SpotSearchCommand({
   // With no query, the list shows favorites instead of search results.
   const showFavorites = !hasQuery && favoriteRows.length > 0
   const listRows = hasQuery ? rows : favoriteRows
+  // favoriteRows mixes in country/region header rows; count spots only.
+  const favoriteCount = favoriteRows.filter(
+    (row) => row.kind !== 'header'
+  ).length
   const emptyPrompt =
     spotCount !== null
       ? `${spotCount.toLocaleString()} spots available`
@@ -141,10 +145,13 @@ function SpotSearchCommand({
         {showFavorites && (
           <div
             role="presentation"
-            className="flex items-center gap-1.5 px-2 pt-4 pb-1 text-sm font-semibold text-foreground"
+            className="flex items-center gap-1.5 px-2 pt-6 pb-0.5 text-sm font-semibold text-foreground"
           >
             <Heart strokeWidth={1.5} className="size-4" aria-hidden />
             Favorites
+            <span className="ml-auto text-xs font-normal text-muted-foreground">
+              {favoriteCount} {favoriteCount === 1 ? 'favorite' : 'favorites'}
+            </span>
           </div>
         )}
         <CommandGroup>{listRows.map(renderRow)}</CommandGroup>
