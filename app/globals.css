@@ -159,6 +159,18 @@
   body {
     @apply h-full min-h-dvh min-h-full min-h-screen bg-background text-foreground;
   }
+
+  /*
+    Stops iOS page pinch-zoom over the map UI (cards, sheet, buttons); the class
+    is on the authenticated <html>. iOS ignores user-scalable=no, and
+    touch-action: manipulation still allows pinch. Set per element, not just on
+    <html>: WebKit resets touch-action at scroll containers. Utilities and
+    mapbox-gl's canvas touch-action: none (unlayered) still override this.
+  */
+  .no-page-zoom,
+  .no-page-zoom * {
+    touch-action: pan-x pan-y;
+  }
 }
 
 @layer components {

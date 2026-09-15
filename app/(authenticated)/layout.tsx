@@ -1,6 +1,6 @@
 export const revalidate = 900
 
-import type { Metadata } from 'next'
+import type { Metadata, Viewport } from 'next'
 import { Inter } from 'next/font/google'
 import '../globals.css'
 import { getCurrentUser } from '@/api/sargo/actions/auth'
@@ -23,6 +23,15 @@ const inter = Inter({
 
 export const metadata: Metadata = {
   title: 'Sea Prophet',
+}
+
+// maximumScale stops iOS auto-zooming into focused fields under 16px (the
+// search input is 14px); with pinch blocked by `.no-page-zoom` there'd be no
+// way back out. It does not block pinch itself — iOS ignores it for that.
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 1,
 }
 
 /**
@@ -51,7 +60,7 @@ export default async function AuthenticatedLayout({
     <html
       lang="en"
       className={cn(
-        'h-full min-h-full overflow-hidden overscroll-none font-sans',
+        'no-page-zoom h-full min-h-full overflow-hidden overscroll-none font-sans',
         inter.variable
       )}
       suppressHydrationWarning
