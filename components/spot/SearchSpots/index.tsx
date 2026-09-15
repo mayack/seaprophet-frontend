@@ -4,7 +4,11 @@ import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { flushSync } from 'react-dom'
 import { usePathname } from 'next/navigation'
 import type { DialogRoot } from '@base-ui/react/dialog'
-import { Heart, Search, Video } from 'lucide-react'
+import { Heart, HeartCrack, Search, Video, X } from 'lucide-react'
+import { toast } from 'sonner'
+import { toggleFavorite } from '@/api/sargo/actions/user'
+import { useUser } from '@/contexts/UserContext'
+import { recoverFromDeploySkew } from '@/lib/recoverFromDeploySkew'
 import { Button } from '@/components/ui/button'
 import {
   Command,
@@ -54,6 +58,8 @@ function SpotSearchCommand({
   error,
   spotCount,
   onSelect,
+  onRemoveFavorite,
+  removingFavoriteId,
   isMobile,
 }: {
   inputRef: React.RefObject<HTMLInputElement | null>
@@ -66,11 +72,14 @@ function SpotSearchCommand({
   error: string | null
   spotCount: number | null
   onSelect: (spot: SearchResultSpot) => void
+  onRemoveFavorite: (spot: SearchResultSpot) => void
+  removingFavoriteId: number | null
   isMobile: boolean
 }): React.JSX.Element {
   const hasQuery = query.trim().length > 0
-  // With no query, the list shows favorites instead of search results.
-  const showFavorites = !hasQuery && favoriteRows.length > 0
+  // With no query, the list shows favorites instead of search results. Wait
+  // for the spot index (spotCount) so the empty state doesn't flash on load.
+  const showFavorites = !hasQuery && spotCount !== null
   const listRows = hasQuery ? rows : favoriteRows
   // favoriteRows mixes in country/region header rows; count spots only.
   const favoriteCount = favoriteRows.filter(
@@ -110,6 +119,26 @@ function SpotSearchCommand({
             <Video strokeWidth={1.5} />
           </CommandShortcut>
         )}
+        {!hasQuery && (
+          <Button
+            variant="ghost"
+            size="icon-xs"
+            aria-label={`Remove ${row.item.name} from favorites`}
+            disabled={removingFavoriteId === row.item.id}
+            className={cn(
+              'text-muted-foreground hover:text-foreground',
+              !row.item.webcam && 'ml-auto'
+            )}
+            // Don't let the click (or its pointerdown) select the row.
+            onPointerDown={(event) => event.stopPropagation()}
+            onClick={(event) => {
+              event.stopPropagation()
+              onRemoveFavorite(row.item)
+            }}
+          >
+            <X />
+          </Button>
+        )}
       </CommandItem>
     )
   }
@@ -135,24 +164,28 @@ function SpotSearchCommand({
             : undefined
         }
       >
-        <CommandEmpty className="text-muted-foreground">
-          {hasQuery
-            ? isLoading
-              ? 'Searching...'
-              : (error ?? 'No spots found')
-            : emptyPrompt}
-        </CommandEmpty>
+        {!showFavorites && (
+          <CommandEmpty className="text-muted-foreground">
+            {hasQuery
+              ? isLoading
+                ? 'Searching...'
+                : (error ?? 'No spots found')
+              : emptyPrompt}
+          </CommandEmpty>
+        )}
         {showFavorites && (
           <div
             role="presentation"
             className="flex items-center gap-1.5 px-2 pt-6 pb-0.5 text-sm font-semibold text-foreground"
           >
-            <Heart strokeWidth={1.5} className="size-4" aria-hidden />
-            Favorites
-            <span className="ml-auto text-xs font-normal text-muted-foreground">
-              {favoriteCount} {favoriteCount === 1 ? 'favorite' : 'favorites'}
-            </span>
+            <Heart strokeWidth={2} className="size-4" aria-hidden />
+            {favoriteCount === 1 ? '1 favorite' : `${favoriteCount} favorites`}
           </div>
+        )}
+        {showFavorites && favoriteCount === 0 && (
+          <p className="px-2 pt-1 pb-4 text-sm text-muted-foreground">
+            No favorites yet. Tap the heart on a spot to keep it here.
+          </p>
         )}
         <CommandGroup>{listRows.map(renderRow)}</CommandGroup>
       </CommandList>
@@ -166,6 +199,7 @@ export function SearchSpots({
   const pathname = usePathname()
   const isDesktop = useIsDesktop()
   const { openSpot } = useSpotNavigation()
+  const { updateUser } = useUser()
   const [open, setOpen] = useState(false)
   const [hotkeyModifier] = useState(getHotkeyModifier)
   const searchTriggerRef = useRef<HTMLButtonElement>(null)
@@ -295,6 +329,35 @@ export function SearchSpots({
     [openSpot, clearSearch]
   )
 
+  const [removingFavoriteId, setRemovingFavoriteId] = useState<number | null>(
+    null
+  )
+
+  // Same flow as the heart in the spot header (SpotDetailHeader).
+  const handleRemoveFavorite = useCallback(
+    async (spot: SearchResultSpot): Promise<void> => {
+      if (removingFavoriteId !== null) return
+      setRemovingFavoriteId(spot.id)
+      try {
+        const result = await toggleFavorite(spot.id)
+        if (result.success) {
+          updateUser({ settings: result.user.settings })
+          toast.success(`${spot.name} removed from favorites`, {
+            icon: <HeartCrack className="size-4" />,
+          })
+        } else {
+          toast.error(result.error || 'Failed to update favorites')
+        }
+      } catch (error) {
+        if (recoverFromDeploySkew(error)) return
+        toast.error('Failed to update favorites')
+      } finally {
+        setRemovingFavoriteId(null)
+      }
+    },
+    [removingFavoriteId, updateUser]
+  )
+
   const searchTrigger = (
     <Button
       ref={searchTriggerRef}
@@ -346,6 +409,8 @@ export function SearchSpots({
           error={error}
           spotCount={spotCount}
           onSelect={handleSelect}
+          onRemoveFavorite={(spot) => void handleRemoveFavorite(spot)}
+          removingFavoriteId={removingFavoriteId}
           isMobile={!isDesktop}
         />
       </CommandDialog>
