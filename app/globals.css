@@ -155,9 +155,14 @@
     @apply border-border outline-ring/50;
   }
 
+  /*
+    No min-h-screen/min-h-dvh here: the last min-height wins, and 100vh is the
+    toolbars-hidden height on mobile, so the body outgrew the screen — a white
+    strip under the map, and iOS sizing dvh against the larger viewport.
+  */
   html,
   body {
-    @apply h-full min-h-dvh min-h-full min-h-screen bg-background text-foreground;
+    @apply h-full bg-background text-foreground;
   }
 
   /*

@@ -16,7 +16,9 @@ export function MapLayoutShell({
       <SpotPanelProvider>
         <SpotDirectLinkHydrator />
         <SpotDocumentTitle />
-        <div className="relative h-dvh">
+        {/* fixed inset-0 fills the real visible viewport without viewport
+            units — Chrome on iOS can't keep dvh in sync with its toolbars. */}
+        <div className="fixed inset-0">
           <MapNavigator height="100%" />
           {children}
           <SpotBox />
