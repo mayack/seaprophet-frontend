@@ -122,30 +122,30 @@ function SpotSearchCommand({
         onSelect={() => onSelect(row.item)}
       >
         {row.item.name}
-        {row.item.webcam && (
-          <CommandShortcut>
-            <Video strokeWidth={1.5} />
-          </CommandShortcut>
-        )}
-        {!hasQuery && (
-          <Button
-            variant="ghost"
-            size="icon-xs"
-            aria-label={`Remove ${row.item.name} from favorites`}
-            disabled={removingFavoriteId === row.item.id}
-            className={cn(
-              'text-muted-foreground hover:text-foreground',
-              !row.item.webcam && 'ml-auto'
+        {/* One trailing shortcut slot: CommandItem appends a hidden ml-auto
+            check icon unless a shortcut is present, which would otherwise
+            split the free space and strand the X mid-row. */}
+        {(row.item.webcam || !hasQuery) && (
+          <CommandShortcut className="flex items-center gap-1 tracking-normal">
+            {row.item.webcam && <Video strokeWidth={1.5} />}
+            {!hasQuery && (
+              <Button
+                variant="ghost"
+                size="icon-xs"
+                aria-label={`Remove ${row.item.name} from favorites`}
+                disabled={removingFavoriteId === row.item.id}
+                className="text-muted-foreground hover:text-foreground"
+                // Don't let the click (or its pointerdown) select the row.
+                onPointerDown={(event) => event.stopPropagation()}
+                onClick={(event) => {
+                  event.stopPropagation()
+                  onRemoveFavorite(row.item)
+                }}
+              >
+                <X />
+              </Button>
             )}
-            // Don't let the click (or its pointerdown) select the row.
-            onPointerDown={(event) => event.stopPropagation()}
-            onClick={(event) => {
-              event.stopPropagation()
-              onRemoveFavorite(row.item)
-            }}
-          >
-            <X />
-          </Button>
+          </CommandShortcut>
         )}
       </CommandItem>
     )
