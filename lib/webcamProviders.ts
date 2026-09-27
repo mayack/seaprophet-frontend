@@ -104,7 +104,10 @@ export const PAGE_RULES: readonly PageRule[] = [
     note:
       'Inline m3u8 when the polvo login session is alive. Stream token lasts ' +
       '~30 min, so a 10 min cache is comfortable. Needs the human-bootstrapped ' +
-      'session; see WEBCAM_API.md in seaprophet-polvo.',
+      'session; see WEBCAM_API.md in seaprophet-polvo. Since 2026-09 the Wowza ' +
+      'master playlist is Referer-locked to camaramar.com, so polvo returns a ' +
+      'relay URL on its own host for the master; chunklists and segments still ' +
+      'come straight from streamlock.net.',
   },
   {
     match: 'hispacams.com',
@@ -119,8 +122,9 @@ export const PAGE_RULES: readonly PageRule[] = [
     cacheTtlSec: 900,
     prefetchable: true,
     note:
-      'No inline m3u8; the page embeds an rtsp.me iframe, so the ORIGIN rules ' +
-      'for rtsp.me apply once resolved (per-viewer, no proxy).',
+      'No inline m3u8; the page embeds an rtsp.me iframe. polvo relays the ' +
+      'whole stream (rtsp.me binds URLs to the minting IP), so what the player ' +
+      'receives is a polvo URL, never an rtsp.me one.',
   },
   {
     match: 'ipcamlive.com',
@@ -211,9 +215,10 @@ export const ORIGIN_RULES: readonly OriginRule[] = [
     perViewer: true,
     noProxy: true,
     note:
-      'Per-viewer: the URL is bound to the IP that requested it, so it must be ' +
-      'minted with the visitor IP or the browser gets a 403. rtsp.me hosts are ' +
-      'IPv4-only, so dual-stack visitors can still 403 even with the right IP. ' +
+      'Bound to the IP that minted it, and since 2026-09 rtsp.me ignores ' +
+      'X-Forwarded-For, so a URL minted for a visitor is impossible. polvo mints ' +
+      'for itself and relays the stream; the browser never sees these URLs. ' +
+      'This rule only guards a direct rtsp.me URL, should one ever be stored. ' +
       'Never appears in Sargo — it is reached only as the origin behind pages ' +
       'such as webcamsdeasturias.com, which is why exposure to it cannot be ' +
       'audited from spot data.',
