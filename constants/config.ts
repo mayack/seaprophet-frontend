@@ -51,6 +51,8 @@ export const CONFIG = {
         },
         webcam: {
           extract: '/api/webcam',
+          health: '/api/webcam/health',
+          healthRun: '/api/webcam/health/run',
         },
       },
     },

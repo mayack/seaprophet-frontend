@@ -3,6 +3,7 @@ import { CONFIG } from '@/constants/config'
 import { createError, getErrorMessage } from '@/utils/error'
 import { ForecastParams, ForecastResponse } from './interfaces/forecast'
 import { NowConditions, NowConditionsParams } from './interfaces/now'
+import { CamHealthState } from './interfaces/camHealth'
 
 // Shared meta shape Polvo wraps every successful response with.
 interface PolvoMeta {
@@ -257,6 +258,42 @@ export class PolvoClient extends BaseApiClient {
         'network'
       )
     }
+  }
+
+  /** Latest camera health report, and whether a run is queued or running. */
+  async getCamHealth(token: string): Promise<CamHealthState> {
+    const data = await this.fetch<PolvoEnvelope<CamHealthState>>(
+      CONFIG.api.endpoints.polvo.webcam.health,
+      {
+        init: {
+          method: 'GET',
+          headers: {
+            Authorization: `Bearer ${token}`,
+            Accept: 'application/json',
+          },
+          cache: 'no-store',
+        },
+      }
+    )
+    return data.data
+  }
+
+  /** Ask polvo's worker for a camera health run now (no-op if one is pending). */
+  async runCamHealth(token: string): Promise<CamHealthState> {
+    const data = await this.fetch<PolvoEnvelope<CamHealthState>>(
+      CONFIG.api.endpoints.polvo.webcam.healthRun,
+      {
+        init: {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${token}`,
+            Accept: 'application/json',
+          },
+          cache: 'no-store',
+        },
+      }
+    )
+    return data.data
   }
 }
 

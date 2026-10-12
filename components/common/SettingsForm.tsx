@@ -61,6 +61,7 @@ import {
   type NormalizedUserSettings,
 } from '@/lib/userSettings'
 import { useDebouncedSettingsSave } from '@/hooks/useDebouncedSettingsSave'
+import { CameraHealthPanel } from './CameraHealthPanel'
 import { cn } from '@/lib/utils'
 import type { MapStyleMode } from '@/types/map'
 import thumbMinimalLight from '@/app/thumbnail-minimal-light.webp'
@@ -68,13 +69,18 @@ import thumbMinimalDark from '@/app/thumbnail-minimal-dark.webp'
 import thumbSatelliteLight from '@/app/thumbnail-satellite-light.webp'
 import thumbSatelliteDark from '@/app/thumbnail-satellite-dark.webp'
 
-type SettingsTab = 'general' | 'account' | 'units'
+type SettingsTab = 'general' | 'account' | 'units' | 'cameras'
 type AccountEdit = 'username' | 'password' | null
 
 const SETTINGS_TABS = [
   { value: 'general', label: 'General' },
   { value: 'account', label: 'Account' },
   { value: 'units', label: 'Units' },
+] as const satisfies readonly { value: SettingsTab; label: string }[]
+
+/** Shown only in dev mode: camera health per provider, from polvo. */
+const DEV_SETTINGS_TABS = [
+  { value: 'cameras', label: 'Cameras' },
 ] as const satisfies readonly { value: SettingsTab; label: string }[]
 
 const THEME_OPTIONS = [
@@ -144,6 +150,13 @@ export function SettingsForm(): React.JSX.Element {
   const units = normalizedSettings.units
   const devModeEnabled = normalizedSettings.camObserverEnabled
   const devModeAccess = hasDevModeAccess(userData)
+  const devModeActive = devModeAccess && devModeEnabled
+  const tabs = devModeActive
+    ? [...SETTINGS_TABS, ...DEV_SETTINGS_TABS]
+    : SETTINGS_TABS
+  // Turning dev mode off while on a dev tab lands back on General.
+  const activeTab: SettingsTab =
+    tab === 'cameras' && !devModeActive ? 'general' : tab
   const locationTrackingEnabled = normalizedSettings.locationTrackingEnabled
 
   // Defer the first paint a frame so we don't set state synchronously in the
@@ -236,16 +249,16 @@ export function SettingsForm(): React.JSX.Element {
             Manage your account, appearance, and forecast preferences.
           </DialogDescription>
           <nav className="flex gap-1 sm:flex-col">
-            {SETTINGS_TABS.map(({ value, label }) => (
+            {tabs.map(({ value, label }) => (
               <Button
                 key={value}
                 type="button"
                 variant="ghost"
-                aria-current={tab === value ? 'page' : undefined}
+                aria-current={activeTab === value ? 'page' : undefined}
                 className={cn(
                   'shrink-0 justify-start hover:bg-foreground/3 dark:hover:bg-foreground/3',
                   SETTINGS_TAB_FOCUS,
-                  tab === value && 'pointer-events-none bg-foreground/6'
+                  activeTab === value && 'pointer-events-none bg-foreground/6'
                 )}
                 onClick={() => setTab(value)}
               >
@@ -257,10 +270,10 @@ export function SettingsForm(): React.JSX.Element {
 
         <div className="grid min-h-0 flex-1 overflow-y-auto p-5 sm:p-6 sm:pt-14">
           <div
-            inert={tab !== 'general'}
+            inert={activeTab !== 'general'}
             className={cn(
               'col-start-1 row-start-1',
-              tab !== 'general' && 'pointer-events-none opacity-0'
+              activeTab !== 'general' && 'pointer-events-none opacity-0'
             )}
           >
             <FieldGroup>
@@ -410,10 +423,10 @@ export function SettingsForm(): React.JSX.Element {
             </FieldGroup>
           </div>
           <div
-            inert={tab !== 'account'}
+            inert={activeTab !== 'account'}
             className={cn(
               'col-start-1 row-start-1',
-              tab !== 'account' && 'pointer-events-none opacity-0'
+              activeTab !== 'account' && 'pointer-events-none opacity-0'
             )}
           >
             <FieldGroup>
@@ -447,10 +460,10 @@ export function SettingsForm(): React.JSX.Element {
             </FieldGroup>
           </div>
           <div
-            inert={tab !== 'units'}
+            inert={activeTab !== 'units'}
             className={cn(
               'col-start-1 row-start-1',
-              tab !== 'units' && 'pointer-events-none opacity-0'
+              activeTab !== 'units' && 'pointer-events-none opacity-0'
             )}
           >
             <FieldGroup>
@@ -480,6 +493,21 @@ export function SettingsForm(): React.JSX.Element {
               ))}
             </FieldGroup>
           </div>
+          {devModeActive ? (
+            // `hidden`, not opacity like the tabs above: the panels share one
+            // grid cell, so the tallest sets every tab's height, and the camera
+            // list would leave the others scrolling into empty space. Stays
+            // mounted, so its state survives switching tabs.
+            <div
+              inert={activeTab !== 'cameras'}
+              className={cn(
+                'col-start-1 row-start-1',
+                activeTab !== 'cameras' && 'hidden'
+              )}
+            >
+              <CameraHealthPanel active={activeTab === 'cameras'} />
+            </div>
+          ) : null}
         </div>
       </div>
 
