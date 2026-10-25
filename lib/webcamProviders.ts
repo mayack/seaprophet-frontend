@@ -134,6 +134,19 @@ export const PAGE_RULES: readonly PageRule[] = [
     note: 'No inline m3u8 — Playwright required.',
   },
   {
+    match: 'beachcam.meo.pt',
+    cacheTtlSec: 3600,
+    prefetchable: true,
+    note:
+      'MEO Beachcam livecam pages (/livecams/<slug>/), resolved by polvo with ' +
+      'one plain GET: the page names the current stream URL, and polvo adds ' +
+      'the shared wmsAuthSign token for tokenised (/auth-beachcam/) streams. ' +
+      'Store the PAGE in website_url and leave url empty: MEO is moving cams ' +
+      'to the tokenised path and renames stream keys (lagide -> bclagide), ' +
+      'so a stored stream URL rots. polvo caches a tokenised URL by its ' +
+      'token expiry; this cap only applies to old-path (untokenised) results.',
+  },
+  {
     match: 'escuelacantabradesurf.com',
     needsBrowser: true,
     cacheTtlSec: 900,
@@ -165,14 +178,22 @@ export const ORIGIN_RULES: readonly OriginRule[] = [
   {
     match: 'video-auth1.iol.pt',
     urlTtlSec: null,
+    recoverOn: [401, 403],
     note:
-      'MEO Beachcam. URL is path-only (/beachcam/<key>/playlist.m3u8) with no ' +
-      'token, so it does not expire — 129 of 141 stored URLs answered on ' +
-      'first request. A 404 here means the camera itself is offline, and that ' +
-      'is often TRANSIENT (some cams appear to drop overnight), so never cache ' +
-      'a permanent "dead" verdict from one 404. The stream key is NOT ' +
-      'derivable from the page slug (altura -> bcalagoa); resolve it from the ' +
-      'live page once and store it.',
+      'MEO Beachcam. Two paths. The old /beachcam/<key>/playlist.m3u8 has no ' +
+      'token and does not expire — a 404 there means the camera itself is ' +
+      'offline, often TRANSIENTLY (some cams drop overnight), so never cache a ' +
+      'permanent "dead" verdict from one 404. The new /auth-beachcam/<key>/ ' +
+      'path (since 2026-10) answers 403 without ?wmsAuthSign=<token>. Measured ' +
+      '2026-10-25: the token lives 24h (validminutes=1440), is global (one ' +
+      'token played all 108 live cams), is NOT IP-bound (minted on Railway, ' +
+      'played from a home connection), sends access-control-allow-origin: *, ' +
+      'and is echoed into the chunk list and every segment. polvo reuses one ' +
+      "token for 20h, like MEO's own player, so a handed-out URL can be close " +
+      'to expiry: hence no proactive refresh (urlTtlSec null) but a 401/403 ' +
+      'means "re-resolve", which fetches a newer token. The stream key is NOT ' +
+      'derivable from the page slug (altura -> bcalagoa, lagide -> bclagide): ' +
+      'store the beachcam.meo.pt page instead (see the page rule).',
   },
   {
     match: 'cdn-surfline.com',
@@ -282,7 +303,9 @@ export function pageRuleFor(websiteUrl?: string | null): PageRule | undefined {
 }
 
 /** Origin rules for a resolved stream URL. Undefined when the host is unknown. */
-export function originRuleFor(streamUrl?: string | null): OriginRule | undefined {
+export function originRuleFor(
+  streamUrl?: string | null
+): OriginRule | undefined {
   const host = streamUrl ? hostOf(streamUrl) : null
   if (!host) return undefined
   return bestMatch(host, ORIGIN_RULES)
