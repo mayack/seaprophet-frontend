@@ -135,6 +135,7 @@ function ProviderRow({
               {cam.lastOkAt
                 ? `last worked ${timeAgo(cam.lastOkAt)}`
                 : 'not seen working yet'}
+              {cam.checkedAt ? ` · checked ${timeAgo(cam.checkedAt)}` : null}
             </p>
           </div>
         ))}
@@ -150,9 +151,9 @@ function ProviderRow({
 }
 
 /**
- * Dev-mode "Cameras" settings tab: polvo checks every cam in sargo on a timer
- * (every 4 hours) and this shows the latest result per provider, with a
- * button to run a check now.
+ * Dev-mode "Cameras" settings tab: polvo checks each cam in sargo at 10:00 and
+ * 15:00 in its spot's local time, and this shows each cam's latest result per
+ * provider, with a button to check every cam now.
  *
  * `active` is whether the tab is showing. Settings keeps every tab mounted, so
  * this only fetches (and polls) while it is actually visible.
@@ -247,8 +248,11 @@ export function CameraHealthPanel({
           </div>
           {report ? (
             <div className="text-muted-foreground">
-              Checked {timeAgo(report.finishedAt)} ({report.trigger}) · took{' '}
-              {duration(report.durationMs)}
+              Last check {timeAgo(report.finishedAt)} ({report.trigger}
+              {report.checked !== undefined
+                ? `, ${report.checked} ${report.checked === 1 ? 'cam' : 'cams'}`
+                : ''}
+              ) · took {duration(report.durationMs)}
             </div>
           ) : null}
         </div>

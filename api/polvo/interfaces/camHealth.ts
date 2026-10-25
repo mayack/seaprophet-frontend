@@ -25,6 +25,11 @@ export interface CamHealthCheck {
   ms: number
   /** Last run this cam passed. Absent if never seen working. */
   lastOkAt?: string
+  /** When this cam was last checked — each cam is checked at 10:00 and 15:00
+   *  in its spot's local time, so cams are checked at different times. */
+  checkedAt?: string
+  /** The spot's IANA timezone, which decides when the cam is checked. */
+  timeZone?: string
 }
 
 export interface CamHealthProvider {
@@ -35,7 +40,12 @@ export interface CamHealthProvider {
 }
 
 export interface CamHealthReport {
+  /** The last run that checked anything: scheduled, boot or manual. */
   trigger: string
+  /** 'all' (manual run) or 'due' (only cams at a check hour locally). */
+  scope?: 'all' | 'due'
+  /** How many cams that run checked; the rest are from earlier runs. */
+  checked?: number
   startedAt: string
   finishedAt: string
   durationMs: number
