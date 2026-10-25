@@ -458,6 +458,12 @@ export function WebcamViewer({
         },
       })
 
+      let reloadArmed = false
+      const armReload = (): void => {
+        reloadArmed = true
+      }
+      video.addEventListener('playing', armReload)
+
       hls.on(Hls.Events.MANIFEST_PARSED, () => void handleReady())
       hls.on(Hls.Events.ERROR, (_event: Events.ERROR, data: ErrorData) => {
         if (isStale() || !data.fatal) return
@@ -485,6 +491,15 @@ export function WebcamViewer({
             }
             hls.startLoad()
           })()
+          return
+        }
+        if (reloadArmed && data.type === Hls.ErrorTypes.NETWORK_ERROR) {
+          reloadArmed = false
+          console.warn(
+            `[webcam] ${config.name ?? 'stream'} dropped mid-playback ` +
+              `(${data.details}${code ? ` ${code}` : ''}) — reloading`
+          )
+          hls.loadSource(finalUrl)
           return
         }
         if (code === 404) {
@@ -515,6 +530,7 @@ export function WebcamViewer({
       teardownRef.current = (): void => {
         if (refreshTimer) clearInterval(refreshTimer)
         detachPlaying()
+        video.removeEventListener('playing', armReload)
         hls.destroy()
       }
     } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
