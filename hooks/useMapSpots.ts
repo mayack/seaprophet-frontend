@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type mapboxgl from 'mapbox-gl'
-import { getSpot } from '@/api/sargo/actions/spot'
 import { spotsCache, debounce } from '@/components/maps/utils'
 import {
   getCachedSpotIndex,
@@ -14,7 +13,8 @@ import { calculateDistance } from '@/utils/location'
 import type { GeographicBounds } from '@/types/map'
 import type { SpotSummary } from '@/api/sargo/interfaces/spot'
 import { CONFIG } from '@/constants/config'
-import { indexEntryToSummary, spotToSummary } from '@/lib/spotSummary'
+import { indexEntryToSummary } from '@/lib/spotSummary'
+import { fetchSpotSummary } from '@/lib/appApi'
 
 interface UseMapSpotsOptions {
   map: mapboxgl.Map | null
@@ -40,6 +40,14 @@ export function useMapSpots({
 }: UseMapSpotsOptions): { isLoading: boolean; visibleSpots: SpotSummary[] } {
   const [isLoading, setIsLoading] = useState(true)
   const [visibleSpots, setVisibleSpots] = useState<SpotSummary[]>([])
+  // What the map's spot layer last got, so a recompute that doesn't change the
+  // pins (a GPS poll only moves the carousel distances) skips the Mapbox
+  // re-upload. Cleared whenever the catalog is (re)seeded, since spot data can
+  // change without the id set changing.
+  const lastLayerSyncRef = useRef<{
+    update: UseMapSpotsOptions['updateSpotLayers']
+    ids: string
+  } | null>(null)
 
   const updateSpotsInView = useCallback(() => {
     if (!map) return
@@ -62,6 +70,11 @@ export function useMapSpots({
     )
 
     setVisibleSpots(spotsForCarousel)
+
+    const ids = spotsToShow.map((spot) => spot.id).join(',')
+    const last = lastLayerSyncRef.current
+    if (last && last.update === updateSpotLayers && last.ids === ids) return
+    lastLayerSyncRef.current = { update: updateSpotLayers, ids }
     updateSpotLayers(spotsToShow)
   }, [map, activeSpotId, userLocation, updateSpotLayers])
 
@@ -93,6 +106,7 @@ export function useMapSpots({
       for (const entry of index.byId.values()) {
         spotsCache.addSpot(indexEntryToSummary(entry))
       }
+      lastLayerSyncRef.current = null
       updateSpotsInViewRef.current()
     }
 
@@ -103,7 +117,8 @@ export function useMapSpots({
       })
       .catch(() => {
         // Index unreachable — pins for already-cached spots (direct links,
-        // primed favorites) still render; the next revalidation retries.
+        // favorites) still render; spotSearchIndex retries with backoff and the
+        // subscription below seeds the pins once it lands.
       })
       .finally(() => {
         if (!cancelled) setIsLoading(false)
@@ -150,34 +165,28 @@ export function useMapSpots({
   }, [map])
 
   // Deep-link safety net: a spot newer than the cached index (or unpublished
-  // from it) is fetched by id so its pin and panel still work.
+  // from it) is fetched by id so its pin and panel still work. Keyed on the id
+  // only (latest updateSpotsInView via the ref), so GPS polls don't re-run it.
   useEffect(() => {
     if (!map || !activeSpotId) return
 
-    let cancelled = false
+    // Cached: the recompute effect above already re-runs on activeSpotId.
+    if (spotsCache.getSpot(activeSpotId)) return
 
-    const ensureActiveSpotInCache = async (): Promise<void> => {
-      if (spotsCache.getSpot(activeSpotId)) {
-        updateSpotsInView()
-        return
-      }
+    const controller = new AbortController()
+    fetchSpotSummary(activeSpotId, controller.signal)
+      .then((result) => {
+        if (controller.signal.aborted || result.status !== 'loaded') return
+        spotsCache.addSpot(result.spot)
+        lastLayerSyncRef.current = null
+        updateSpotsInViewRef.current()
+      })
+      .catch(() => {
+        // Best effort: the panel shows its own error; the pin just stays off.
+      })
 
-      const res = await getSpot(activeSpotId)
-      if (cancelled) return
-
-      const spot = res?.data
-      if (!spot?.attributes) return
-
-      spotsCache.addSpot(spotToSummary(spot))
-      updateSpotsInView()
-    }
-
-    void ensureActiveSpotInCache()
-
-    return (): void => {
-      cancelled = true
-    }
-  }, [map, activeSpotId, updateSpotsInView])
+    return (): void => controller.abort()
+  }, [map, activeSpotId])
 
   return { isLoading, visibleSpots }
 }

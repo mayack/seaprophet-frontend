@@ -5,8 +5,9 @@ import { preloadSpotIndex, revalidateSpotIndex } from '@/lib/spotSearchIndex'
 
 /**
  * Mounted once at the root of the app to warm the spot search index during
- * browser idle time, and to revalidate it when the tab regains focus so a
- * long-lived tab picks up newly added spots. Renders nothing.
+ * browser idle time, and to revalidate it when the tab regains focus (so a
+ * long-lived tab picks up newly added spots) or the connection comes back.
+ * Renders nothing.
  */
 export function SpotIndexPreloader(): null {
   useEffect((): (() => void) => {
@@ -16,8 +17,11 @@ export function SpotIndexPreloader(): null {
       if (!document.hidden) revalidateSpotIndex()
     }
     document.addEventListener('visibilitychange', onVisibility)
+    // Back online after a failed (or stale) load: check right away.
+    window.addEventListener('online', revalidateSpotIndex)
     return () => {
       document.removeEventListener('visibilitychange', onVisibility)
+      window.removeEventListener('online', revalidateSpotIndex)
     }
   }, [])
 

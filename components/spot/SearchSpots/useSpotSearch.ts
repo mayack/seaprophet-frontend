@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { searchSpots } from '@/api/sargo/actions/spot'
+import { isAbortError, searchSpotsRemote } from '@/lib/appApi'
 import { SpotSummary } from '@/api/sargo/interfaces/spot'
 import { debounce } from '@/lib/debounce'
 import { CONFIG } from '@/constants/config'
@@ -78,6 +78,7 @@ export function useSpotSearch(): {
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const fallbackRequestIdRef = useRef(0)
+  const fallbackAbortRef = useRef<AbortController | null>(null)
 
   const clearSearch = useCallback((): void => {
     setQuery('')
@@ -89,23 +90,23 @@ export function useSpotSearch(): {
   /* eslint-disable react-hooks/refs */
   const fallbackSearch = useRef(
     debounce(async (searchQuery: string, requestId: number): Promise<void> => {
+      // A newer keystroke aborts the older request outright.
+      fallbackAbortRef.current?.abort()
+      const controller = new AbortController()
+      fallbackAbortRef.current = controller
       try {
-        const response = await searchSpots(searchQuery)
+        const results = await searchSpotsRemote(searchQuery, controller.signal)
         if (requestId !== fallbackRequestIdRef.current) return
-        if (response.error) {
-          setError(response.error)
-          setSpots([])
-        } else {
-          setSpots(
-            (response.data || []).map((spot) => ({
-              ...spot,
-              country: null,
-              countryEmoji: null,
-            }))
-          )
-          setError(null)
-        }
+        setSpots(
+          results.map((spot) => ({
+            ...spot,
+            country: null,
+            countryEmoji: null,
+          }))
+        )
+        setError(null)
       } catch (err) {
+        if (isAbortError(err)) return
         if (requestId !== fallbackRequestIdRef.current) return
         setError(err instanceof Error ? err.message : 'Search failed')
         setSpots([])
@@ -121,6 +122,7 @@ export function useSpotSearch(): {
   useEffect((): (() => void) => {
     return () => {
       fallbackSearch.cancel()
+      fallbackAbortRef.current?.abort()
     }
   }, [fallbackSearch])
 

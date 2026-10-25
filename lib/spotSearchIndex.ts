@@ -97,14 +97,18 @@ function buildIndex(entries: SpotIndexEntry[], version: string): SpotIndex {
   return { search, byId, count: entries.length, version }
 }
 
-function readFromSessionStorage(): {
+// localStorage, not sessionStorage: the index is the map's whole spot catalog,
+// and sessionStorage dies with the tab — every new tab or visit used to wait on
+// a full catalog download before any pin could render. Freshness is still
+// governed by `savedAt` + the backend `version` check.
+function readFromStorage(): {
   entries: SpotIndexEntry[]
   version: string
   savedAt: number
 } | null {
   if (typeof window === 'undefined') return null
   try {
-    const raw = window.sessionStorage.getItem(STORAGE_KEY)
+    const raw = window.localStorage.getItem(STORAGE_KEY)
     if (!raw) return null
     const parsed = JSON.parse(raw) as {
       savedAt: number
@@ -121,13 +125,10 @@ function readFromSessionStorage(): {
   }
 }
 
-function writeToSessionStorage(
-  entries: SpotIndexEntry[],
-  version: string
-): void {
+function writeToStorage(entries: SpotIndexEntry[], version: string): void {
   if (typeof window === 'undefined') return
   try {
-    window.sessionStorage.setItem(
+    window.localStorage.setItem(
       STORAGE_KEY,
       JSON.stringify({ savedAt: Date.now(), version, entries })
     )
@@ -165,7 +166,7 @@ async function revalidate(force: boolean): Promise<void> {
     const response = await fetchIndex()
     // Refresh `savedAt` so we don't re-hit the network on every call once the
     // freshness window passes, even when nothing changed.
-    writeToSessionStorage(response.data, response.version)
+    writeToStorage(response.data, response.version)
     cachedAt = Date.now()
     if (!cached || response.version !== cached.version) {
       setCached(buildIndex(response.data, response.version), cachedAt)
@@ -177,10 +178,31 @@ async function revalidate(force: boolean): Promise<void> {
   }
 }
 
+// With nothing cached, a failed load leaves the map without pins — so keep
+// retrying with backoff instead of waiting for the next tab-focus revalidation.
+// Hidden tabs skip a beat; the visibilitychange revalidation picks them up.
+const COLD_RETRY_DELAYS_MS = [2_000, 5_000, 15_000, 30_000, 60_000]
+let coldRetryTimer: ReturnType<typeof setTimeout> | null = null
+let coldRetryAttempt = 0
+
+function scheduleColdRetry(): void {
+  if (typeof window === 'undefined' || cached || coldRetryTimer !== null) return
+  const delay =
+    COLD_RETRY_DELAYS_MS[
+      Math.min(coldRetryAttempt, COLD_RETRY_DELAYS_MS.length - 1)
+    ]
+  coldRetryAttempt += 1
+  coldRetryTimer = setTimeout(() => {
+    coldRetryTimer = null
+    if (cached || document.hidden) return
+    void loadSpotIndex().catch(() => {})
+  }, delay)
+}
+
 /**
  * Loads the spot search index. Safe to call many times in parallel — it
  * deduplicates concurrent callers and memoizes the result. Serves the cached
- * copy instantly (memory, then sessionStorage) and revalidates against the
+ * copy instantly (memory, then localStorage) and revalidates against the
  * backend `version` in the background when it's stale.
  */
 export function loadSpotIndex(): Promise<SpotIndex> {
@@ -191,16 +213,23 @@ export function loadSpotIndex(): Promise<SpotIndex> {
   if (inFlight) return inFlight
 
   const promise = (async (): Promise<SpotIndex> => {
-    const fromSession = readFromSessionStorage()
-    if (fromSession) {
-      const built = buildIndex(fromSession.entries, fromSession.version)
-      setCached(built, fromSession.savedAt)
+    const fromStorage = readFromStorage()
+    if (fromStorage) {
+      const built = buildIndex(fromStorage.entries, fromStorage.version)
+      setCached(built, fromStorage.savedAt)
       void revalidate(false)
       return built
     }
 
-    const response = await fetchIndex()
-    writeToSessionStorage(response.data, response.version)
+    let response: SpotIndexResponse
+    try {
+      response = await fetchIndex()
+    } catch (error) {
+      scheduleColdRetry()
+      throw error
+    }
+    coldRetryAttempt = 0
+    writeToStorage(response.data, response.version)
     const built = buildIndex(response.data, response.version)
     setCached(built, Date.now())
     return built

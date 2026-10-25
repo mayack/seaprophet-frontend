@@ -1,25 +1,34 @@
-'use server'
-
+import { unstable_cache } from 'next/cache'
 import { getErrorMessage } from '@/utils/error'
 import { polvoClient } from '../client'
 import {
+  NowConditions,
   NowConditionsParams,
   NowConditionsActionResponse,
 } from '../interfaces/now'
 import { withPolvoAuth } from './withPolvoAuth'
 
-// Same shape/caching philosophy as `getForecast`: the client fetch uses
-// `next: { revalidate: 240 }`, so the Next.js Data Cache dedupes across
-// requests; the backend additionally micro-caches the summary for 5 min.
+// Server-only (called by the /api/now route), not a Server Action. Same
+// caching approach as `getForecast`: cached by params, not by the token-keyed
+// fetch; the backend additionally micro-caches the summary for 5 min.
+const cachedNowConditions = unstable_cache(
+  (params: NowConditionsParams): Promise<NowConditions[]> =>
+    withPolvoAuth((token) => polvoClient.getNowConditions(params, token)),
+  ['polvo-now-conditions'],
+  { revalidate: 240 }
+)
+
 export async function getNowConditions(
   params: NowConditionsParams
 ): Promise<NowConditionsActionResponse> {
   const timestamp = new Date().toISOString()
 
   try {
-    const data = await withPolvoAuth((token) =>
-      polvoClient.getNowConditions(params, token)
-    )
+    const data = await cachedNowConditions({
+      surfUnits: params.surfUnits,
+      windUnits: params.windUnits,
+      periodStatistic: params.periodStatistic,
+    })
 
     return {
       data,

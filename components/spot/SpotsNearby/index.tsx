@@ -6,10 +6,10 @@ import { EmptyState } from './EmptyState'
 import useEmblaCarousel from 'embla-carousel-react'
 import { Button } from '@/components/ui/button'
 import { useSpotNavigation } from '@/hooks/useSpotNavigation'
-import React, { useCallback, useEffect, useState } from 'react'
+import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import { SPOT_PANEL } from '@/constants/spotPanel'
 import { SpotSummaryCard } from '@/components/spot/SpotSummaryCard'
-import { useNowConditions } from '@/hooks/useNowConditions'
+import { useNowConditions } from '@/contexts/NowConditionsContext'
 import { useUser } from '@/contexts/UserContext'
 import { normalizeUserUnits } from '@/constants/units'
 
@@ -31,8 +31,12 @@ export function SpotsNearby({
 }: SpotsNearbyProps): React.JSX.Element {
   const { openSpot } = useSpotNavigation()
   const { userData } = useUser()
-  const units = normalizeUserUnits(userData.settings.units)
-  const nowConditions = useNowConditions(units)
+  const units = useMemo(
+    () => normalizeUserUnits(userData.settings.units),
+    [userData.settings.units]
+  )
+  // Shared with the map cards (one poller in MapLayoutShell).
+  const nowConditions = useNowConditions()
   const [emblaRef, emblaApi] = useEmblaCarousel({
     align: 'start',
     containScroll: 'keepSnaps',

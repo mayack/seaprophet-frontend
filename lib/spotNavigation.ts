@@ -9,8 +9,12 @@
  *   `/spot/[id]`  → panel open (shareable link in the address bar)
  *
  * Direct load or refresh on `/spot/[id]`:
- *   `SpotDirectLinkHydrator` reads the URL and opens the panel; the body
- *   (`SpotPanelBody`) fetches its own data client-side.
+ *   the route segment fetches the spot server-side and its `SpotDirectLink`
+ *   opens the panel; `SpotBox` then fetches the panel data client-side.
+ *
+ * Note `syncSpotUrl` passes Next's own history state (it carries `__NA`), which
+ * makes Next's patched `replaceState` skip router sync — so `usePathname()`
+ * keeps the URL of the last real navigation, not what the address bar shows.
  *
  * Route files: `app/(authenticated)/(map)/`
  */

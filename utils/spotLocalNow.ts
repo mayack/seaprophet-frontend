@@ -4,7 +4,8 @@
  * spot outside the viewer's zone. Returns null for a missing/invalid zone.
  */
 export function spotLocalNow(
-  timezone: string | null | undefined
+  timezone: string | null | undefined,
+  at: Date = new Date()
 ): { date: string; minutes: number } | null {
   if (!timezone) return null
   try {
@@ -16,7 +17,7 @@ export function spotLocalNow(
       hour: '2-digit',
       minute: '2-digit',
       hour12: false,
-    }).formatToParts(new Date())
+    }).formatToParts(at)
     const get = (type: string): string =>
       parts.find((p) => p.type === type)?.value ?? ''
     // en-GB can render midnight as "24" — normalize.

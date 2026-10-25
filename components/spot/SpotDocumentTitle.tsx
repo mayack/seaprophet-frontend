@@ -19,8 +19,9 @@ export function SpotDocumentTitle(): null {
   const { activeSpot } = useSpotPanel()
   const name = activeSpot?.name ?? null
 
-  // Don't clobber the server-rendered title on the initial mount: the direct-
-  // link hydrator seeds `activeSpot` in a layout effect, so the first passive
+  // Don't clobber the server-rendered title on the initial mount: the
+  // direct-link opener (SpotDirectLink) seeds `activeSpot` in a layout effect
+  // of the route segment, which hydrates after this, so the first passive
   // effect can still observe null. Skip that one run; sync every change after.
   const mountedRef = useRef(false)
 

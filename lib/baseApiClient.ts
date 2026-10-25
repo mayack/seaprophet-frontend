@@ -42,7 +42,16 @@ export abstract class BaseApiClient {
           response.status === 401 ||
           response.status === 403 ||
           isLoginAuthFailure
-        throw createError(message, isAuthStatus ? 'auth' : 'network')
+        // 404 gets its own tag so callers can tell "this doesn't exist" from
+        // "the backend is having a bad moment" (only the latter is retryable).
+        throw createError(
+          message,
+          isAuthStatus
+            ? 'auth'
+            : response.status === 404
+              ? 'not_found'
+              : 'network'
+        )
       }
 
       return data
@@ -52,7 +61,7 @@ export abstract class BaseApiClient {
       // 'network' so consumers switching on error.name can route the message.
       if (
         error instanceof Error &&
-        ['auth', 'network', 'validation'].includes(error.name)
+        ['auth', 'network', 'not_found', 'validation'].includes(error.name)
       ) {
         throw error
       }

@@ -11,9 +11,9 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '../ui/tooltip'
-import { extractWebcamUrl } from '@/api/polvo/actions/webcam'
 import { WebcamConfig } from '@/api/sargo/interfaces/webcam'
 import { CONFIG } from '@/constants/config'
+import { fetchWebcamUrl } from '@/lib/appApi'
 import {
   cacheTtlFor,
   isPrefetchable,
@@ -87,7 +87,7 @@ async function resolveStreamUrl(
   if (!config.website_url) return { error: 'No stream URL configured' }
 
   try {
-    const result = await extractWebcamUrl({
+    const result = await fetchWebcamUrl({
       websiteUrl: config.website_url,
       containerId: config.container_id,
       autoPlay: config.autoplay ?? true,
@@ -181,6 +181,10 @@ export function WebcamViewer({
   // Which of this spot's other cams we've already warmed, so switching between
   // them doesn't pay a cold resolve. Survives switches; reset only on remount.
   const prefetchedRef = useRef<Set<string>>(new Set())
+  // Aborts the warm-up loop when the viewer unmounts (spot switched, panel
+  // closed) or its cams change — it must not keep resolving cams nobody here
+  // will watch.
+  const prefetchAbortRef = useRef<AbortController | null>(null)
 
   const videoRef = useRef<HTMLVideoElement>(null)
   // Frozen frame shown while the tap-to-play overlay is up. iOS paints its own
@@ -260,7 +264,11 @@ export function WebcamViewer({
    */
   const prefetchOtherCams = useCallback(async () => {
     if (configs.length < 2) return
+    prefetchAbortRef.current?.abort()
+    const controller = new AbortController()
+    prefetchAbortRef.current = controller
     for (const cam of configs) {
+      if (controller.signal.aborted) return
       if (isAfkRef.current) return // Left the tab; stop spending on their behalf.
       const target = cam.website_url
       if (!target || cam.url) continue // Direct URL: already resolved.
@@ -272,12 +280,15 @@ export function WebcamViewer({
       if (prefetchedRef.current.has(target)) continue
       prefetchedRef.current.add(target)
       try {
-        await extractWebcamUrl({
-          websiteUrl: target,
-          containerId: cam.container_id,
-          autoPlay: cam.autoplay ?? true,
-          cacheExpiration: cacheTtlFor(target, cam.cache),
-        })
+        await fetchWebcamUrl(
+          {
+            websiteUrl: target,
+            containerId: cam.container_id,
+            autoPlay: cam.autoplay ?? true,
+            cacheExpiration: cacheTtlFor(target, cam.cache),
+          },
+          controller.signal
+        )
       } catch {
         // Best effort: a cam that fails to warm just costs its own wait later.
         prefetchedRef.current.delete(target)
@@ -651,6 +662,14 @@ export function WebcamViewer({
       video.removeEventListener('webkitendfullscreen', onNativeEnd)
     }
   }, [initStream])
+
+  // Stop warming other cams on unmount or when this spot's cams change.
+  useEffect(() => {
+    return (): void => {
+      prefetchAbortRef.current?.abort()
+      prefetchAbortRef.current = null
+    }
+  }, [configs])
 
   // Initialize on mount and config change. Deferred a frame so initStream's
   // initial setState isn't run synchronously inside the effect body.

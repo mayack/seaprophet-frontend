@@ -1,29 +1,39 @@
 'use client'
 
-import { useEffect, useMemo, useRef, useState } from 'react'
-import { getForecast } from '@/api/polvo/actions/forecast'
+import { useEffect, useMemo, useState } from 'react'
 import type {
   ForecastDay,
   ForecastParams,
 } from '@/api/polvo/interfaces/forecast'
 import { useUser } from '@/contexts/UserContext'
+import { normalizeUserUnits, type UserUnits } from '@/constants/units'
+import { fetchForecast, isAbortError } from '@/lib/appApi'
 import {
   applyUnitsToForecastParams,
-  forecastUnitsKey,
+  unitsFromForecastParams,
+  userUnitsKey,
 } from '@/lib/forecastParams'
-import { recoverFromDeploySkew } from '@/lib/recoverFromDeploySkew'
 import { Forecast } from './Forecast'
+import { Button } from '@/components/ui/button'
 import { Spinner } from '@/components/ui/spinner'
 import React from 'react'
 
 interface ForecastContainerProps {
   initialDays: ForecastDay[]
   timezone?: string | null
-  /** Params from the server render (units may lag behind UserContext). */
+  /** Params the panel payload was fetched with (units included). */
   forecastParams: ForecastParams
   className?: string
 }
 
+/**
+ * Owns the forecast shown in the panel and keeps it in the user's current
+ * units: when the units setting changes, only the forecast is refetched.
+ *
+ * The days and the units they were fetched in are stored TOGETHER and the
+ * table renders with the data's own units, so a refetch in flight (or a failed
+ * one) can never show feet values labelled as metres.
+ */
 export function ForecastContainer({
   initialDays,
   timezone,
@@ -31,91 +41,68 @@ export function ForecastContainer({
   className,
 }: ForecastContainerProps): React.JSX.Element {
   const { userData } = useUser()
-  const units = userData.settings.units
-
-  const clientParams = useMemo(
-    () => applyUnitsToForecastParams(forecastParams, units),
-    [forecastParams, units]
+  const units = useMemo(
+    () => normalizeUserUnits(userData.settings.units),
+    [userData.settings.units]
   )
+  const wantedKey = userUnitsKey(units)
 
-  const serverUnitsKey = useMemo(
-    () => forecastUnitsKey(forecastParams),
-    [forecastParams]
-  )
-  const clientUnitsKey = useMemo(
-    () => forecastUnitsKey(clientParams),
-    [clientParams]
-  )
-
-  const [days, setDays] = useState(initialDays)
-  const loadedUnitsKeyRef = useRef(serverUnitsKey)
-  const [isFetching, setIsFetching] = useState(false)
-  // Block the UI only on first paint when context is ahead of the SSR payload.
-  const [hasSyncedUnits, setHasSyncedUnits] = useState(
-    clientUnitsKey === serverUnitsKey
-  )
-
-  // Re-sync to a fresh SSR payload (or matching units). Deferred a frame so
-  // state isn't set synchronously in the effect body.
-  useEffect(() => {
-    const raf = requestAnimationFrame(() => {
-      setDays(initialDays)
-      if (serverUnitsKey === clientUnitsKey) {
-        loadedUnitsKeyRef.current = serverUnitsKey
-        setHasSyncedUnits(true)
-      }
-    })
-    return (): void => cancelAnimationFrame(raf)
-  }, [initialDays, serverUnitsKey, clientUnitsKey])
+  const [loaded, setLoaded] = useState<{
+    days: ForecastDay[]
+    units: UserUnits
+  }>(() => ({
+    days: initialDays,
+    units: unitsFromForecastParams(forecastParams),
+  }))
+  const loadedKey = userUnitsKey(loaded.units)
+  // The units key whose refetch failed, so we stop and offer a retry
+  // (clearing it re-runs the fetch).
+  const [failedKey, setFailedKey] = useState<string | null>(null)
 
   useEffect(() => {
-    if (clientUnitsKey === loadedUnitsKeyRef.current) return
+    if (wantedKey === loadedKey || wantedKey === failedKey) return
 
-    let cancelled = false
-    setIsFetching(true)
-
-    void getForecast(clientParams)
+    const controller = new AbortController()
+    fetchForecast(
+      applyUnitsToForecastParams(forecastParams, units),
+      controller.signal
+    )
       .then((res) => {
-        if (cancelled) return
-        if (res.data?.days) {
-          setDays(res.data.days)
-          loadedUnitsKeyRef.current = clientUnitsKey
-          setHasSyncedUnits(true)
-        }
-        setIsFetching(false)
+        if (controller.signal.aborted) return
+        setLoaded({ days: res.days, units })
+        setFailedKey(null)
       })
-      .catch((error) => {
-        if (cancelled) return
-        // Stale tab across a deploy: the action RPC throws. Reload into the
-        // current build if so; otherwise just stop the loader (gated on
-        // isFetching) so we fall back to the last good `days` rather than
-        // spinning forever.
-        if (recoverFromDeploySkew(error)) return
-        setIsFetching(false)
+      .catch((error: unknown) => {
+        if (controller.signal.aborted || isAbortError(error)) return
+        setFailedKey(wantedKey)
       })
+    return (): void => controller.abort()
+  }, [wantedKey, loadedKey, failedKey, forecastParams, units])
 
-    return (): void => {
-      cancelled = true
-    }
-  }, [clientUnitsKey, clientParams])
-
-  const showBlockingLoader =
-    isFetching &&
-    !hasSyncedUnits &&
-    // Reading the imperative load-tracking ref during render is intentional —
-    // it gates the one-time blocking loader and mustn't trigger a re-render.
-    // eslint-disable-next-line react-hooks/refs
-    clientUnitsKey !== loadedUnitsKeyRef.current
+  const isUpdating = wantedKey !== loadedKey && wantedKey !== failedKey
+  const updateFailed = wantedKey !== loadedKey && wantedKey === failedKey
 
   return (
     <div className={className}>
-      {showBlockingLoader ? (
-        <div className="flex min-h-[40vh] w-full items-center justify-center">
-          <Spinner className="size-8" />
+      {isUpdating ? (
+        <div className="flex items-center gap-2 px-4 pb-4 text-xs text-muted-foreground sm:px-6">
+          <Spinner className="size-3.5" />
+          Updating units…
         </div>
-      ) : (
-        <Forecast days={days} timezone={timezone} />
-      )}
+      ) : null}
+      {updateFailed ? (
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-2 px-4 pb-4 text-xs text-destructive sm:px-6">
+          Couldn’t update the forecast to your new units.
+          <Button
+            variant="outline"
+            size="xs"
+            onClick={() => setFailedKey(null)}
+          >
+            Try again
+          </Button>
+        </div>
+      ) : null}
+      <Forecast days={loaded.days} units={loaded.units} timezone={timezone} />
     </div>
   )
 }

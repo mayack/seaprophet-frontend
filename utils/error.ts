@@ -1,5 +1,10 @@
 // Simple error types for the most common cases
-export type ErrorType = 'auth' | 'network' | 'validation' | 'unknown'
+export type ErrorType =
+  | 'auth'
+  | 'network'
+  | 'not_found'
+  | 'validation'
+  | 'unknown'
 
 // Simple error creator for consistent error responses
 export function createError(

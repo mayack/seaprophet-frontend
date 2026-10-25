@@ -1,4 +1,6 @@
-'use server'
+// Server-only (called by the /api/webcam-url route), not a Server Action:
+// extractions can take seconds, and Server Actions are dispatched one at a time
+// by the client, so they used to hold up every other request on the page.
 
 import { headers } from 'next/headers'
 import { getErrorMessage } from '@/utils/error'
@@ -27,7 +29,7 @@ export interface WebcamExtractionResponse {
  * The visitor's IP, as seen by this server.
  *
  * Needed because some cam providers bind a stream URL to the address that
- * requested it. This action runs on the server, so polvo would otherwise see
+ * requested it. This runs on the server, so polvo would otherwise see
  * OUR address and mint a URL that 403s in the visitor's browser.
  *
  * Cloudflare's header first: it writes that one itself, so a client behind it

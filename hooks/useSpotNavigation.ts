@@ -1,9 +1,10 @@
 'use client'
 
 import { useCallback, useEffect, useRef } from 'react'
-import { getSpot } from '@/api/sargo/actions/spot'
+import { toast } from 'sonner'
 import { spotsCache } from '@/components/maps/utils'
 import { useSpotPanel } from '@/contexts/SpotPanelContext'
+import { fetchSpotSummary, isAbortError, redirectToSignIn } from '@/lib/appApi'
 import {
   getSpotIdFromRoute,
   syncSpotUrl,
@@ -48,12 +49,16 @@ export function useSpotNavigation(): {
     [spotPanel]
   )
 
-  // Tracks the most recent openSpotById target so a slow fetch can't clobber
-  // a newer selection (click favorite A, then B before A's fetch resolves).
-  const latestByIdRequestRef = useRef<number | null>(null)
+  // The in-flight lookup for a spot the client catalog doesn't have. A newer
+  // selection aborts it, so a slow response can't clobber it (click favorite
+  // A, then B before A's lookup resolves).
+  const pendingLookupRef = useRef<AbortController | null>(null)
 
   const openSpotById = useCallback(
     (targetId: number): void => {
+      pendingLookupRef.current?.abort()
+      pendingLookupRef.current = null
+
       const cached = spotsCache.getSpot(targetId)
       if (cached?.location) {
         openSpot({
@@ -65,24 +70,38 @@ export function useSpotNavigation(): {
         return
       }
 
-      latestByIdRequestRef.current = targetId
-      void getSpot(targetId).then((res) => {
-        if (latestByIdRequestRef.current !== targetId) return
-        const spot = res?.data?.attributes
-        if (!spot) return
-        openSpot({
-          id: targetId,
-          lng: spot.location_long,
-          lat: spot.location_lat,
-          name: spot.name,
+      const controller = new AbortController()
+      pendingLookupRef.current = controller
+      fetchSpotSummary(targetId, controller.signal)
+        .then((result) => {
+          if (controller.signal.aborted) return
+          if (result.status === 'unauthenticated') {
+            redirectToSignIn()
+            return
+          }
+          if (result.status === 'not-found') {
+            toast.error('Spot not found.')
+            return
+          }
+          spotsCache.addSpot(result.spot)
+          openSpot({
+            id: targetId,
+            lng: result.spot.location.long,
+            lat: result.spot.location.lat,
+            name: result.spot.name,
+          })
         })
-      })
+        .catch((error: unknown) => {
+          if (controller.signal.aborted || isAbortError(error)) return
+          toast.error('Couldn’t load this spot.')
+        })
     },
     [openSpot]
   )
 
   useEffect(() => {
     const onPopState = (): void => {
+      pendingLookupRef.current?.abort()
       const id = getSpotIdFromRoute(window.location.pathname)
       if (!id) {
         spotPanel.clearPanelState()
@@ -103,6 +122,10 @@ export function useSpotNavigation(): {
     window.addEventListener('popstate', onPopState)
     return (): void => window.removeEventListener('popstate', onPopState)
   }, [spotPanel])
+
+  useEffect(() => {
+    return (): void => pendingLookupRef.current?.abort()
+  }, [])
 
   return { isSpotOpen, spotId, openSpot, openSpotById, closeSpot }
 }

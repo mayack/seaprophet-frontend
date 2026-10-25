@@ -5,7 +5,6 @@ import { cookies } from 'next/headers'
 import { User, UserAuthResponse, UserSettings } from './interfaces/user'
 import { Spot } from './interfaces/spot'
 import type { SubmitCamObserverReportInput } from './interfaces/camObserver'
-import { calculateBounds } from '@/utils/location'
 
 // Strapi populate chain for the full municipality → country location tree.
 // Shared so the spot-detail, by-country, and by-id queries can't drift.
@@ -141,54 +140,6 @@ export class SargoClient extends BaseApiClient {
       },
     })
     return response.data
-  }
-
-  async getNearbySpots(
-    lat: number,
-    lon: number,
-    radiusKm: number = 30,
-    isPublic = true
-  ): Promise<{ data: Spot[] }> {
-    const { north, south, east, west } = calculateBounds(lat, lon, radiusKm)
-
-    const queryParams = new URLSearchParams({
-      'filters[location_lat][$gte]': south.toString(),
-      'filters[location_lat][$lte]': north.toString(),
-      'filters[location_long][$gte]': west.toString(),
-      'filters[location_long][$lte]': east.toString(),
-      'filters[$not][location_lat]': lat.toString(),
-      'filters[$not][location_long]': lon.toString(),
-      'fields[0]': 'name',
-      'fields[1]': 'location_lat',
-      'fields[2]': 'location_long',
-      'populate[municipality]': 'true',
-      'populate[webcam]': 'true',
-      'pagination[page]': '1',
-      // Strapi can't sort by haversine distance, so it returns spots in its own
-      // default order. Distance sorting happens client-side (prepareNearbySpots),
-      // so we must fetch EVERY spot in the bounding box — otherwise the truncated
-      // page can omit the actual nearest spot (e.g. a closer spot with a higher
-      // id) and the "nearest" list ends up sorting the wrong subset. A 30km-radius
-      // area can't physically hold 100 surf spots, so this ceiling returns all
-      // candidates without ever truncating (no pagination loop required).
-      'pagination[pageSize]': '100',
-    }).toString()
-
-    const headers = await this.getHeaders(isPublic)
-
-    const response = await this.fetch<{ data: Spot[] }>(
-      `${CONFIG.api.endpoints.sargo.spots.list}?${queryParams}`,
-      {
-        init: {
-          headers,
-          next: { revalidate: 3600 },
-        },
-      }
-    )
-
-    return {
-      data: response.data,
-    }
   }
 
   async searchSpots(query: string, isPublic = true): Promise<{ data: Spot[] }> {

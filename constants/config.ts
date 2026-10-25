@@ -55,6 +55,17 @@ export const CONFIG = {
           healthRun: '/api/webcam/health/run',
         },
       },
+      // This app's own GET routes (app/api/*), called from the browser via
+      // lib/appApi.ts. Reads go here rather than through Server Actions,
+      // which the client dispatches one at a time and can't abort.
+      app: {
+        spotPanel: (id: number) => `/api/spot-panel/${id}`,
+        spot: (id: number) => `/api/spot/${id}`,
+        spotSearch: '/api/spot-search',
+        forecast: '/api/forecast',
+        now: '/api/now',
+        webcamUrl: '/api/webcam-url',
+      },
     },
     tokens: {
       sargo: {

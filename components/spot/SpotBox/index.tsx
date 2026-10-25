@@ -20,7 +20,7 @@ import { cn } from '@/lib/utils'
 /** Spot panel shell — mobile inset in context; camera in MapNavigator. */
 export function SpotBox(): React.JSX.Element | null {
   const { activeSpot } = useSpotPanel()
-  const panel = useSpotPanelData(activeSpot?.id ?? null)
+  const panel = useSpotPanelData(activeSpot)
   const isLoading = panel.status === 'loading'
 
   const {
@@ -57,7 +57,11 @@ export function SpotBox(): React.JSX.Element | null {
 
   const panelContent =
     panel.status === 'loaded' ? (
-      <SpotDetailView key={panel.data.spotId} data={panel.data} />
+      <SpotDetailView
+        key={panel.data.spotId}
+        data={panel.data}
+        onRetry={panel.retry}
+      />
     ) : panel.status === 'not-found' ? (
       <div className="p-6 text-center">Spot not found.</div>
     ) : panel.status === 'error' ? (

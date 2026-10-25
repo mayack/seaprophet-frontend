@@ -72,8 +72,12 @@ export class PolvoClient extends BaseApiClient {
   /**
    * Current-hour conditions for every spot (map cards). Backend derives this
    * purely from its pre-warmed forecast cache (never builds on a miss), and
-   * micro-caches the summary for 5 minutes — mirror that briefly here so
-   * concurrent server actions dedupe.
+   * micro-caches the summary for 5 minutes.
+   *
+   * Not cached here: the bearer token would be part of the Data Cache key
+   * (Next keys fetches on every header), and the token is per server instance
+   * and rotates every 15 min — so hits were rare. The caller caches by params
+   * instead (api/polvo/actions/now.ts).
    */
   async getNowConditions(
     params: NowConditionsParams,
@@ -90,7 +94,7 @@ export class PolvoClient extends BaseApiClient {
       {
         init: {
           headers: { Authorization: `Bearer ${token}` },
-          next: { revalidate: 240 },
+          cache: 'no-store',
         },
       }
     )
@@ -166,10 +170,11 @@ export class PolvoClient extends BaseApiClient {
           headers: {
             Authorization: `Bearer ${token}`,
             Accept: 'application/json',
-            'Cache-Control': 'public, max-age=900',
             'Accept-Encoding': 'gzip',
           },
-          next: { revalidate: 900 },
+          // Cached by params in api/polvo/actions/forecast.ts — caching the
+          // fetch itself would key on the rotating bearer token.
+          cache: 'no-store',
         },
       })
 
@@ -198,7 +203,7 @@ export class PolvoClient extends BaseApiClient {
     cacheExpiration?: number,
     /**
      * The visitor's IP. Some providers bind a stream URL to whoever asked for
-     * it, and this call is made from a server action — so without passing it
+     * it, and this call is made from our server — so without passing it
      * along, polvo mints for THIS server and the URL 403s in the browser.
      */
     viewerIp?: string
