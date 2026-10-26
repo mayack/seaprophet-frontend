@@ -1,5 +1,5 @@
 import type { NextRequest, NextResponse } from 'next/server'
-import { getNowConditions } from '@/api/polvo/actions/now'
+import { getNowConditions } from '@/api/polvo/now'
 import { getCurrentUser } from '@/api/sargo/actions/auth'
 import { HEIGHT_OPTIONS, WIND_SPEED_OPTIONS } from '@/constants/units'
 import { jsonResponse, unauthenticatedResponse } from '@/lib/server/apiRoute'

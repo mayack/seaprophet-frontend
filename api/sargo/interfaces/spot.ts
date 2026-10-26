@@ -1,5 +1,4 @@
 import { WebcamConfig } from './webcam'
-import { ActionResponse } from '@/types/api'
 
 export interface Spot {
   id: number
@@ -72,5 +71,3 @@ export interface SpotSummary {
   municipality?: string
   webcam?: WebcamConfig
 }
-
-export type SpotActionResponse<T> = ActionResponse<T>

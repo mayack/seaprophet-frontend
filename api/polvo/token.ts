@@ -1,4 +1,6 @@
-'use server'
+// Server-only: hands out the Polvo service token. Deliberately NOT a
+// 'use server' module — that would make these callable from the browser as
+// Server Actions the moment any client component imported them.
 
 import { CONFIG } from '@/constants/config'
 import { polvoClient } from '@/api/polvo/client'

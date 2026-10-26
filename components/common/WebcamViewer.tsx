@@ -818,7 +818,7 @@ export function WebcamViewer({
 
       {configs.length > 1 && !isAfk && (
         <div className="absolute bottom-4 left-4 flex gap-2 sm:bottom-6 sm:left-6">
-          {configs.map((cam, i) => (
+          {configs.map((_, i) => (
             <Button
               key={i}
               onClick={() => setActiveIndex(i)}

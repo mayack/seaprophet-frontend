@@ -1,5 +1,5 @@
 import type { NextRequest, NextResponse } from 'next/server'
-import { getForecast } from '@/api/polvo/actions/forecast'
+import { getForecast } from '@/api/polvo/forecast'
 import { getCurrentUser } from '@/api/sargo/actions/auth'
 import { parseSpotId } from '@/api/sargo/spots'
 import {

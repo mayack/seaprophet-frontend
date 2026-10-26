@@ -11,7 +11,7 @@ import type {
 import type {
   WebcamExtractionParams,
   WebcamExtractionResponse,
-} from '@/api/polvo/actions/webcam'
+} from '@/api/polvo/webcam'
 import type { SpotSummary } from '@/api/sargo/interfaces/spot'
 import type { UserUnits } from '@/constants/units'
 import { CONFIG } from '@/constants/config'

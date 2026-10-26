@@ -3,7 +3,7 @@
 import React from 'react'
 import { SpotPanelHeader } from '@/components/spot/SpotPanelHeader'
 import { SpotDetailView } from '@/components/spot/SpotDetailView'
-import { SpotModalLoading } from '@/components/spot/SpotModalLoading'
+import { SpotPanelLoading } from '@/components/spot/SpotPanelLoading'
 import type { SpotPanelMetaInfo } from '@/components/spot/SpotsDetails/Meta'
 import { useSpotPanel } from '@/contexts/SpotPanelContext'
 import { useSpotPanelController } from '@/hooks/useSpotPanelController'
@@ -72,7 +72,7 @@ export function SpotBox(): React.JSX.Element | null {
         </Button>
       </div>
     ) : isLoading && !isMobileLoading ? (
-      <SpotModalLoading />
+      <SpotPanelLoading />
     ) : null
 
   if (!rendered) return null
@@ -118,7 +118,7 @@ export function SpotBox(): React.JSX.Element | null {
             style={{ height: mobilePeekHeight }}
           >
             {closeHeader}
-            <SpotModalLoading heightPx={mobileLoadingSpinnerHeight} />
+            <SpotPanelLoading heightPx={mobileLoadingSpinnerHeight} />
             <div
               className="shrink-0"
               style={{ height: SPOT_PANEL.mobilePeekHeaderPx }}

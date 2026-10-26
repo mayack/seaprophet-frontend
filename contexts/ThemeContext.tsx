@@ -2,7 +2,7 @@
 
 import { CONFIG } from '@/constants/config'
 import { ThemeProvider as NextThemesProvider } from 'next-themes'
-import React, { ReactNode } from 'react'
+import type { ReactNode } from 'react'
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
   return (

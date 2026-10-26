@@ -77,7 +77,7 @@ export class PolvoClient extends BaseApiClient {
    * Not cached here: the bearer token would be part of the Data Cache key
    * (Next keys fetches on every header), and the token is per server instance
    * and rotates every 15 min — so hits were rare. The caller caches by params
-   * instead (api/polvo/actions/now.ts).
+   * instead (api/polvo/now.ts).
    */
   async getNowConditions(
     params: NowConditionsParams,
@@ -122,13 +122,6 @@ export class PolvoClient extends BaseApiClient {
       throw createError('Invalid coordinates provided', 'validation')
     }
 
-    // TODO(M8): Polvo backend support pending for `waveFactor` /
-    // `adjustmentFactor`. The Sargo spot model has these fields and the
-    // spot page populates them, but the Polvo /api/forecast/:lat/:lng
-    // handler in seaprophet-polvo/src/routes/forecast.ts does not read
-    // them yet. They're still forwarded here so that adding backend
-    // support is a one-side change later; they currently just bloat the
-    // cache key but are otherwise harmless.
     const queryObject: Record<string, string> = Object.entries({
       windUnits: params.windUnits,
       swellUnits: params.swellUnits,
@@ -141,11 +134,6 @@ export class PolvoClient extends BaseApiClient {
       // period". Polvo applies the conversion server-side; we just opt
       // in via this query param.
       periodStatistic: 'peak',
-      orientationFrom: params.orientationFrom?.toString(),
-      orientationTo: params.orientationTo?.toString(),
-      orientationMid: params.orientationMid?.toString(),
-      waveFactor: params.waveFactor?.toString(),
-      adjustmentFactor: params.adjustmentFactor?.toString(),
       spotId: params.spotId?.toString(),
     }).reduce(
       (acc, [key, value]) => {
@@ -172,7 +160,7 @@ export class PolvoClient extends BaseApiClient {
             Accept: 'application/json',
             'Accept-Encoding': 'gzip',
           },
-          // Cached by params in api/polvo/actions/forecast.ts — caching the
+          // Cached by params in api/polvo/forecast.ts — caching the
           // fetch itself would key on the rotating bearer token.
           cache: 'no-store',
         },

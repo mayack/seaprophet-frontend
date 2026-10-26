@@ -1,5 +1,3 @@
-import { GeographicBounds } from '@/types/map'
-
 /**
  * Kilometres per degree of latitude (mean Earth radius approximation).
  * Latitude is uniform across the globe; longitude must be scaled by
@@ -53,29 +51,4 @@ export function formatDistance(distance: number): string {
     return `${Math.round(distance * 1000)}m away`
   }
   return `${Math.round(distance)}km away`
-}
-
-/**
- * Calculate geographic bounds based on a center point and radius
- * @param lat Center latitude in degrees
- * @param lng Center longitude in degrees
- * @param radiusKm Radius in kilometers
- * @returns Bounds object with north, south, east, west coordinates
- */
-export function calculateBounds(
-  lat: number,
-  lng: number,
-  radiusKm: number
-): GeographicBounds {
-  const deltaLat = radiusKm / KM_PER_LAT_DEGREE
-  const latRad = lat * (Math.PI / 180)
-  const kmPerLng = KM_PER_LAT_DEGREE * Math.cos(latRad)
-  const deltaLng = radiusKm / kmPerLng
-
-  return {
-    north: lat + deltaLat,
-    south: lat - deltaLat,
-    east: lng + deltaLng,
-    west: lng - deltaLng,
-  }
 }

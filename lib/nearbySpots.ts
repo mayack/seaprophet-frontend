@@ -1,14 +1,11 @@
 import type { SpotSummary } from '@/api/sargo/interfaces/spot'
 import type { SpotIndex } from '@/lib/spotSearchIndex'
 import { indexEntryToSummary } from '@/lib/spotSummary'
-import { calculateDistance } from '@/utils/location'
+import { KM_PER_LAT_DEGREE, calculateDistance } from '@/utils/location'
 
 export const NEARBY_RADIUS_KM = 30
 // The spot carousel shows the closest few.
 const MAX_NEARBY_SPOTS = 12
-// Rough degrees-per-km for a cheap bounding-box pre-filter before haversine
-// (1° of latitude ≈ 111 km; longitude degrees shrink with cos(latitude)).
-const KM_PER_DEGREE = 111
 
 /**
  * The spots closest to (lat, long), from the client's spot catalog (the search
@@ -20,7 +17,9 @@ export function nearbySpotsFromIndex(
   spotId: number,
   location: { lat: number; long: number }
 ): SpotSummary[] {
-  const latSpan = NEARBY_RADIUS_KM / KM_PER_DEGREE
+  // Cheap bounding-box pre-filter before haversine; longitude degrees shrink
+  // with cos(latitude).
+  const latSpan = NEARBY_RADIUS_KM / KM_PER_LAT_DEGREE
   const cosLat = Math.max(Math.cos((location.lat * Math.PI) / 180), 0.01)
   const longSpan = latSpan / cosLat
 

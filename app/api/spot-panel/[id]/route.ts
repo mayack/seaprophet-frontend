@@ -1,5 +1,5 @@
 import type { NextRequest, NextResponse } from 'next/server'
-import { getForecast } from '@/api/polvo/actions/forecast'
+import { getForecast } from '@/api/polvo/forecast'
 import type { ForecastParams } from '@/api/polvo/interfaces/forecast'
 import { getCurrentUser } from '@/api/sargo/actions/auth'
 import { normalizeWebcams } from '@/api/sargo/interfaces/webcam'

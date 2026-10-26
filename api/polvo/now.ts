@@ -1,11 +1,11 @@
 import { unstable_cache } from 'next/cache'
 import { getErrorMessage } from '@/utils/error'
-import { polvoClient } from '../client'
+import { polvoClient } from './client'
 import {
   NowConditions,
   NowConditionsParams,
   NowConditionsActionResponse,
-} from '../interfaces/now'
+} from './interfaces/now'
 import { withPolvoAuth } from './withPolvoAuth'
 
 // Server-only (called by the /api/now route), not a Server Action. Same

@@ -15,9 +15,10 @@ import { CONFIG } from '@/constants/config'
  * Sargo HS256 secret exposed to the frontend (no JWT_SECRET in
  * .env.local), so we cannot cryptographically verify tokens at the edge.
  *
- * The real authentication gate is the authenticated `/users/me` call
- * performed by server components / server actions (see
- * `api/sargo/actions/auth.ts#getCurrentUser`). This function exists only
+ * Nor does `getCurrentUser` (`api/sargo/actions/auth.ts`) on a normal
+ * request: it reads the user from the TOKEN_SARGO_OPTIONS cookie and only
+ * calls Sargo's `/users/me` when that cookie is missing. Sargo itself
+ * checks the token on any request that carries it. This function exists only
  * to cheaply weed out obviously bogus / expired tokens before letting a
  * request reach the app, so the proxy can short-circuit redirect
  * unauthenticated traffic to the signin page.

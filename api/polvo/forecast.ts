@@ -1,11 +1,11 @@
 import { unstable_cache } from 'next/cache'
 import { getErrorMessage } from '@/utils/error'
-import { polvoClient } from '../client'
+import { polvoClient } from './client'
 import {
   ForecastParams,
   ForecastActionResponse,
   ForecastResponse,
-} from '../interfaces/forecast'
+} from './interfaces/forecast'
 import { withPolvoAuth } from './withPolvoAuth'
 
 // Server-only (called by the /api/spot-panel and /api/forecast routes), not a

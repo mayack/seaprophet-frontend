@@ -5,7 +5,7 @@ import { isDevModeActive } from '@/lib/userSettings'
 import { getErrorMessage } from '@/utils/error'
 import { polvoClient } from '../client'
 import type { CamHealthState } from '../interfaces/camHealth'
-import { withPolvoAuth } from './withPolvoAuth'
+import { withPolvoAuth } from '../withPolvoAuth'
 
 export type CamHealthResponse =
   | { success: true; state: CamHealthState }

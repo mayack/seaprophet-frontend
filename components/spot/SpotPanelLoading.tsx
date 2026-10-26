@@ -2,15 +2,15 @@ import { Spinner } from '@/components/ui/spinner'
 import { cn } from '@/lib/utils'
 import React from 'react'
 
-interface SpotModalLoadingProps {
+interface SpotPanelLoadingProps {
   /** Fixed height for mobile peek loading (px). */
   heightPx?: number
 }
 
-/** Shared loading state for spot modal routes. */
-export function SpotModalLoading({
+/** Loading state for the spot panel (desktop side card and mobile peek strip). */
+export function SpotPanelLoading({
   heightPx,
-}: SpotModalLoadingProps): React.JSX.Element {
+}: SpotPanelLoadingProps): React.JSX.Element {
   return (
     <div
       className={cn(

@@ -1,4 +1,4 @@
-import { getPolvoToken, fetchPolvoToken, clearPolvoTokenCache } from './auth'
+import { getPolvoToken, fetchPolvoToken, clearPolvoTokenCache } from './token'
 
 /**
  * Run a Polvo API call with the cached token, retrying once with a fresh token

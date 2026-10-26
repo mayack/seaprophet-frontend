@@ -27,11 +27,6 @@ export interface ForecastResponse {
 export interface ForecastParams {
   lat: number
   lon: number
-  orientationFrom?: number | null
-  orientationTo?: number | null
-  orientationMid?: number | null
-  waveFactor?: number | null
-  adjustmentFactor?: number | null
   spotId?: number
   // Optional because the forecast action fills in defaults when absent.
   // Typed against the unit unions (not bare `string`) so a mismatched

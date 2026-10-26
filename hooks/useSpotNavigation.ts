@@ -13,7 +13,8 @@ import {
 
 /**
  * Map spot panel API. Opens/closes are pure client state + URL sync.
- * No Next.js router calls — avoids intercepting-route hard navigations.
+ * No Next.js router calls, so the map shell never remounts (see
+ * lib/spotNavigation.ts).
  */
 export function useSpotNavigation(): {
   isSpotOpen: boolean

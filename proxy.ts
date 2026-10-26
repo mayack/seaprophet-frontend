@@ -18,9 +18,10 @@ import {
  *     against a different secret.
  *   - Is therefore NOT the source of truth for "is the user signed in?".
  *
- * The real auth gate is `app/(authenticated)/layout.tsx`, which calls
- * `getCurrentUser()` against Sargo on every authenticated render. Treat
- * this proxy as cheap pre-filtering only.
+ * `app/(authenticated)/layout.tsx` is the gate that decides "signed in",
+ * via `getCurrentUser()` — but that reads the user from a cookie and only
+ * calls Sargo when the cookie is missing, so it doesn't verify the token
+ * either. Treat this proxy as cheap pre-filtering only.
  */
 export async function proxy(request: NextRequest): Promise<NextResponse> {
   const { pathname } = request.nextUrl

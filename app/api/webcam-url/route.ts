@@ -1,5 +1,5 @@
 import type { NextRequest, NextResponse } from 'next/server'
-import { extractWebcamUrl } from '@/api/polvo/actions/webcam'
+import { extractWebcamUrl } from '@/api/polvo/webcam'
 import { getCurrentUser } from '@/api/sargo/actions/auth'
 import { jsonResponse, unauthenticatedResponse } from '@/lib/server/apiRoute'
 

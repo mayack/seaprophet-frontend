@@ -35,12 +35,14 @@ export const viewport: Viewport = {
 /**
  * Authenticated layout — auth gate.
  *
- * `getCurrentUser()` (cache: 'no-store') validates the JWT against
- * Sargo on every request. The edge proxy is structural-only and
- * can't see revocations, so this layout is the source of truth for
- * "is the user signed in?".
+ * `getCurrentUser()` requires the Sargo JWT cookie, then reads the user
+ * from the TOKEN_SARGO_OPTIONS cookie; it only calls Sargo (/users/me)
+ * when that cookie is missing or unreadable. The edge proxy checks the
+ * JWT's shape and expiry, not its signature. So neither verifies the
+ * token against Sargo on a normal request: a token revoked in Sargo keeps
+ * working until it expires or the user signs out.
  *
- * The map shell (map + spot box + modal slot) lives in the nested `(map)`
+ * The map shell (map + spot panel) lives in the nested `(map)`
  * layout, so it's scoped to the map routes and persists across them.
  */
 export default async function AuthenticatedLayout({

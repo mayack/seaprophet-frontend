@@ -216,5 +216,3 @@ export const CONFIG = {
     } satisfies MapboxStylesConfig,
   },
 } as const
-
-export type Config = typeof CONFIG

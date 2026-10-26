@@ -4,7 +4,7 @@
 
 import { headers } from 'next/headers'
 import { getErrorMessage } from '@/utils/error'
-import { polvoClient } from '../client'
+import { polvoClient } from './client'
 import { withPolvoAuth } from './withPolvoAuth'
 
 export interface WebcamExtractionParams {

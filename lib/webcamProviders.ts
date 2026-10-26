@@ -357,11 +357,6 @@ export function isRecoverable(streamUrl: string, code?: number): boolean {
   return originRuleFor(streamUrl)?.recoverOn?.includes(code) ?? false
 }
 
-/** Per-viewer origins must never be proxied, and must be minted with viewer IP. */
-export function isPerViewer(streamUrl: string): boolean {
-  return originRuleFor(streamUrl)?.perViewer ?? false
-}
-
 /** Origins that must bypass /api/proxy entirely. */
 export function shouldBypassProxy(streamUrl: string): boolean {
   const rule = originRuleFor(streamUrl)
