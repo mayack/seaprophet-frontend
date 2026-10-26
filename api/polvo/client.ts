@@ -37,6 +37,12 @@ export class PolvoClient extends BaseApiClient {
     // SargoClient. Behaviour preserved: POST with no body, 401 surfaces
     // as `Error.name === 'auth'`, anything else as `network`.
     try {
+      // Polvo only issues tokens to callers holding its service key. Server-
+      // only env var (no NEXT_PUBLIC_), so it never reaches the browser.
+      const serviceApiKey = process.env.POLVO_SERVICE_API_KEY
+      if (!serviceApiKey) {
+        throw createError('POLVO_SERVICE_API_KEY is not configured', 'auth')
+      }
       const data = await this.fetch<PolvoAuthResponse>(
         CONFIG.api.endpoints.polvo.auth.token,
         {
@@ -44,6 +50,7 @@ export class PolvoClient extends BaseApiClient {
             method: 'POST',
             headers: {
               Accept: 'application/json',
+              'X-Service-API-Key': serviceApiKey,
               'Cache-Control': 'no-cache, no-store, must-revalidate',
               'Accept-Encoding': 'gzip',
             },

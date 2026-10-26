@@ -18,7 +18,7 @@ export interface ForecastResponse {
     timestamp: string
     cachedAt?: string
     processedIn?: number
-    source?: 'cache' | 'stormglass' | 'openmeteo' | 'blend' | 'system'
+    source?: 'cache' | 'openmeteo' | 'system'
     terrainData?: boolean
     bathymetryData?: boolean
   }
