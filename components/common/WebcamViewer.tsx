@@ -24,6 +24,8 @@ import {
 import { cn } from '@/lib/utils'
 
 const AFK_TIMEOUT_MS = CONFIG.webcam.afk_timer
+/** Loading for longer than this shows "This camera takes longer to load". */
+const SLOW_LOAD_NOTICE_MS = 2000
 
 interface WebcamViewerProps {
   configs: WebcamConfig[]
@@ -175,6 +177,11 @@ export function WebcamViewer({
   const [isAfk, setIsAfk] = useState(false)
   const [isFullscreen, setIsFullscreen] = useState(false)
   const [activeIndex, setActiveIndex] = useState(0)
+  // "Takes longer to load" only once a load actually has: most cams resolve
+  // in ~0.2s (direct URLs, browserless pages, anything polvo has cached), and
+  // only a cold browser resolve (Camaramar, Surftotal, ~5s) or a sluggish
+  // stream is slow. Timing it is truer than guessing from the provider.
+  const [isSlowLoad, setIsSlowLoad] = useState(false)
 
   const config = configs[activeIndex] ?? configs[0]
 
@@ -681,6 +688,17 @@ export function WebcamViewer({
     }
   }, [initStream, cleanupStream])
 
+  // Arm the slow-load notice for each load; any change (loaded, error, cam
+  // switch, AFK) disarms it so the next load starts from scratch.
+  useEffect(() => {
+    if (!isLoading || isAfk) return
+    const timer = setTimeout(() => setIsSlowLoad(true), SLOW_LOAD_NOTICE_MS)
+    return (): void => {
+      clearTimeout(timer)
+      setIsSlowLoad(false)
+    }
+  }, [isLoading, isAfk, activeIndex])
+
   // Reset AFK timer on interaction
   useEffect(() => {
     if (isLoading || error || isAfk) return
@@ -755,7 +773,7 @@ export function WebcamViewer({
       {isLoading && !isAfk && (
         <Overlay>
           <Spinner className="size-8" />
-          {config.website_url && (
+          {isSlowLoad && (
             <p className="mt-4 text-sm">This camera takes longer to load</p>
           )}
         </Overlay>

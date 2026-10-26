@@ -35,8 +35,12 @@ export type PageRule = {
   /** Host suffix, lowercase. Matched against the stored website_url. */
   match: string
   /**
-   * Resolution needs a rendered browser because the page ships no inline
-   * m3u8. Costs ~4s and a Playwright process in polvo, so cache these longer.
+   * polvo resolves this page with a rendered browser (Playwright) rather than
+   * a plain HTTP fetch. A cold resolve costs ~4-5s and a Chromium process, so
+   * cache these longer. Measured 2026-10-26 against production polvo: browser
+   * pages took 3.6-5.3s cold, plain-HTTP pages 0.2-0.3s, any cached URL ~0.2s.
+   * Informational — the viewer's "takes longer to load" notice is timed, not
+   * driven by this flag.
    */
   needsBrowser?: boolean
   /**
@@ -85,24 +89,29 @@ export type OriginRule = {
 
 /**
  * Page hosts. Measured 2026-08-19 by fetching one live page per provider and
- * checking whether an m3u8 appears in the served HTML.
+ * checking whether an m3u8 appears in the served HTML; `needsBrowser`
+ * re-checked 2026-10-26 against how polvo actually resolves each one.
  */
 export const PAGE_RULES: readonly PageRule[] = [
   {
     match: 'surftotal.com',
+    needsBrowser: true,
     cacheTtlSec: 150,
     prefetchable: false,
     note:
-      'Inline m3u8, so resolution is a cheap plain fetch — repeat it freely. ' +
+      'Inline m3u8, but polvo has no plain-fetch path for it yet, so it goes ' +
+      'through the browser (~5s cold). ' +
       'Its token dies hard at 300s (see stream.surftotal.com), so cache at ' +
       'half that and never prefetch: a warmed token is already half dead.',
   },
   {
     match: 'camaramar.com',
+    needsBrowser: true,
     cacheTtlSec: 600,
     prefetchable: true,
     note:
-      'Inline m3u8 when the polvo login session is alive. Stream token lasts ' +
+      'Inline m3u8 when the polvo login session is alive, read in the browser ' +
+      'that carries that session (~5s cold). Stream token lasts ' +
       '~30 min, so a 10 min cache is comfortable. Needs the human-bootstrapped ' +
       'session; see WEBCAM_API.md in seaprophet-polvo. Since 2026-09 the Wowza ' +
       'master playlist is Referer-locked to camaramar.com, so polvo returns a ' +
@@ -111,27 +120,29 @@ export const PAGE_RULES: readonly PageRule[] = [
   },
   {
     match: 'hispacams.com',
-    needsBrowser: true,
-    cacheTtlSec: 900,
-    prefetchable: true,
-    note: 'No inline m3u8 — Playwright required. Expensive, so cache long.',
-  },
-  {
-    match: 'webcamsdeasturias.com',
-    needsBrowser: true,
     cacheTtlSec: 900,
     prefetchable: true,
     note:
-      'No inline m3u8; the page embeds an rtsp.me iframe. polvo relays the ' +
+      'rtsp.me behind the page, resolved by polvo over plain HTTP (~0.3s) and ' +
+      'relayed (see webcamsdeasturias.com).',
+  },
+  {
+    match: 'webcamsdeasturias.com',
+    cacheTtlSec: 900,
+    prefetchable: true,
+    note:
+      'No inline m3u8; the page embeds an rtsp.me iframe, which polvo resolves ' +
+      'over plain HTTP (~0.3s, no browser). polvo relays the ' +
       'whole stream (rtsp.me binds URLs to the minting IP), so what the player ' +
       'receives is a polvo URL, never an rtsp.me one.',
   },
   {
     match: 'ipcamlive.com',
-    needsBrowser: true,
     cacheTtlSec: 900,
     prefetchable: true,
-    note: 'No inline m3u8 — Playwright required.',
+    note:
+      'Player page declares the current server and stream id; polvo reads ' +
+      'them with one plain GET (~0.3s, no browser).',
   },
   {
     match: 'beachcam.meo.pt',
@@ -151,7 +162,10 @@ export const PAGE_RULES: readonly PageRule[] = [
     needsBrowser: true,
     cacheTtlSec: 900,
     prefetchable: true,
-    note: 'No inline m3u8 — Playwright required.',
+    note:
+      'Host page embedding an Angelcam iframe. polvo reads Angelcam iframe ' +
+      'URLs over plain HTTP, but this host page goes through the browser ' +
+      '(~3.6s cold). Storing the v.angelcam.com iframe URL instead would skip it.',
   },
 ] as const
 
